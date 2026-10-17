@@ -11,6 +11,22 @@ import {
 } from './VideoTranslationWorkspace.js';
 
 describe('video translation result artifact selection', () => {
+  it('fills missing version settings with the current setup defaults while retaining explicit choices', () => {
+    const subtitle = artifact({ id: 'subtitles', kind: 'target_subtitle', version: 1, metadata: { resultVersion: 1, cues: [] } });
+    const original = { ...snapshot(1, { target_subtitle: [subtitle.id] }, [subtitle.id]), state: {} };
+    const state = { resultSnapshots: [original] };
+    expect(resultVersionsFromArtifacts([subtitle], state)[0]?.settings).toMatchObject({
+      sourceLanguage: 'en', targetLanguage: 'zh_cn', bilingual: true, subtitlePosition: 'top',
+      preferPlatformCaptions: true, composeVideo: false, dubbing: false, videoFormat: 'horizontal'
+    });
+    const saved = { ...original, state: { sourceLanguage: 'fr', targetLanguage: 'ja', bilingual: false,
+      preferPlatformCaptions: false, composeVideo: false, dubbing: false, videoFormat: 'vertical' } };
+    expect(resultVersionsFromArtifacts([subtitle], { ...fallbackState(), resultSnapshots: [saved] })[0]?.settings).toMatchObject({
+      sourceLanguage: 'fr', targetLanguage: 'ja', bilingual: false, preferPlatformCaptions: false,
+      composeVideo: false, dubbing: false, videoFormat: 'vertical'
+    });
+  });
+
   it('starts a new render from existing subtitles when video composition is enabled', () => {
     const version = resultVersion({
       settings: { composeVideo: false, videoFormat: 'horizontal' }

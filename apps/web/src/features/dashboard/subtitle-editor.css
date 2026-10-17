@@ -180,7 +180,7 @@
 .subtitle-editor-settings h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .subtitle-editor-settings header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
 .subtitle-editor-settings-body { flex: 1; min-height: 0; padding: 20px 24px; overflow-y: auto; overscroll-behavior: contain; }
-.subtitle-editor-settings-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+.subtitle-editor-settings-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 24px; }
 .subtitle-editor-settings-tabs button { flex: 1; }
 .subtitle-editor-settings-tabs button[aria-selected="true"] { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 .subtitle-editor-settings fieldset { display: grid; min-width: 0; margin: 0; padding: 0 0 12px; gap: 20px; border: 0; }
@@ -196,6 +196,8 @@
 .subtitle-editor-settings .video-translation-option-block { padding: 0; }
 .subtitle-editor-settings .video-translation-option-content { margin: 12px 0 0; padding-top: 12px; }
 .subtitle-editor-settings .video-translation-output-format-inline { max-width: none; }
+.subtitle-editor-settings .video-translation-language-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.subtitle-editor-settings .video-translation-language-arrow { display: none; }
 .video-translation-output-format-options { display: grid; gap: 10px; }
 .video-translation-output-format-choice { display: grid; grid-template-columns: 48px minmax(0, 1fr) 16px; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; line-height: 1.5; }
 .video-translation-output-format-choice:hover:not(:has(:disabled)) { border-color: var(--border-strong); background: var(--surface-2); }
@@ -302,7 +304,7 @@ body:has(.video-translation-page[data-subtitle-immersive="true"]) .tts-voice-lib
 }
 
 @media (max-width: 760px) {
-  .video-result-workspace[data-immersive="true"][data-settings-open="true"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(220px, 36%); }
+  .video-result-workspace[data-immersive="true"][data-settings-open="true"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(300px, 56%); }
   .video-result-workspace[data-immersive="true"] > .video-result-notice { inset-block-start: 140px; }
   .video-result-workspace[data-immersive="true"][data-settings-open="true"] .video-result-subtitle-pane { grid-template-rows: max-content minmax(280px, 1fr) auto; overflow-y: auto; }
   .subtitle-editor-settings { grid-column: 1; grid-row: -2 / -1; border-inline-start: 0; border-block-start: 1px solid var(--border); }
@@ -331,7 +333,8 @@ body:has(.video-translation-page[data-subtitle-immersive="true"]) .tts-voice-lib
   .subtitle-editor-settings-nav > button { min-height: 56px; padding: 10px 8px; gap: 6px; font-size: 12px; grid-template-columns: 18px minmax(0, 1fr) 12px; }
   .subtitle-editor-settings-nav > button > svg { width: 16px; }
   .subtitle-editor-settings > header, .subtitle-editor-settings > footer { padding: 16px; }
-  .subtitle-editor-settings-body { padding: 20px 16px; }
+  .subtitle-editor-settings-body { padding: 16px; }
+  .subtitle-editor-settings-tabs { margin-bottom: 16px; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-video > small { display: none; }
   .subtitle-editor-divider { display: none; }
   .subtitle-editor-column-labels, .subtitle-editor-column-labels:has(> :nth-child(3)) { grid-template-columns: 1fr 1fr; padding: 8px 12px; }

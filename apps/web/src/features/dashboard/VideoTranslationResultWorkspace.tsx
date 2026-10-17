@@ -15,6 +15,7 @@ import {
   Maximize2,
   MessageSquare,
   Mic2,
+  Languages,
   MonitorPlay,
   Headphones,
   PanelRightOpen,
@@ -38,7 +39,7 @@ import './subtitle-editor.css';
 export type VideoTranslationResultTab = 'video' | 'subtitles' | 'voice' | 'settings';
 export type VideoResultVariant = 'horizontal' | 'vertical' | 'dubbed';
 export type SubtitleResultVariant = 'horizontal' | 'vertical';
-type EditorSettingsPanel = 'style' | 'voice' | 'output';
+type EditorSettingsPanel = 'language' | 'style' | 'voice' | 'output';
 
 export type VideoTranslationResultExecution = {
   status: 'queued' | 'running' | 'needs_input' | 'failed' | 'canceled' | 'interrupted';
@@ -128,7 +129,7 @@ export default function VideoTranslationResultWorkspace(props: {
   immersive?: boolean;
   assistantOpen?: boolean;
   editorSettings?: {
-    style: ReactNode; voice: ReactNode; output?: ReactNode;
+    language?: ReactNode; style: ReactNode; voice: ReactNode; output?: ReactNode;
     previewFormat?: SubtitleResultVariant; previewTitles?: ReactNode;
     disabled: boolean; onOpen(): void;
   };
@@ -163,8 +164,8 @@ export default function VideoTranslationResultWorkspace(props: {
   const [subtitlePlaying, setSubtitlePlaying] = useState(false);
   const [editorPanel, setEditorPanel] = useState<EditorSettingsPanel>();
   const [settingsRailExpanded, setSettingsRailExpanded] = useState(false);
-  const editorPanels: EditorSettingsPanel[] = props.editorSettings?.output === undefined ? ['style', 'voice'] : ['style', 'voice', 'output'];
-  const editorPanelLabel = (panel: EditorSettingsPanel) => panel === 'style' ? l('字幕样式', 'Subtitle style')
+  const editorPanels = (['language', 'style', 'voice', 'output'] as const).filter(panel => props.editorSettings?.[panel] !== undefined);
+  const editorPanelLabel = (panel: EditorSettingsPanel) => panel === 'language' ? l('翻译语言', 'Languages') : panel === 'style' ? l('字幕样式', 'Subtitle style')
     : panel === 'voice' ? l('配音', 'Dubbing') : l('输出画幅', 'Output format');
   const [subtitleVideoSize, setSubtitleVideoSize] = useState({ width: 16, height: 9 });
   const [auditionVoice, setAuditionVoice] = useState(false);
@@ -760,7 +761,7 @@ export default function VideoTranslationResultWorkspace(props: {
                   <span>{l('收起侧栏', 'Collapse sidebar')}</span>
                 </button>
                 {editorPanels.map(panel => {
-                  const Icon = panel === 'style' ? Captions : panel === 'voice' ? Mic2 : MonitorPlay;
+                  const Icon = panel === 'language' ? Languages : panel === 'style' ? Captions : panel === 'voice' ? Mic2 : MonitorPlay;
                   return <button key={panel} type="button" aria-expanded={editorPanel === panel}
                     aria-label={editorPanelLabel(panel)} title={editorPanelLabel(panel)}
                     disabled={props.editorSettings?.disabled}

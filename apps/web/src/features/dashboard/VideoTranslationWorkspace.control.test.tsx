@@ -110,6 +110,92 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
   });
 
+  it('inherits the selected version across every editor settings panel and regenerates language changes only after confirmation', async () => {
+    const first = subtitleArtifact(1, 'Bonjour');
+    const second = subtitleArtifact(2, 'Hello');
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [first, second], state: {
+      resultVersion: 1, composeVideo: true, dubbing: true, sourceLanguage: 'en', targetLanguage: 'zh_cn',
+      ttsProvider: 'openai', ttsModel: 'gpt-4o-mini-tts', voiceCode: 'echo', voiceName: 'Echo'
+    } });
+    current.state.resultSnapshots = [first, second].map((artifact, index) => ({
+      version: index + 1, createdAt: artifact.createdAt, action: 'run-stage', stageId: 'subtitle', description: 'Subtitles',
+      artifactRefs: { target_subtitle: [artifact.id] }, changedArtifactIds: [artifact.id], staleArtifactIds: [],
+      state: index === 0 ? { ...current.state, sourceLanguage: 'fr', targetLanguage: 'ja', bilingual: false,
+        preferPlatformCaptions: false, composeVideo: false, dubbing: false, videoFormat: 'vertical',
+        subtitleStyle: { fontPreset: 'serif', fontSize: 'large' } } : { ...current.state }
+    }));
+    const originalSnapshots = JSON.stringify(current.state.resultSnapshots);
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '翻译语言' }));
+    const panel = screen.getByRole('complementary', { name: '翻译语言' });
+    expect(within(panel).getByRole('combobox', { name: '源语言' })).toHaveValue('fr');
+    expect(within(panel).getByRole('combobox', { name: '翻译为' })).toHaveValue('ja');
+    expect(within(panel).getByRole('switch', { name: '优先使用平台字幕' })).not.toBeChecked();
+    expect(within(panel).getByRole('switch', { name: '导入已有字幕' })).toBeEnabled();
+    expect(within(panel).getAllByRole('tab')).toHaveLength(4);
+    fireEvent.click(within(panel).getByRole('tab', { name: '字幕样式' }));
+    expect(within(panel).getByRole('switch', { name: '双语字幕' })).not.toBeChecked();
+    fireEvent.click(within(panel).getByRole('button', { name: '自定义样式' }));
+    expect(screen.getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
+    expect(screen.getByRole('combobox', { name: '字幕大小' })).toHaveValue('large');
+    fireEvent.click(within(screen.getByRole('dialog', { name: '自定义字幕样式' })).getByRole('button', { name: '完成' }));
+    fireEvent.click(within(panel).getByRole('tab', { name: '配音' }));
+    expect(within(panel).getByRole('switch', { name: '生成目标语言配音' })).not.toBeChecked();
+    fireEvent.click(within(panel).getByRole('tab', { name: '输出画幅' }));
+    expect(within(panel).getByRole('switch', { name: '合成字幕视频' })).not.toBeChecked();
+    expect(within(panel).queryByRole('radiogroup', { name: '输出画幅' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '生成 V3' })).not.toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('tab', { name: '翻译语言' }));
+    fireEvent.change(within(panel).getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
+    await waitFor(() => expect(current.state.targetLanguage).toBe('de'));
+    fireEvent.click(within(panel).getByRole('button', { name: '生成 V3' }));
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+    fireEvent.click(within(panel).getByRole('button', { name: '确认生成 V3' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'run-stage', input: {
+      stageId: 'subtitle', workflow: true, baseResultVersion: 1, inputResultVersion: 1
+    } })));
+    expect(current.state.composeVideo).toBe(false);
+    expect(JSON.stringify(current.state.resultSnapshots)).toBe(originalSnapshots);
+  });
+
+  it('uses current speech defaults for model and voice fields that were not configured in the version', async () => {
+    const target = subtitleArtifact(1, 'Hello');
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      composeVideo: true, dubbing: true, ttsProvider: 'openai', ttsModel: '', voiceCode: '', voiceName: ''
+    } });
+    const original = { version: 1, createdAt: target.createdAt, action: 'run-stage', stageId: 'subtitle', description: 'Subtitles',
+      artifactRefs: { target_subtitle: [target.id] }, changedArtifactIds: [target.id], staleArtifactIds: [], state: { ...current.state } };
+    current.state.resultSnapshots = [original];
+    const applyAction = vi.fn(async (_id: string, request: { input: { patch?: Record<string, CreatorJson> } }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch } };
+      return { job: current };
+    });
+    const service = {
+      getConfig: vi.fn(async () => ({ config: { tts: { provider: 'openai', openai: { model: 'tts-1-hd', defaultVoiceId: 'nova' } } } })),
+      getTtsVoices: vi.fn(async () => ({ voices: [{ id: 'nova', name: 'Nova', provider: 'openai', kind: 'builtin' }] })),
+      previewTtsVoice: vi.fn()
+    };
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} creatorServicesService={service as never} />
+    </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '配音' }));
+    const panel = screen.getByRole('complementary', { name: '配音' });
+    await waitFor(() => expect(within(panel).getByRole('combobox', { name: '配音音色' })).toHaveAttribute('data-value', 'nova'));
+    expect(within(panel).getByText('tts-1-hd')).toBeVisible();
+    expect(original.state.ttsModel).toBe('');
+    expect(original.state.voiceCode).toBe('');
+  });
+
   it('shares immersive style and voice settings with configuration and only regenerates after confirmation', async () => {
     const target = subtitleArtifact(1, 'Hello world');
     let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
@@ -203,7 +289,13 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(screen.getByRole('button', { name: panel }));
     const dialog = screen.getByRole('complementary', { name: panel });
     expect(dialog.querySelector('video, .video-translation-subtitle-preview, .video-translation-subtitle-rendered-preview')).toBeNull();
-    expect(within(dialog).queryByRole('switch', { name: '合成字幕视频' })).toBeNull();
+    expect(current.state.composeVideo).toBe(false);
+    if (panel !== '配音') {
+      fireEvent.click(within(dialog).getByRole('tab', { name: '输出画幅' }));
+      expect(within(dialog).getByRole('switch', { name: '合成字幕视频' })).not.toBeChecked();
+      fireEvent.click(within(dialog).getByRole('switch', { name: '合成字幕视频' }));
+      fireEvent.click(within(dialog).getByRole('tab', { name: panel }));
+    }
     if (panel === '字幕样式') {
       expect(within(dialog).getByRole('radiogroup', { name: '推荐样式' })).toBeVisible();
     } else if (panel === '配音') {

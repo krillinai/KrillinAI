@@ -92,7 +92,8 @@ describe('VideoTranslationResultWorkspace', () => {
 
   it('opens shared editor settings without replacing the player and keeps explicit regeneration available', () => {
     const onOpen = vi.fn(), onRequest = vi.fn(), onImmersiveChange = vi.fn();
-    const settings = { style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>,
+    const settings = { language: <label>Shared language<select aria-label="Shared language"><option>English</option></select></label>,
+      style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>,
       output: <label>Shared format<select aria-label="Shared format"><option>16:9</option><option>9:16</option></select></label>, disabled: false, onOpen };
     const { rerender } = render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
       editorSettings={settings} hasPendingChanges onRequestRegenerate={onRequest} onImmersiveChange={onImmersiveChange}
@@ -101,6 +102,7 @@ describe('VideoTranslationResultWorkspace', () => {
     const video = screen.getByLabelText('横屏字幕视频预览');
     expect(screen.getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
     expect(screen.getByRole('button', { name: '输出画幅' }).closest('.video-result-subtitle-video')).toBeNull();
+    expect(screen.getByRole('button', { name: '翻译语言' }).querySelector('.lucide-languages')).not.toBeNull();
     expect(screen.queryByRole('radiogroup', { name: '字幕画幅' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '展开侧栏' }));
     expect(screen.getByRole('button', { name: '收起侧栏' })).toHaveAttribute('aria-expanded', 'true');
@@ -121,6 +123,11 @@ describe('VideoTranslationResultWorkspace', () => {
     fireEvent.timeUpdate(video, { target: { currentTime: 0.5 } });
     expect(screen.getByRole('slider', { name: '播放位置' })).toHaveAttribute('aria-valuenow', '0.5');
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeEnabled();
+    fireEvent.click(within(dialog).getByRole('tab', { name: '翻译语言' }));
+    expect(within(dialog).getByRole('combobox', { name: 'Shared language' })).toBeEnabled();
+    expect(within(dialog).getAllByRole('tab')).toHaveLength(4);
+    fireEvent.keyDown(within(dialog).getByRole('tab', { name: '翻译语言' }), { key: 'End' });
+    expect(within(dialog).getByRole('tab', { name: '输出画幅' })).toHaveFocus();
     fireEvent.click(within(dialog).getByRole('tab', { name: '输出画幅' }));
     expect(within(dialog).getByRole('combobox', { name: 'Shared format' })).toBeEnabled();
     expect(onOpen).toHaveBeenCalledOnce();

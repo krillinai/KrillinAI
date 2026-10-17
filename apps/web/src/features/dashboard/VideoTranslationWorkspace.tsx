@@ -983,10 +983,10 @@ function legacyResultVersionsFromArtifacts(
         settings: {
           sourceLanguage: typeof sourceState.sourceLanguage === 'string'
             ? sourceState.sourceLanguage
-            : persisted?.settings.sourceLanguage ?? 'zh_cn',
+            : persisted?.settings.sourceLanguage ?? 'en',
           targetLanguage: typeof sourceState.targetLanguage === 'string'
             ? sourceState.targetLanguage
-            : persisted?.settings.targetLanguage ?? 'en',
+            : persisted?.settings.targetLanguage ?? 'zh_cn',
           bilingual: typeof sourceState.bilingual === 'boolean'
             ? sourceState.bilingual
             : persisted?.settings.bilingual ?? true,
@@ -1101,8 +1101,8 @@ function resultVersionFromSnapshot(
         : null
     },
     settings: {
-      sourceLanguage: readStringSetting(sourceState, fallbackState, persisted, 'sourceLanguage', 'zh_cn'),
-      targetLanguage: readStringSetting(sourceState, fallbackState, persisted, 'targetLanguage', 'en'),
+      sourceLanguage: readStringSetting(sourceState, fallbackState, persisted, 'sourceLanguage', 'en'),
+      targetLanguage: readStringSetting(sourceState, fallbackState, persisted, 'targetLanguage', 'zh_cn'),
       bilingual: readBooleanSetting(sourceState, fallbackState, persisted, 'bilingual', true),
       subtitlePosition: sourceState.subtitlePosition === 'bottom'
         ? 'bottom'
@@ -2194,10 +2194,10 @@ export default function VideoTranslationWorkspace(props: {
           return;
         }
         const providerConfig = response.config.tts[provider];
-        if (typeof creatorSession?.state.ttsModel !== 'string') {
+        if (typeof creatorSession?.state.ttsModel !== 'string' || !creatorSession.state.ttsModel.trim()) {
           setTtsModel(providerConfig.model);
         }
-        if (typeof creatorSession?.state.voiceCode !== 'string') {
+        if (typeof creatorSession?.state.voiceCode !== 'string' || !creatorSession.state.voiceCode.trim()) {
           setVoiceCode(providerConfig.defaultVoiceId);
           setVoiceName(providerConfig.defaultVoiceId);
         }
@@ -3443,7 +3443,7 @@ export default function VideoTranslationWorkspace(props: {
     setResultNotice('');
   }
 
-  function prepareEditorSettings(compose = false) {
+  function prepareEditorSettings() {
     if (!selectedResult) return;
     if (draftBaseVersion !== selectedResult.value) {
       applySourceSnapshot(selectedResult.source);
@@ -3451,7 +3451,6 @@ export default function VideoTranslationWorkspace(props: {
       setDraftBaseVersion(selectedResult.value);
       setResultProposal(undefined);
     }
-    if (compose) setComposeVideo(true);
   }
 
   function returnToBaseResult() {
@@ -3704,6 +3703,39 @@ export default function VideoTranslationWorkspace(props: {
     </>
   );
 
+  const languageControls = (
+    <div className="video-translation-language-row">
+      <label className="video-translation-field">
+        <span>{l('源语言', 'Source language')}</span>
+        <div className="video-translation-select-wrap">
+          <select value={sourceLanguage} onChange={event => setSourceLanguage(event.target.value)}>
+            {sourceLanguages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
+          </select>
+          <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+        </div>
+      </label>
+      <span className="video-translation-language-arrow" aria-hidden="true">→</span>
+      <label className="video-translation-field" data-agent-focus={agentFocus === 'language'}>
+        <span>{l('翻译为', 'Translate to')}</span>
+        <div className="video-translation-select-wrap">
+          <select value={targetLanguage} onChange={event => setTargetLanguage(event.target.value)}>
+            {targetLanguages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
+          </select>
+          <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+        </div>
+      </label>
+    </div>
+  );
+  const subtitleImportControl = !subtitleOnly ? <VideoTranslationSubtitleImport
+    sourceLanguage={sourceLanguage} targetLanguage={targetLanguage}
+    disabled={submitting || activeStage !== undefined} onBusyChange={setSubtitleImportPending} /> : null;
+  const platformCaptionsControl = !subtitleOnly ? <Switch
+    checked={preferPlatformCaptions && sourceType === 'url'}
+    label={l('优先使用平台字幕', 'Prefer platform subtitles')}
+    description={sourceType === 'url' ? l('平台无字幕时自动识别', 'Transcribe automatically when platform subtitles are unavailable') : l('仅视频链接可用', 'Available for video links only')}
+    disabled={sourceType !== 'url'} onChange={setPreferPlatformCaptions}
+  /> : null;
+
   const compositionControl = (
     <div className="video-translation-option-block" data-agent-focus={agentFocus === 'output'}>
       <div className="video-translation-option-title">
@@ -3894,6 +3926,7 @@ export default function VideoTranslationWorkspace(props: {
           label={l('生成目标语言配音', 'Generate target-language dubbing')}
           description={l('匹配翻译后的语速与停顿', 'Match the translated pacing and pauses')}
           onChange={value => {
+            if (value) setComposeVideo(true);
             setDubbing(value);
           }}
         />
@@ -4024,13 +4057,14 @@ export default function VideoTranslationWorkspace(props: {
               subtitleSavePending={submitting}
               immersive={subtitleImmersive}
               editorSettings={!selectedSubtitleOnly ? {
+                language: <>{languageControls}<div className="video-translation-toggle-list">{subtitleImportControl}{platformCaptionsControl}</div></>,
                 style: <>{subtitleLayoutControls}{subtitleStyleChoices}</>,
                 voice: dubbingSettings,
-                output: <>{outputFormatControl}{verticalTitleControls}</>,
+                output: <>{compositionControl}{composeVideo ? <>{outputFormatControl}{verticalTitleControls}</> : null}</>,
                 previewFormat: previewVerticalOutput ? 'vertical' : 'horizontal',
                 previewTitles: subtitlePreviewTitles,
-                disabled: submitting || activeStage !== undefined,
-                onOpen: () => prepareEditorSettings(true)
+                disabled: submitting || subtitleImportPending || activeStage !== undefined,
+                onOpen: prepareEditorSettings
               } : undefined}
               renderSubtitlePreview={creatorSession?.openSubtitlePreview ? (cues, width, height) => <VideoTranslationStylePreview
                 render={creatorSession.openSubtitlePreview}
@@ -4162,40 +4196,12 @@ export default function VideoTranslationWorkspace(props: {
                 {!subtitleOnly ? <p>{l('选择视频原语言、目标语言和字幕内容方式', 'Choose the source language, target language, and subtitle content')}</p> : null}
               </div>
 
-              <div className="video-translation-language-row">
-                <label className="video-translation-field">
-                  <span>{l('源语言', 'Source language')}</span>
-                  <div className="video-translation-select-wrap">
-                    <select value={sourceLanguage} onChange={event => setSourceLanguage(event.target.value)}>
-                      {sourceLanguages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-                    </select>
-                    <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                  </div>
-                </label>
-                <span className="video-translation-language-arrow" aria-hidden="true">→</span>
-                <label className="video-translation-field" data-agent-focus={agentFocus === 'language'}>
-                  <span>{l('翻译为', 'Translate to')}</span>
-                  <div className="video-translation-select-wrap">
-                    <select value={targetLanguage} onChange={event => {
-                      setTargetLanguage(event.target.value);
-                    }}>
-                      {targetLanguages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-                    </select>
-                    <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                  </div>
-                </label>
-              </div>
+              {languageControls}
 
               <div className="video-translation-toggle-list" data-agent-focus={agentFocus === 'subtitles'}>
-                {!subtitleOnly ? <VideoTranslationSubtitleImport sourceLanguage={sourceLanguage} targetLanguage={targetLanguage} disabled={submitting || activeStage !== undefined} /> : null}
+                {subtitleImportControl}
                 {subtitleLayoutControls}
-                {!subtitleOnly ? <Switch
-                  checked={preferPlatformCaptions && sourceType === 'url'}
-                  label={l('优先使用平台字幕', 'Prefer platform subtitles')}
-                  description={sourceType === 'url' ? l('平台无字幕时自动识别', 'Transcribe automatically when platform subtitles are unavailable') : l('仅视频链接可用', 'Available for video links only')}
-                  disabled={sourceType !== 'url'}
-                  onChange={setPreferPlatformCaptions}
-                /> : null}
+                {platformCaptionsControl}
               </div>
             </section>
           ) : null}
