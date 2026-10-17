@@ -23,15 +23,15 @@
 .tts-voice-library-refresh, .tts-voice-library-search > button { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); }
 .tts-voice-library-refresh:hover:enabled, .tts-voice-library-search > button:hover:enabled { background: var(--state-hover-bg); color: var(--text); }
 .tts-voice-library-toolbar { display: flex; flex-wrap: wrap; gap: 10px; }
-.tts-voice-library-search { flex: 1 1 200px; display: flex; align-items: center; min-width: 0; height: 40px; gap: 8px; padding-inline: 10px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); }
+.tts-voice-library-search { flex: 1 1 220px; display: flex; align-items: center; min-width: 0; height: 40px; gap: 8px; padding-inline: 10px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); }
 .tts-voice-library-search > svg { flex-shrink: 0; }
 .tts-voice-library-search input { flex: 1; min-width: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; outline: 0; caret-color: var(--accent); }
 .tts-voice-library-search input::placeholder { color: var(--muted); }
 .tts-voice-library-search input:focus-visible { outline: 0; box-shadow: none; }
 .tts-voice-library-search input::-webkit-search-cancel-button { appearance: none; }
 .tts-voice-library-search:focus-within { border-color: var(--border-strong); outline: 2px solid var(--state-focus-ring); outline-offset: 2px; }
-.tts-voice-library-filters { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
-.tts-voice-library-filters .native-select { flex: 1; min-width: 120px; max-width: 200px; }
+.tts-voice-library-filters { flex: 2 1 420px; display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.tts-voice-library-filters .native-select { flex: 1; min-width: 120px; }
 .tts-voice-library-filters select { height: 40px; padding-block: 0; padding-inline-start: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; text-overflow: ellipsis; }
 .tts-voice-library-categories { display: flex; flex-wrap: wrap; gap: 6px; }
 .tts-voice-library-categories button { min-height: 30px; padding: 4px 12px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted); font-size: 12px; }
