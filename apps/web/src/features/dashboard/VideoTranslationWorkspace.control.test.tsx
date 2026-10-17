@@ -144,7 +144,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(within(panel).getByRole('button', { name: '自定义样式' }));
     expect(screen.getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
     expect(screen.getByRole('combobox', { name: '字幕大小' })).toHaveValue('large');
-    fireEvent.click(within(screen.getByRole('dialog', { name: '自定义字幕样式' })).getByRole('button', { name: '完成' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: '自定义字幕样式' })).getByRole('button', { name: '取消' }));
     fireEvent.click(within(panel).getByRole('tab', { name: '配音' }));
     expect(within(panel).getByRole('switch', { name: '生成目标语言配音' })).not.toBeChecked();
     fireEvent.click(within(panel).getByRole('tab', { name: '输出格式' }));
@@ -325,10 +325,12 @@ describe('VideoTranslationWorkspace task controls', () => {
   });
 
   it.each([
-    ['字幕样式', 'render-horizontal'],
-    ['配音', 'tts'],
-    ['输出格式', 'render-vertical']
-  ])('adds %s to a subtitle result through the editor without changing its original version', async (panel, stageId) => {
+    ['字幕样式', 'render-horizontal', 'preset'],
+    ['字幕样式', 'render-horizontal', 'saved'],
+    ['字幕样式', 'render-horizontal', 'custom'],
+    ['配音', 'tts', 'dubbing'],
+    ['输出格式', 'render-vertical', 'output']
+  ])('adds %s to a subtitle result through the editor without changing its original version (%s, %s)', async (panel, stageId, action) => {
     const target = subtitleArtifact(1, 'Hello world');
     let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
       workspacePhase: 'result', resultVersion: 1, composeVideo: false, dubbing: false,
@@ -341,23 +343,43 @@ describe('VideoTranslationWorkspace task controls', () => {
       current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
       return { job: current };
     });
+    if (action === 'saved') {
+      window.localStorage.setItem('opencreator.videoTranslation.savedSubtitleStyles', JSON.stringify([
+        { id: 'saved-test-style', name: 'Saved test style', style: {} }
+      ]));
+    }
     render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
       service={{ applyAction, runAgentTurn: vi.fn() } as never}>
       <VideoTranslationWorkspace onBack={vi.fn()} />
     </CreatorSessionProvider></LanguageProvider>);
+    if (action === 'saved') window.localStorage.removeItem('opencreator.videoTranslation.savedSubtitleStyles');
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
     fireEvent.click(screen.getByRole('button', { name: panel }));
     const dialog = screen.getByRole('complementary', { name: panel });
     expect(dialog.querySelector('video, .video-translation-subtitle-preview, .video-translation-subtitle-rendered-preview')).toBeNull();
     expect(current.state.composeVideo).toBe(false);
-    if (panel !== '配音') {
+    if (panel === '输出格式') {
       fireEvent.click(within(dialog).getByRole('tab', { name: '输出格式' }));
       expect(within(dialog).getByRole('switch', { name: '合成字幕视频' })).not.toBeChecked();
       fireEvent.click(within(dialog).getByRole('switch', { name: '合成字幕视频' }));
       fireEvent.click(within(dialog).getByRole('tab', { name: panel }));
     }
     if (panel === '字幕样式') {
-      expect(within(dialog).getByRole('radiogroup', { name: '推荐样式' })).toBeVisible();
+      if (action === 'custom') {
+        fireEvent.click(within(dialog).getByRole('button', { name: '自定义样式' }));
+        const custom = screen.getByRole('dialog', { name: '自定义字幕样式' });
+        fireEvent.change(within(custom).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+        fireEvent.click(within(custom).getByRole('button', { name: '取消' }));
+        expect(current.state.composeVideo).toBe(false);
+        fireEvent.click(within(dialog).getByRole('button', { name: '自定义样式' }));
+        fireEvent.click(within(screen.getByRole('dialog', { name: '自定义字幕样式' })).getByRole('button', { name: '完成' }));
+      } else if (action === 'saved') {
+        fireEvent.click(within(dialog).getByRole('tab', { name: '我的样式' }));
+        fireEvent.click(within(dialog).getByRole('radio', { name: 'Saved test style' }));
+      } else {
+        fireEvent.click(within(dialog).getByRole('tab', { name: '推荐' }));
+        fireEvent.click(within(dialog).getAllByRole('radio')[0]!);
+      }
     } else if (panel === '配音') {
       fireEvent.click(within(dialog).getByRole('switch', { name: '生成目标语言配音' }));
     } else {
@@ -369,6 +391,8 @@ describe('VideoTranslationWorkspace task controls', () => {
       expect(within(formats).getByRole('radio', { name: '9:16 竖屏' })).toBeChecked();
     }
     await waitFor(() => expect(current.state.composeVideo).toBe(true));
+    fireEvent.click(within(dialog).getByRole('tab', { name: '输出格式' }));
+    expect(within(dialog).getByRole('switch', { name: '合成字幕视频' })).toBeChecked();
     expect(original.state.composeVideo).toBe(false);
     expect(original.state.dubbing).toBe(false);
     expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);

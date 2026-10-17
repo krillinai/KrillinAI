@@ -1995,8 +1995,13 @@ export default function VideoTranslationWorkspace(props: {
     setSubtitleShadowOffsetY(style.subtitleShadowOffsetY);
     setSubtitleShadowBlur(style.subtitleShadowBlur);
   }
+  function selectSubtitleStyle(style: SubtitleStyleSettings) {
+    applySubtitleStyle(style);
+    if (subtitleImmersive) setComposeVideo(true);
+  }
   function closeStyleDrawer(revert: boolean) {
     if (revert && styleDrawerSnapshot) applySubtitleStyle(styleDrawerSnapshot);
+    if (!revert && subtitleImmersive) setComposeVideo(true);
     setStyleDrawerSnapshot(undefined);
     setSaveStyleName(undefined);
     setEditingSavedStyle(undefined);
@@ -3838,7 +3843,7 @@ export default function VideoTranslationWorkspace(props: {
             role="radio"
             aria-checked={activeSubtitlePreset?.id === preset.id}
             className="video-translation-subtitle-preset"
-            onClick={() => applySubtitleStyle(preset.style)}
+            onClick={() => selectSubtitleStyle(preset.style)}
           >
             <SubtitlePresetThumbnail style={preset.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
             <span>{l(...preset.name)}</span>
@@ -3856,7 +3861,7 @@ export default function VideoTranslationWorkspace(props: {
               role="radio"
               aria-checked={activeSavedSubtitleStyle?.id === saved.id}
               className="video-translation-subtitle-preset"
-              onClick={() => applySubtitleStyle(saved.style)}
+              onClick={() => selectSubtitleStyle(saved.style)}
             >
               <SubtitlePresetThumbnail style={saved.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
               <span>{saved.name}</span>
