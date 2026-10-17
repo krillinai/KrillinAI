@@ -3489,6 +3489,9 @@ export default function VideoTranslationWorkspace(props: {
         staleArtifactKinds
       );
       await executeRegeneration(stageId);
+      setSubtitleImmersive(false);
+      setSubtitleAssistantOpen(false);
+      setResultTab(selectedSubtitleOnly ? 'subtitles' : 'video');
       setResultProposal(undefined);
       setResultNotice(stageId === undefined
         ? l(

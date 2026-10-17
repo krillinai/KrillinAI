@@ -166,6 +166,70 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(JSON.stringify(current.state.resultSnapshots)).toBe(originalSnapshots);
   });
 
+  it.each([
+    { subtitleOnly: false, outcome: 'success' },
+    { subtitleOnly: true, outcome: 'success' },
+    { subtitleOnly: false, outcome: 'save-failure' },
+    { subtitleOnly: false, outcome: 'start-failure' }
+  ])('returns to the result overview only after version submission succeeds: %j', async ({ subtitleOnly, outcome }) => {
+    const target = subtitleArtifact(1, 'Original subtitle');
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      workspacePhase: 'result', resultVersion: 1, sourceType: subtitleOnly ? 'subtitle' : 'url', composeVideo: !subtitleOnly
+    } });
+    current.state.resultSnapshots = [{ version: 1, createdAt: target.createdAt, action: 'run-stage', stageId: 'subtitle',
+      description: 'Subtitles', artifactRefs: { target_subtitle: [target.id] }, changedArtifactIds: [target.id], staleArtifactIds: [],
+      state: { ...current.state } }];
+    const generationAction = 'run-stage';
+    const pendingAction = outcome === 'save-failure' ? 'edit-subtitle' : generationAction;
+    let finish!: () => void;
+    const pending = new Promise<void>(resolve => { finish = resolve; });
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === pendingAction) {
+        await pending;
+        if (outcome !== 'success') throw new Error('Version submission failed');
+      }
+      if (request.action === 'edit-subtitle') {
+        const edited = { ...target, id: 'target-edited', version: 2, metadata: { ...target.metadata, cues: request.input.cues! } };
+        current = { ...current, revision: current.revision + 1, artifacts: [...current.artifacts, edited], state: {
+          ...current.state, resultSnapshots: readCreatorResultSnapshots(current.state.resultSnapshots).map(snapshot => ({
+            ...snapshot, artifactRefs: { ...snapshot.artifactRefs, target_subtitle: [edited.id] }
+          }))
+        } };
+      } else current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}><VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    if (subtitleOnly) {
+      fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
+      fireEvent.click(screen.getByRole('button', { name: '调整设置' }));
+      fireEvent.change(screen.getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
+      await waitFor(() => expect(current.state.targetLanguage).toBe('de'));
+      fireEvent.click(screen.getByRole('button', { name: '返回 V1 成品' }));
+    }
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    const label = subtitleOnly ? '字幕 1' : '横屏字幕 1';
+    fireEvent.change(screen.getByRole('textbox', { name: label }), { target: { value: 'Updated subtitle' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存并生成 V2' }));
+    expect(document.querySelector('main.video-translation-page')).toHaveAttribute('data-subtitle-immersive', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '确认生成 V2' }));
+    await waitFor(() => expect(applyAction.mock.calls.some(([, request]) => request.action === pendingAction)).toBe(true));
+    expect(document.querySelector('main.video-translation-page')).toHaveAttribute('data-subtitle-immersive', 'true');
+    await act(async () => { finish(); });
+    if (outcome === 'success') {
+      await waitFor(() => expect(document.querySelector('main.video-translation-page')).not.toHaveAttribute('data-subtitle-immersive'));
+      expect(screen.getByRole('tab', { name: subtitleOnly ? /^字幕/ : '作品' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.queryByRole('button', { name: '返回项目' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '确认生成 V2' })).not.toBeInTheDocument();
+    } else {
+      expect(document.querySelector('main.video-translation-page')).toHaveAttribute('data-subtitle-immersive', 'true');
+      expect(screen.getByRole('textbox', { name: label })).toHaveValue('Updated subtitle');
+      expect(screen.getByRole('button', { name: '确认生成 V2' })).toBeEnabled();
+      if (outcome === 'save-failure') expect(applyAction.mock.calls.some(([, request]) => request.action === generationAction)).toBe(false);
+    }
+  });
+
   it('uses current speech defaults for model and voice fields that were not configured in the version', async () => {
     const target = subtitleArtifact(1, 'Hello');
     let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
