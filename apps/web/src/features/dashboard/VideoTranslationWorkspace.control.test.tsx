@@ -15,6 +15,45 @@ import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it('retains immersive timing and split edits on return and persists them through the existing subtitle action', async () => {
+    const target = subtitleArtifact(1, 'Hello world');
+    target.metadata.cues = [{ id: 1, start: '00:00:00,000', end: '00:00:04,000', text: 'Hello world' }];
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      sourceType: 'subtitle', workspacePhase: 'result', resultTab: 'subtitles', resultVersion: 1
+    } });
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'edit-subtitle') {
+        const edited = { ...target, id: 'target-edited', version: 2, metadata: { ...target.metadata, cues: request.input.cues! } };
+        current = { ...current, revision: current.revision + 1, artifacts: [...current.artifacts, edited] };
+      } else current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}><VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: '深度编辑' }));
+    expect(document.querySelector('main.video-translation-page')).toHaveAttribute('data-subtitle-immersive', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '跳转到 00:00:00,000' }));
+    const end = screen.getByRole('spinbutton', { name: '结束时间' });
+    fireEvent.change(end, { target: { value: '4.5' } }); fireEvent.blur(end);
+    const playhead = screen.getByRole('slider', { name: '播放位置' });
+    for (let i = 0; i < 20; i++) fireEvent.keyDown(playhead, { key: 'ArrowRight' });
+    fireEvent.click(screen.getByRole('button', { name: '拆分' }));
+    fireEvent.click(screen.getByRole('button', { name: '返回项目' }));
+    expect(screen.getByRole('textbox', { name: '字幕 2' })).toHaveValue('world');
+    expect(screen.getByRole('button', { name: '保存字幕' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '保存字幕' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'edit-subtitle', input: expect.objectContaining({
+      artifactId: target.id, baseResultVersion: 1, preserveResultVersion: true,
+      cues: [
+        { id: 1, start: '00:00:00,000', end: '00:00:02,000', text: 'Hello' },
+        { id: 2, start: '00:00:02,000', end: '00:00:04,500', text: 'world' }
+      ]
+    }) })));
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存字幕' })).toBeDisabled());
+    expect(screen.getByRole('textbox', { name: '字幕 2' })).toHaveValue('world');
+  });
+
   it('localizes subtitle import controls across all languages without losing the selected file or preview', () => {
     const source = { ...subtitleArtifact(1, 'Original text'), id: 'source-srt', kind: 'source_subtitle', metadata: {
       ...subtitleArtifact(1, 'Original text').metadata, source: 'local-upload', fileName: 'lecture.en.srt', cueCount: 1

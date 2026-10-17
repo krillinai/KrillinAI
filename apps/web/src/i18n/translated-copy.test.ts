@@ -4,6 +4,16 @@ import type { AppLanguage } from './language.js';
 import { openCreatorLanguages } from '@opencreator/protocol';
 
 describe('additional language catalogs', () => {
+  it('covers immersive subtitle editing controls in every client language', () => {
+    for (const [language, catalog] of Object.entries(additionalLanguageCatalogs)) {
+      for (const key of ['Back to project', 'Subtitle editor', 'Undo', 'Redo', 'AI assistant', 'Advanced editing',
+        'Export subtitles', 'Resize subtitles and preview', 'Time', 'Original text']) {
+        expect(Object.hasOwn(catalog!, key), `${language}: ${key}`).toBe(true);
+        expect(catalog![key]?.trim().length, `${language}: ${key}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it('loads a catalog for every supported language except the built-in Chinese and English sources', () => {
     expect(Object.keys(additionalLanguageCatalogs).sort()).toEqual(
       openCreatorLanguages.filter(language => language !== 'zh-CN' && language !== 'en-US').sort()

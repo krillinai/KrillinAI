@@ -39,6 +39,7 @@ import type { VideoMetadataService } from '../../services/video-metadata-service
 import VideoTranslationAgentPanel from './VideoTranslationAgentPanel.js';
 import CreatorResizableLayout from './CreatorResizableLayout.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
+import { sameSubtitleCues } from './subtitle-editing.js';
 import VideoSourceInput from './VideoSourceInput.js';
 import { BilibiliPartSelector } from './BilibiliPartSelector.js';
 import { parseVideoSource } from './VideoSourcePreview.js';
@@ -861,25 +862,6 @@ function subtitleDraftKey(
   variant: SubtitleResultVariant
 ): string {
   return `${resultVersion}:${variant}`;
-}
-
-function applySubtitleTextEdits(
-  cues: SubtitleCue[],
-  edits: Record<string, Partial<Pick<SubtitleCue, 'text' | 'sourceText'>>> | undefined
-): SubtitleCue[] {
-  if (edits === undefined) return cues;
-  return cues.map(cue => {
-    const edit = edits[String(cue.id)];
-    return edit === undefined ? cue : { ...cue, ...edit };
-  });
-}
-
-function subtitleTextChanged(
-  original: SubtitleCue[],
-  edited: SubtitleCue[]
-): boolean {
-  if (original.length !== edited.length) return true;
-  return original.some((cue, index) => cue.text !== edited[index]?.text || cue.sourceText !== edited[index]?.sourceText);
 }
 
 function stripSubtitleSourceText(cues: SubtitleCue[]): SubtitleCue[] {
@@ -1904,7 +1886,15 @@ export default function VideoTranslationWorkspace(props: {
   const [resultTab, setResultTab] = useState<VideoTranslationResultTab>('video');
   const [resultVersion, setResultVersion] = useState(1);
   const [resultVersions, setResultVersions] = useState<TranslationResultVersion[]>([]);
-  const [subtitleTextEdits, setSubtitleTextEdits] = useState<Record<string, Record<string, Partial<Pick<SubtitleCue, 'text' | 'sourceText'>>>>>({});
+  const [subtitleDrafts, setSubtitleDrafts] = useState<Record<string, SubtitleCue[]>>({});
+  const [subtitleImmersive, setSubtitleImmersive] = useState(false);
+  const [subtitleAssistantOpen, setSubtitleAssistantOpen] = useState(false);
+  useEffect(() => {
+    if (workspacePhase !== 'result' || resultTab !== 'subtitles') {
+      setSubtitleImmersive(false);
+      setSubtitleAssistantOpen(false);
+    }
+  }, [workspacePhase, resultTab]);
   const [draftBaseVersion, setDraftBaseVersion] = useState<number>();
   const [resultProposal, setResultProposal] = useState<ResultProposal>();
   const [resultNotice, setResultNotice] = useState('');
@@ -2741,14 +2731,8 @@ export default function VideoTranslationWorkspace(props: {
     selectedSubtitleOnly || selectedResultSettings?.bilingual === true
   );
   const baseVerticalSubtitleCues = subtitleCuesFromArtifact(selectedVerticalSubtitleArtifact);
-  const displayedHorizontalSubtitleCues = applySubtitleTextEdits(
-    baseHorizontalSubtitleCues,
-    subtitleTextEdits[horizontalSubtitleDraftKey]
-  );
-  const displayedVerticalSubtitleCues = applySubtitleTextEdits(
-    baseVerticalSubtitleCues,
-    subtitleTextEdits[verticalSubtitleDraftKey]
-  );
+  const displayedHorizontalSubtitleCues = subtitleDrafts[horizontalSubtitleDraftKey] ?? baseHorizontalSubtitleCues;
+  const displayedVerticalSubtitleCues = subtitleDrafts[verticalSubtitleDraftKey] ?? baseVerticalSubtitleCues;
   const videoOutputs: VideoResultOutput[] = selectedVideoEntries.map(({ variant, artifact }) => {
     const preview = videoPreviews[artifact.id];
     return {
@@ -2828,8 +2812,8 @@ export default function VideoTranslationWorkspace(props: {
       ?? selectedResultSource?.videoFileName
       ?? l('等待上传视频', 'Waiting for an upload'));
   const subtitleDirtyByVariant: Partial<Record<SubtitleResultVariant, boolean>> = {
-    horizontal: subtitleTextChanged(baseHorizontalSubtitleCues, displayedHorizontalSubtitleCues),
-    vertical: subtitleTextChanged(baseVerticalSubtitleCues, displayedVerticalSubtitleCues)
+    horizontal: !sameSubtitleCues(baseHorizontalSubtitleCues, displayedHorizontalSubtitleCues),
+    vertical: !sameSubtitleCues(baseVerticalSubtitleCues, displayedVerticalSubtitleCues)
   };
   const subtitleDirty = subtitleDirtyByVariant.horizontal === true;
   const subtitleNeedsRegeneration = !selectedSubtitleOnly && selectedResult
@@ -3101,25 +3085,14 @@ export default function VideoTranslationWorkspace(props: {
     text: string,
     field: 'text' | 'sourceText' = 'text'
   ) {
-    const baseCues = variant === 'horizontal'
-      ? baseHorizontalSubtitleCues
-      : baseVerticalSubtitleCues;
-    const original = baseCues.find(cue => cue.id === id);
-    if (original === undefined) return;
+    const cues = variant === 'horizontal' ? displayedHorizontalSubtitleCues : displayedVerticalSubtitleCues;
+    updateSubtitleCues(variant, cues.map(cue => cue.id === id ? { ...cue, [field]: text } : cue));
+  }
+
+  function updateSubtitleCues(variant: SubtitleResultVariant, cues: SubtitleCue[]) {
+    if (submitting) return;
     const key = subtitleDraftKey(resultVersion, variant);
-    setSubtitleTextEdits(current => {
-      const nextVariant = { ...(current[key] ?? {}) };
-      const edit = { ...nextVariant[String(id)] };
-      if (text === original[field]) delete edit[field];
-      else edit[field] = text;
-      if (Object.keys(edit).length === 0) delete nextVariant[String(id)];
-      else nextVariant[String(id)] = edit;
-      if (Object.keys(nextVariant).length === 0) {
-        const { [key]: _removed, ...remaining } = current;
-        return remaining;
-      }
-      return { ...current, [key]: nextVariant };
-    });
+    setSubtitleDrafts(current => ({ ...current, [key]: cues }));
     setResultNotice('');
   }
 
@@ -3155,7 +3128,7 @@ export default function VideoTranslationWorkspace(props: {
       }
     });
     const key = subtitleDraftKey(baseResultVersion, variant);
-    setSubtitleTextEdits(current => {
+    setSubtitleDrafts(current => {
       const { [key]: _removed, ...remaining } = current;
       return remaining;
     });
@@ -3708,7 +3681,8 @@ export default function VideoTranslationWorkspace(props: {
   );
 
   return (
-    <main className="video-translation-page">
+    <main className="video-translation-page" data-subtitle-immersive={subtitleImmersive && workspacePhase === 'result' && resultTab === 'subtitles' || undefined}
+      data-subtitle-assistant={subtitleAssistantOpen || undefined}>
       <div className="video-translation-page-inner video-translation-wizard">
         <CreatorResizableLayout
           className="video-translation-collab-layout"
@@ -3802,6 +3776,11 @@ export default function VideoTranslationWorkspace(props: {
               subtitleDirty={subtitleDirty}
               subtitleDirtyByVariant={subtitleDirtyByVariant}
               subtitleSavePending={submitting}
+              immersive={subtitleImmersive}
+              assistantOpen={subtitleAssistantOpen}
+              onImmersiveChange={value => { setSubtitleImmersive(value); if (value) setResultTab('subtitles'); else setSubtitleAssistantOpen(false); }}
+              onToggleAssistant={() => setSubtitleAssistantOpen(value => !value)}
+              onSubtitleCuesChange={updateSubtitleCues}
               nextVersion={nextVersion}
               affectedArtifacts={regenerationArtifacts}
               hasPendingChanges={hasPendingChanges}

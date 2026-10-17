@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import VideoTranslationResultWorkspace from './VideoTranslationResultWorkspace.js';
+import VideoTranslationResultWorkspace, { type SubtitleResultOutput } from './VideoTranslationResultWorkspace.js';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
@@ -40,7 +41,88 @@ const baseProps = {
   onConfirmRegenerate: vi.fn()
 };
 
+function EditingHarness(props: { preview?: boolean; readOnly?: boolean; saving?: boolean }) {
+  const [immersive, setImmersive] = useState(false);
+  const [outputs, setOutputs] = useState<SubtitleResultOutput[]>([{
+    ...baseProps.subtitleOutputs[0]!, readOnly: props.readOnly ?? false,
+    cues: [
+      { id: 1, start: '00:00:00,000', end: '00:00:04,000', text: 'Hello world', sourceText: '你好世界' },
+      { id: 2, start: '00:00:05,000', end: '00:00:08,000', text: 'Goodbye world', sourceText: '再见世界' }
+    ]
+  }]);
+  return <VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" subtitleOutputs={outputs}
+    subtitleOnly={!props.preview} immersive={immersive} onImmersiveChange={setImmersive} subtitleSavePending={props.saving}
+    subtitleVideoPreviews={props.preview ? { horizontal: { artifactId: 'source', src: 'blob:source', source: true } } : {}}
+    onSubtitleCuesChange={(variant, cues) => setOutputs(current => current.map(output => output.variant === variant ? { ...output, cues } : output))} />;
+}
+
 describe('VideoTranslationResultWorkspace', () => {
+  it('enters and exits immersive editing with the same video element, playhead and draft', () => {
+    render(<EditingHarness preview />);
+    const video = screen.getByLabelText('横屏字幕视频预览') as HTMLVideoElement;
+    video.currentTime = 2;
+    fireEvent.timeUpdate(video);
+    fireEvent.change(screen.getByRole('textbox', { name: '横屏字幕 1' }), { target: { value: 'Edited before entering' } });
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    expect(screen.getByRole('button', { name: '返回项目' })).toHaveFocus();
+    expect(screen.getByLabelText('横屏字幕视频预览')).toBe(video);
+    expect(screen.getByRole('slider', { name: '播放位置' })).toHaveAttribute('aria-valuenow', '2');
+    expect(screen.getByRole('textbox', { name: '横屏字幕 1' })).toHaveValue('Edited before entering');
+    fireEvent.keyDown(screen.getByRole('button', { name: '返回项目' }), { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: '字幕时间轴' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('横屏字幕视频预览')).toBe(video);
+    expect(video.currentTime).toBe(2);
+    expect(screen.getByRole('button', { name: '深度编辑' })).toHaveFocus();
+  });
+
+  it('edits timing and both languages in subtitle-only mode with structural undo and redo', () => {
+    render(<EditingHarness />);
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    expect(document.querySelector('video')).toBeNull();
+    expect(screen.getByText('仅字幕时间轴')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '跳转到 00:00:00,000' }));
+    const playhead = screen.getByRole('slider', { name: '播放位置' });
+    for (let i = 0; i < 20; i++) fireEvent.keyDown(playhead, { key: 'ArrowRight' });
+    fireEvent.click(screen.getByRole('button', { name: '拆分' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getByRole('textbox', { name: '字幕 1' })).toHaveValue('Hello');
+    expect(screen.getByRole('textbox', { name: '字幕 2' })).toHaveValue('world');
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByRole('textbox', { name: '字幕 1' })).toHaveValue('Hello world');
+    fireEvent.click(screen.getByRole('button', { name: '重做' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: '合并' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByRole('textbox', { name: '字幕原文 1' })).toHaveValue('你好\n世界');
+    const end = screen.getByRole('spinbutton', { name: '结束时间' });
+    fireEvent.change(end, { target: { value: '4.375' } });
+    fireEvent.blur(end);
+    expect(screen.getByRole('spinbutton', { name: '结束时间' })).toHaveValue(4.375);
+    fireEvent.click(screen.getByRole('button', { name: '返回项目' }));
+    expect(screen.getByRole('button', { name: '跳转到 00:00:00,000' }).querySelector('small')).toHaveAttribute('title', '00:00:00,000 - 00:00:04,375');
+  });
+
+  it('rejects invalid timing and locks all structural editing while saving or read-only', () => {
+    const view = render(<EditingHarness />);
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '跳转到 00:00:00,000' }));
+    const end = screen.getByRole('spinbutton', { name: '结束时间' });
+    fireEvent.change(end, { target: { value: '0' } }); fireEvent.blur(end);
+    expect(screen.getByRole('alert')).toHaveTextContent('结束时间须晚于开始时间至少 0.08 秒。');
+    expect(end).toHaveValue(4);
+    view.rerender(<EditingHarness saving />);
+    expect(screen.getByRole('button', { name: '合并' })).toBeDisabled();
+    expect(screen.getByRole('spinbutton', { name: '结束时间' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: '字幕 1' })).toHaveAttribute('readonly');
+    view.unmount();
+    render(<EditingHarness readOnly />);
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '跳转到 00:00:00,000' }));
+    expect(screen.getByRole('button', { name: '合并' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '保存字幕' })).not.toBeInTheDocument();
+  });
+
   it.each([
     ['queued', 'Translation is queued'],
     ['running', 'Translation in progress'],
