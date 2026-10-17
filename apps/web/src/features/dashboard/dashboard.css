@@ -1368,7 +1368,9 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: brightness(0.55);
+  /* Preserve the thumbnail treatment against the global filter reset. */
+  filter: brightness(0.55) blur(3px) !important;
+  transform: scale(1.08);
 }
 
 .video-translation-subtitle-preset-thumb[data-empty="true"] {
