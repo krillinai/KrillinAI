@@ -151,7 +151,7 @@ test('打包 App 的视频翻译支持多语言检索、保存和内置字体', 
     await page.evaluate(jobId => { window.location.hash = `#/workbench?tool=video-translation&jobId=${jobId}`; }, created.body.job.id);
     const source = page.getByRole('combobox', { name: '源语言', exact: true });
     await expect(source).toHaveValue('hi');
-    await expect(source.locator('option')).toHaveCount(52);
+    await expect(source.locator('option')).toHaveCount(123);
     await expect(page.getByRole('combobox', { name: '翻译为', exact: true }).locator('option')).toHaveCount(124);
     const search = page.getByRole('searchbox', { name: '搜索源语言' });
     await search.fill('阿拉伯');

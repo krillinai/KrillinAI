@@ -332,7 +332,7 @@ func TestSubtitleTranslationUsesSurroundingContextWithoutExtraCalls(t *testing.T
 		t.Run(fmt.Sprintf("导入字幕=%v", imported), func(t *testing.T) {
 			blocks := make([]*util.SrtBlock, 6)
 			for i := range blocks {
-				blocks[i] = &util.SrtBlock{Index: i + 1, Timestamp: formatSRTTimeline(int64(i*1000), int64((i+1)*1000)), OriginLanguageSentence: fmt.Sprintf("source %d.", i+1)}
+				blocks[i] = &util.SrtBlock{Index: i + 1, Timestamp: formatSRTTimeline(int64(i*1000), int64((i+1)*1000)), OriginLanguageSentence: fmt.Sprintf("Source %d.", i+1)}
 			}
 			var inputs []pairedTranslationInput
 			translator := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
@@ -353,7 +353,7 @@ func TestSubtitleTranslationUsesSurroundingContextWithoutExtraCalls(t *testing.T
 				t.Fatalf("calls=%d error=%v", len(inputs), err)
 			}
 			middle := inputs[1].Sentences[0]
-			if fmt.Sprint(middle.Before) != "[source 1. source 2.]" || fmt.Sprint(middle.After) != "[source 4. source 5.]" {
+			if fmt.Sprint(middle.Before) != "[Source 1. Source 2.]" || fmt.Sprint(middle.After) != "[Source 4. Source 5.]" {
 				t.Fatalf("缺少整句上下文: %+v", middle)
 			}
 		})
