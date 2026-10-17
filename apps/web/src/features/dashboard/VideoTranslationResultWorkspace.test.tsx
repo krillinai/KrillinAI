@@ -368,29 +368,29 @@ describe('VideoTranslationResultWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Försök ladda ned originalvideon igen' }));
     expect(onPrepareSourceVideo).toHaveBeenCalledOnce();
   });
-  it('offers a user-triggered source download for subtitle preview', () => {
+  it.each(['video', 'subtitles'] as const)('offers a user-triggered source download in the %s tab', activeTab => {
     const onPrepareSourceVideo = vi.fn();
-    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" onPrepareSourceVideo={onPrepareSourceVideo} />);
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab={activeTab} onPrepareSourceVideo={onPrepareSourceVideo} />);
     expect(screen.getByText('字幕已翻译完成')).toBeInTheDocument();
     expect(onPrepareSourceVideo).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '下载原视频并预览' }));
     expect(onPrepareSourceVideo).toHaveBeenCalledOnce();
-    expect(screen.getByText('真实字幕')).toBeInTheDocument();
+    expect(screen.getByText(activeTab === 'subtitles' ? '真实字幕' : 'horizontal.srt')).toBeInTheDocument();
   });
 
-  it('disables duplicate downloads and directs users to the shared task panel', () => {
-    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" onPrepareSourceVideo={vi.fn()} previewPreparation={{ pending: true }} />);
+  it.each(['video', 'subtitles'] as const)('disables duplicate downloads in the %s tab and directs users to the shared task panel', activeTab => {
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab={activeTab} onPrepareSourceVideo={vi.fn()} previewPreparation={{ pending: true }} />);
     expect(screen.getByRole('button', { name: /正在准备/ })).toBeDisabled();
     expect(screen.getByText(/右侧任务面板/)).toBeInTheDocument();
   });
 
-  it('offers retry after failure without blocking subtitle editing', () => {
+  it.each(['video', 'subtitles'] as const)('offers retry after failure in the %s tab without blocking subtitle access', activeTab => {
     const onPrepareSourceVideo = vi.fn();
-    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" onPrepareSourceVideo={onPrepareSourceVideo} previewPreparation={{ pending: false, error: '下载失败，字幕仍可编辑' }} />);
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab={activeTab} onPrepareSourceVideo={onPrepareSourceVideo} previewPreparation={{ pending: false, error: '下载失败，字幕仍可编辑' }} />);
     fireEvent.click(screen.getByRole('button', { name: '重试下载原视频' }));
     expect(onPrepareSourceVideo).toHaveBeenCalledOnce();
     expect(screen.getByText('下载失败，字幕仍可编辑')).toBeInTheDocument();
-    expect(screen.getByText('真实字幕')).toBeInTheDocument();
+    expect(screen.getByText(activeTab === 'subtitles' ? '真实字幕' : 'horizontal.srt')).toBeInTheDocument();
   });
 
   it('does not show a fake download entry when no source preparation capability is provided', () => {
@@ -430,6 +430,7 @@ describe('VideoTranslationResultWorkspace', () => {
       <VideoTranslationResultWorkspace
         {...baseProps}
         activeTab="video"
+        subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }}
         videoOutputs={[{
           artifactId: 'horizontal-video-v1',
           variant: 'horizontal',
@@ -450,8 +451,29 @@ describe('VideoTranslationResultWorkspace', () => {
       'blob:http://localhost/translated-video'
     );
     expect(screen.queryByTitle('YouTube 视频预览')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '同步视频预览' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '下载横屏成片' }));
     expect(onExport).toHaveBeenCalledWith('video', 'horizontal-video-v1');
+  });
+
+  it('previews source media with translated subtitles in outputs without inventing a rendered file', () => {
+    const onImmersiveChange = vi.fn();
+    const onExport = vi.fn();
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="video" onImmersiveChange={onImmersiveChange} onExport={onExport}
+      subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
+    const video = screen.getByLabelText('横屏字幕视频预览');
+    expect(video).toHaveAttribute('src', 'blob:source');
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '下载横屏成片' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /生成 V/ })).not.toBeInTheDocument();
+    fireEvent.timeUpdate(video, { target: { currentTime: 0.5 } });
+    expect(screen.getByText('真实字幕')).toBeInTheDocument();
+    fireEvent.timeUpdate(video, { target: { currentTime: 2 } });
+    expect(screen.queryByText('真实字幕')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '下载横屏字幕' }));
+    expect(onExport).toHaveBeenCalledWith('subtitles', 'subtitle-horizontal-v1');
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    expect(onImmersiveChange).toHaveBeenCalledWith(true);
   });
 
   it('shows horizontal and vertical videos together in one project version', () => {

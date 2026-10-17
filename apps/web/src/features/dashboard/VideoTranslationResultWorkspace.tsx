@@ -264,7 +264,7 @@ export default function VideoTranslationResultWorkspace(props: {
     if (pendingPlaybackPositionRef.current !== undefined) pendingPlaybackPositionRef.current = 0;
   }, [activeSubtitleVariant, props.version]);
 
-  useEffect(() => { setSubtitlePlaying(false); }, [activeSubtitleVideo?.src]);
+  useEffect(() => { setSubtitlePlaying(false); }, [activeSubtitleVideo?.src, props.activeTab, props.immersive]);
 
   useEffect(() => { if (!props.immersive || props.activeTab !== 'subtitles') setEditorPanel(undefined); }, [props.immersive, props.activeTab]);
 
@@ -398,6 +398,102 @@ export default function VideoTranslationResultWorkspace(props: {
     </div>
   ) : null;
 
+  const subtitleVideoPreview = activeSubtitleOutput && !props.subtitleOnly ? (
+    <section className={props.activeTab === 'video' ? 'video-result-output-column' : 'video-result-subtitle-video'} aria-label={l('同步视频预览', 'Synchronized video preview')}>
+      {props.immersive && props.voiceOutput?.src ? <audio ref={subtitleAudioRef} src={props.voiceOutput.src} preload="metadata" hidden
+        onLoadedMetadata={() => syncVoiceTime(subtitlePlaybackTime, true)}
+        onError={() => { setVoicePlaybackFailed(true); setAuditionVoice(false); }} /> : null}
+      <div
+        className="video-result-player-frame"
+        data-ratio={videoPreviewVariant === 'vertical' ? '9:16' : '16:9'}
+        data-preview-empty={activeSubtitleVideo?.src === undefined || undefined}
+      >
+        {activeSubtitleVideo?.src !== undefined ? (
+          <>
+            <video
+              className="video-result-player"
+              key={`${props.version}-${activeSubtitleVariant}`}
+              ref={subtitleVideoRef}
+              src={activeSubtitleVideo.src}
+              controls
+              preload="metadata"
+              onLoadedMetadata={event => {
+                const video = event.currentTarget;
+                const duration = Number.isFinite(video.duration) ? video.duration : 0;
+                const time = pendingPlaybackPositionRef.current ?? playbackPositionRef.current;
+                video.currentTime = Math.min(time, duration || time);
+                pendingPlaybackPositionRef.current = undefined;
+                setSubtitlePlaybackTime(video.currentTime);
+                setSubtitleDuration(duration);
+                setSubtitleVideoSize({ width: video.videoWidth || 16, height: video.videoHeight || 9 });
+              }}
+              onDurationChange={event => setSubtitleDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+              onPlay={() => setSubtitlePlaying(true)}
+              onPause={() => setSubtitlePlaying(false)}
+              onEnded={() => setSubtitlePlaying(false)}
+              onRateChange={event => { if (subtitleAudioRef.current) subtitleAudioRef.current.playbackRate = event.currentTarget.playbackRate; }}
+              onSeeked={event => updatePlaybackTime(event.currentTarget, true)}
+              onTimeUpdate={event => updatePlaybackTime(event.currentTarget)}
+              aria-label={l(
+                `${subtitleVariantLabel(videoPreviewVariant ?? activeSubtitleOutput.variant, l)}视频预览`,
+                `${subtitleVariantLabel(videoPreviewVariant ?? activeSubtitleOutput.variant, l)} video preview`
+              )}
+            />
+            {activeSubtitleVideo.source !== false && activeSubtitleCues.length > 0 && props.immersive && props.renderSubtitlePreview ? <div className="subtitle-editor-styled-overlay">
+              {props.renderSubtitlePreview(activeSubtitleCues, subtitlePreviewSize.width, subtitlePreviewSize.height)}
+            </div> : activeSubtitleVideo.source !== false && activeSubtitleCues.length > 0 ? (
+              <div className="video-result-subtitle-overlay" aria-hidden="true">
+                {activeSubtitleCues.map(cue => (
+                  <span key={cue.id}>
+                    {subtitleCueDisplayText(cue, activeSubtitleOutput.translationPosition)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {draftVideoPreview && videoPreviewVariant === 'vertical' ? props.editorSettings?.previewTitles : null}
+          </>
+        ) : (
+          <div className="video-result-player-status" role="status">
+            {props.onPrepareSourceVideo !== undefined && !activeSubtitleVideo?.previewLoading ? (
+              <div className="video-result-preview-empty">
+                <strong>{l('字幕已翻译完成', 'Subtitle translation is complete')}</strong>
+                <p>{props.previewPreparation?.pending
+                  ? l('正在准备原视频，仅用于同步预览，不会重新翻译。下载进度见右侧任务面板。', 'Preparing the source video for synchronized preview only. Subtitles will not be translated again. See the task panel for download progress.')
+                  : props.previewPreparation?.error ?? (activeSubtitleVideo?.previewError
+                    ? l('视频预览加载失败，请检查诊断信息后重试。', 'Video preview failed to load. Check the diagnostics and retry.', 'Det gick inte att läsa in videoförhandsvisningen. Kontrollera diagnostiken och försök igen.') : undefined)
+                    ?? l('为节省下载时间，尚未下载原视频。下载后可同步播放和校对字幕，不影响字幕编辑与下载。', 'The source video has not been downloaded to save time. Download it to play and review subtitles in sync. Subtitle editing and export remain available.')}</p>
+                {!props.previewPreparation?.pending ? <OriginalErrorDetails detail={props.previewPreparation?.errorDetail ?? activeSubtitleVideo?.previewError} /> : null}
+                <button className="video-translation-secondary-action" type="button"
+                  disabled={props.previewPreparation?.pending || props.previewPreparation?.blocked}
+                  onClick={props.onPrepareSourceVideo}>
+                  <Download size={15} aria-hidden="true" />
+                  {props.previewPreparation?.pending ? l('正在准备…', 'Preparing…')
+                    : props.previewPreparation?.error || activeSubtitleVideo?.previewError
+                      ? l('重试下载原视频', 'Retry source video download')
+                      : l('下载原视频并预览', 'Download source video and preview')}
+                </button>
+                {props.previewPreparation?.blocked && !props.previewPreparation.pending
+                  ? <small>{l('请等待当前任务结束后再准备预览视频', 'Wait for the current task to finish before preparing the preview')}</small> : null}
+              </div>
+            ) : (
+              <>
+                {activeSubtitleVideo?.previewLoading
+                  ? l('正在加载视频...', 'Loading video...')
+                  : activeSubtitleVideo?.previewError
+                    ?? l('当前版本没有可用于字幕同步预览的视频。', 'This version has no video available for synchronized subtitle preview.')}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      {activeSubtitleVideo?.source ? (
+        <small>{l('当前使用原视频同步预览', 'Using the source video for synchronized preview')}</small>
+      ) : props.immersive && renderedSubtitleVideo ? (
+        <small>{l('当前版本', 'Current version')} · V{props.version}</small>
+      ) : null}
+    </section>
+  ) : null;
+
   return (
     <section ref={rootRef} className="video-result-workspace" data-immersive={props.immersive || undefined}
       data-settings-open={props.immersive && Boolean(props.editorSettings) && Boolean(editorPanel) || undefined}
@@ -438,6 +534,13 @@ export default function VideoTranslationResultWorkspace(props: {
         </div>
 
         <div className="video-result-toolbar-actions">
+          {props.activeTab === 'video' && activeSubtitleOutput && props.onImmersiveChange ? (
+            <div className="video-result-pane-actions">
+              <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
+                <Maximize2 size={15} aria-hidden="true" />{l('深度编辑', 'Advanced editing')}
+              </button>
+            </div>
+          ) : null}
           <CreatorResultVersionMenu
             showCompletion={props.execution === undefined && generatedArtifactCount > 0}
             version={props.version}
@@ -457,6 +560,11 @@ export default function VideoTranslationResultWorkspace(props: {
           ) : null}
           {generatedArtifactCount > 0 ? (
             <div className="video-result-generated-sections">
+              {props.videoOutputs.length === 0 && subtitleVideoPreview ? (
+                <section className="video-result-generated-section">
+                  <div className="video-result-video-grid">{subtitleVideoPreview}</div>
+                </section>
+              ) : null}
               {props.videoOutputs.length > 0 ? (
                 <section className="video-result-generated-section" aria-label={l('成片', 'Videos')}>
                   <div className="video-result-video-grid">
@@ -639,98 +747,7 @@ export default function VideoTranslationResultWorkspace(props: {
             <div className="video-result-subtitle-preview-layout" ref={previewLayoutRef} data-subtitle-only={props.subtitleOnly || undefined}
               data-editor-settings={props.immersive && Boolean(props.editorSettings) && !props.subtitleOnly || undefined}
               style={props.immersive ? { '--subtitle-editor-width': `${editorWidth}%` } as CSSProperties : undefined}>
-              {!props.subtitleOnly ? <section className="video-result-subtitle-video" aria-label={l('同步视频预览', 'Synchronized video preview')}>
-                {props.immersive && props.voiceOutput?.src ? <audio ref={subtitleAudioRef} src={props.voiceOutput.src} preload="metadata" hidden
-                  onLoadedMetadata={() => syncVoiceTime(subtitlePlaybackTime, true)}
-                  onError={() => { setVoicePlaybackFailed(true); setAuditionVoice(false); }} /> : null}
-                <div
-                  className="video-result-player-frame"
-                  data-ratio={videoPreviewVariant === 'vertical' ? '9:16' : '16:9'}
-                >
-                  {activeSubtitleVideo?.src !== undefined ? (
-                    <>
-                      <video
-                        className="video-result-player"
-                        key={`${props.version}-${activeSubtitleVariant}`}
-                        ref={subtitleVideoRef}
-                        src={activeSubtitleVideo.src}
-                        controls
-                        preload="metadata"
-                        onLoadedMetadata={event => {
-                          const video = event.currentTarget;
-                          const duration = Number.isFinite(video.duration) ? video.duration : 0;
-                          const time = pendingPlaybackPositionRef.current ?? playbackPositionRef.current;
-                          video.currentTime = Math.min(time, duration || time);
-                          pendingPlaybackPositionRef.current = undefined;
-                          setSubtitlePlaybackTime(video.currentTime);
-                          setSubtitleDuration(duration);
-                          setSubtitleVideoSize({ width: video.videoWidth || 16, height: video.videoHeight || 9 });
-                        }}
-                        onDurationChange={event => setSubtitleDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
-                        onPlay={() => setSubtitlePlaying(true)}
-                        onPause={() => setSubtitlePlaying(false)}
-                        onEnded={() => setSubtitlePlaying(false)}
-                        onRateChange={event => { if (subtitleAudioRef.current) subtitleAudioRef.current.playbackRate = event.currentTarget.playbackRate; }}
-                        onSeeked={event => updatePlaybackTime(event.currentTarget, true)}
-                        onTimeUpdate={event => updatePlaybackTime(event.currentTarget)}
-                        aria-label={l(
-                          `${subtitleVariantLabel(videoPreviewVariant ?? activeSubtitleOutput.variant, l)}视频预览`,
-                          `${subtitleVariantLabel(videoPreviewVariant ?? activeSubtitleOutput.variant, l)} video preview`
-                        )}
-                      />
-                      {activeSubtitleVideo.source !== false && activeSubtitleCues.length > 0 && props.immersive && props.renderSubtitlePreview ? <div className="subtitle-editor-styled-overlay">
-                        {props.renderSubtitlePreview(activeSubtitleCues, subtitlePreviewSize.width, subtitlePreviewSize.height)}
-                      </div> : activeSubtitleVideo.source !== false && activeSubtitleCues.length > 0 ? (
-                        <div className="video-result-subtitle-overlay" aria-hidden="true">
-                          {activeSubtitleCues.map(cue => (
-                            <span key={cue.id}>
-                              {subtitleCueDisplayText(cue, activeSubtitleOutput.translationPosition)}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                      {draftVideoPreview && videoPreviewVariant === 'vertical' ? props.editorSettings?.previewTitles : null}
-                    </>
-                  ) : (
-                    <div className="video-result-player-status" role="status">
-                      {props.onPrepareSourceVideo !== undefined && !activeSubtitleVideo?.previewLoading ? (
-                        <div className="video-result-preview-empty">
-                          <strong>{l('字幕已翻译完成', 'Subtitle translation is complete')}</strong>
-                          <p>{props.previewPreparation?.pending
-                            ? l('正在准备原视频，仅用于同步预览，不会重新翻译。下载进度见右侧任务面板。', 'Preparing the source video for synchronized preview only. Subtitles will not be translated again. See the task panel for download progress.')
-                            : props.previewPreparation?.error ?? (activeSubtitleVideo?.previewError
-                              ? l('视频预览加载失败，请检查诊断信息后重试。', 'Video preview failed to load. Check the diagnostics and retry.', 'Det gick inte att läsa in videoförhandsvisningen. Kontrollera diagnostiken och försök igen.') : undefined)
-                              ?? l('为节省下载时间，尚未下载原视频。下载后可同步播放和校对字幕，不影响字幕编辑与下载。', 'The source video has not been downloaded to save time. Download it to play and review subtitles in sync. Subtitle editing and export remain available.')}</p>
-                          {!props.previewPreparation?.pending ? <OriginalErrorDetails detail={props.previewPreparation?.errorDetail ?? activeSubtitleVideo?.previewError} /> : null}
-                          <button className="video-translation-secondary-action" type="button"
-                            disabled={props.previewPreparation?.pending || props.previewPreparation?.blocked}
-                            onClick={props.onPrepareSourceVideo}>
-                            <Download size={15} aria-hidden="true" />
-                            {props.previewPreparation?.pending ? l('正在准备…', 'Preparing…')
-                              : props.previewPreparation?.error || activeSubtitleVideo?.previewError
-                                ? l('重试下载原视频', 'Retry source video download')
-                                : l('下载原视频并预览', 'Download source video and preview')}
-                          </button>
-                          {props.previewPreparation?.blocked && !props.previewPreparation.pending
-                            ? <small>{l('请等待当前任务结束后再准备预览视频', 'Wait for the current task to finish before preparing the preview')}</small> : null}
-                        </div>
-                      ) : (
-                        <>
-                          {activeSubtitleVideo?.previewLoading
-                            ? l('正在加载视频...', 'Loading video...')
-                            : activeSubtitleVideo?.previewError
-                              ?? l('当前版本没有可用于字幕同步预览的视频。', 'This version has no video available for synchronized subtitle preview.')}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {activeSubtitleVideo?.source ? (
-                  <small>{l('当前使用原视频同步预览', 'Using the source video for synchronized preview')}</small>
-                ) : props.immersive && renderedSubtitleVideo ? (
-                  <small>{l('当前版本', 'Current version')} · V{props.version}</small>
-                ) : null}
-              </section> : null}
+              {subtitleVideoPreview}
 
               {props.immersive && props.editorSettings && !props.subtitleOnly ? <div className="subtitle-editor-settings-nav" role="group" aria-label={l('项目设置', 'Project settings')}
                 data-expanded={settingsRailExpanded || undefined}>

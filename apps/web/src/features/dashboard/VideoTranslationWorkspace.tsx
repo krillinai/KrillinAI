@@ -3242,7 +3242,7 @@ export default function VideoTranslationWorkspace(props: {
         });
       }
       setWorkspacePhase('result');
-      if (subtitleOnly) setResultTab('subtitles');
+      setResultTab(subtitleOnly ? 'subtitles' : 'video');
       setDraftBaseVersion(undefined);
       setResultNotice(isRegeneration
         ? stageId === undefined
@@ -4041,7 +4041,16 @@ export default function VideoTranslationWorkspace(props: {
                 }}
               /> : undefined}
               assistantOpen={subtitleAssistantOpen}
-              onImmersiveChange={value => { setSubtitleImmersive(value); if (value) { prepareEditorSettings(); setResultTab('subtitles'); } else setSubtitleAssistantOpen(false); }}
+              onImmersiveChange={value => {
+                setSubtitleImmersive(value);
+                if (value) {
+                  prepareEditorSettings();
+                  setResultTab('subtitles');
+                } else {
+                  setSubtitleAssistantOpen(false);
+                  setResultTab(selectedSubtitleOnly ? 'subtitles' : 'video');
+                }
+              }}
               onToggleAssistant={() => setSubtitleAssistantOpen(value => !value)}
               onSubtitleCuesChange={updateSubtitleCues}
               nextVersion={nextVersion}

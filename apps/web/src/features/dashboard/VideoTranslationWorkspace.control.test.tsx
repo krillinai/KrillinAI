@@ -15,6 +15,26 @@ import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it.each([false, true])('opens and returns to outputs when composeVideo is %s without automatically rendering', async composeVideo => {
+    const target = subtitleArtifact(1, 'Hello world');
+    const initialJob = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      composeVideo, resultTab: 'subtitles', workspacePhase: 'result', resultVersion: 1
+    } });
+    const applyAction = vi.fn(async (_id: string, _request: { action: string }) => ({ job: initialJob }));
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={initialJob}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    expect(await screen.findByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('textbox', { name: '横屏字幕 1' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    expect(await screen.findByRole('button', { name: '返回项目' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '返回项目' }));
+    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('target-subtitle-v1.srt')).toBeVisible();
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+  });
+
   it('shares immersive style and voice settings with configuration and only regenerates after confirmation', async () => {
     const target = subtitleArtifact(1, 'Hello world');
     let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {

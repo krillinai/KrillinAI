@@ -15278,7 +15278,8 @@
   container-type: size;
 }
 
-.video-result-subtitle-video > small {
+.video-result-subtitle-video > small,
+.video-result-output-column > small {
   color: var(--muted);
   font-size: 11px;
   text-align: center;
@@ -15365,6 +15366,11 @@
   color: var(--muted);
   font-size: 12px;
   text-align: center;
+}
+
+.video-result-output-column .video-result-player-frame[data-preview-empty="true"] {
+  aspect-ratio: auto;
+  min-height: 240px;
 }
 
 .video-result-subtitle-overlay {
