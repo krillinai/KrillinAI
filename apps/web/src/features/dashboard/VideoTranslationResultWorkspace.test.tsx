@@ -69,6 +69,10 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(screen.getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
     expect(screen.getByRole('button', { name: '输出画幅' }).closest('.video-result-subtitle-video')).toBeNull();
     expect(screen.queryByRole('radiogroup', { name: '字幕画幅' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '展开侧栏' }));
+    expect(screen.getByRole('button', { name: '收起侧栏' })).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '收起侧栏' }));
+    expect(screen.getByRole('button', { name: '展开侧栏' })).toHaveAttribute('aria-expanded', 'false');
     const styleTrigger = screen.getByRole('button', { name: '字幕样式' });
     styleTrigger.focus();
     fireEvent.click(styleTrigger);

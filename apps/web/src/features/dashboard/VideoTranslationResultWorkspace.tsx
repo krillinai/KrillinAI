@@ -17,6 +17,8 @@ import {
   Mic2,
   MonitorPlay,
   Headphones,
+  PanelRightOpen,
+  PanelRightClose,
   PackageOpen,
   RotateCcw,
   Save,
@@ -160,6 +162,7 @@ export default function VideoTranslationResultWorkspace(props: {
   const [subtitleDuration, setSubtitleDuration] = useState(0);
   const [subtitlePlaying, setSubtitlePlaying] = useState(false);
   const [editorPanel, setEditorPanel] = useState<EditorSettingsPanel>();
+  const [settingsRailExpanded, setSettingsRailExpanded] = useState(false);
   const editorPanels: EditorSettingsPanel[] = props.editorSettings?.output === undefined ? ['style', 'voice'] : ['style', 'voice', 'output'];
   const editorPanelLabel = (panel: EditorSettingsPanel) => panel === 'style' ? l('字幕样式', 'Subtitle style')
     : panel === 'voice' ? l('配音', 'Dubbing') : l('输出画幅', 'Output format');
@@ -729,10 +732,19 @@ export default function VideoTranslationResultWorkspace(props: {
                 ) : null}
               </section> : null}
 
-              {props.immersive && props.editorSettings && !props.subtitleOnly ? <div className="subtitle-editor-settings-nav" role="group" aria-label={l('项目设置', 'Project settings')}>
+              {props.immersive && props.editorSettings && !props.subtitleOnly ? <div className="subtitle-editor-settings-nav" role="group" aria-label={l('项目设置', 'Project settings')}
+                data-expanded={settingsRailExpanded || undefined}>
+                <button type="button" className="subtitle-editor-settings-toggle" aria-expanded={settingsRailExpanded}
+                  aria-label={settingsRailExpanded ? l('收起侧栏', 'Collapse sidebar') : l('展开侧栏', 'Expand sidebar')}
+                  title={settingsRailExpanded ? l('收起侧栏', 'Collapse sidebar') : l('展开侧栏', 'Expand sidebar')}
+                  onClick={() => setSettingsRailExpanded(value => !value)}>
+                  {settingsRailExpanded ? <PanelRightClose size={18} aria-hidden="true" /> : <PanelRightOpen size={18} aria-hidden="true" />}
+                  <span>{l('收起侧栏', 'Collapse sidebar')}</span>
+                </button>
                 {editorPanels.map(panel => {
                   const Icon = panel === 'style' ? Captions : panel === 'voice' ? Mic2 : MonitorPlay;
                   return <button key={panel} type="button" aria-expanded={editorPanel === panel}
+                    aria-label={editorPanelLabel(panel)} title={editorPanelLabel(panel)}
                     disabled={props.editorSettings?.disabled}
                     aria-controls="subtitle-editor-settings-panel" onClick={() => {
                       if (subtitleVideoRef.current && !subtitleVideoRef.current.paused) subtitleVideoRef.current.pause();
