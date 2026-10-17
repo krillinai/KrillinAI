@@ -161,9 +161,17 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByRole('combobox', { name: '字幕大小' })).toHaveValue('large');
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
     fireEvent.click(screen.getByRole('button', { name: '返回 V1 成品' }));
+    expect(screen.queryByRole('button', { name: /生成 V2/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '深度编辑' }).closest('.video-result-toolbar-actions')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
     fireEvent.click(screen.getByRole('button', { name: '生成 V2' }));
     expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+    expect(screen.getByRole('button', { name: '确认生成 V2' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '返回项目' }));
+    expect(screen.queryByRole('button', { name: /生成 V2|取消/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    expect(screen.queryByRole('button', { name: '确认生成 V2' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '生成 V2' }));
     fireEvent.click(screen.getByRole('button', { name: '确认生成 V2' }));
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'run-stage', input: {
       stageId: 'tts', workflow: true, baseResultVersion: 1, inputResultVersion: 1

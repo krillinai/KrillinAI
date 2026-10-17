@@ -4053,6 +4053,7 @@ export default function VideoTranslationWorkspace(props: {
                   setResultTab('subtitles');
                 } else {
                   setSubtitleAssistantOpen(false);
+                  setResultProposal(undefined);
                   setResultTab(selectedSubtitleOnly ? 'subtitles' : 'video');
                 }
               }}

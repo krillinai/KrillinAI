@@ -15169,34 +15169,6 @@
   width: min(300px, 100%);
 }
 
-.video-result-preview-actions {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  max-width: 720px;
-}
-
-.video-result-preview-actions > button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 7px 11px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.video-result-preview-actions > button:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-2);
-  color: var(--text);
-}
-
 .video-result-subtitle-preview-layout {
   display: grid;
   grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);

@@ -57,6 +57,39 @@ function EditingHarness(props: { preview?: boolean; readOnly?: boolean; saving?:
 }
 
 describe('VideoTranslationResultWorkspace', () => {
+  it.each([false, true])('offers editing in the overview toolbar and reserves generation for the editor when confirming is %s', regenerationPending => {
+    const onImmersiveChange = vi.fn(), onRequestRegenerate = vi.fn(), onConfirmRegenerate = vi.fn();
+    const props = { ...baseProps, hasPendingChanges: true, regenerationPending,
+      onImmersiveChange, onRequestRegenerate, onConfirmRegenerate };
+    const { rerender } = render(<VideoTranslationResultWorkspace {...props} activeTab="video" />);
+    const expectEditingOnly = () => {
+      const edit = screen.getByRole('button', { name: '深度编辑' });
+      expect(edit.closest('.video-result-toolbar-actions')).not.toBeNull();
+      expect(screen.queryByRole('button', { name: /生成 V2|取消/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: '生成新版本' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: '确认生成新版本' })).not.toBeInTheDocument();
+    };
+    expectEditingOnly();
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="video"
+      videoOutputs={[{ artifactId: 'final-video', variant: 'horizontal', artifactVersion: 1, src: 'blob:final' }]} />);
+    expectEditingOnly();
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="settings" />);
+    expectEditingOnly();
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    expect(onImmersiveChange).toHaveBeenCalledWith(true);
+    expect(onRequestRegenerate).not.toHaveBeenCalled();
+    expect(onConfirmRegenerate).not.toHaveBeenCalled();
+
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="subtitles" immersive />);
+    expect(screen.getByRole('button', { name: regenerationPending ? '确认生成 V2' : '生成 V2' }).closest('header')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: '深度编辑' })).not.toBeInTheDocument();
+  });
+
+  it('keeps generation available in the subtitle-only workspace', () => {
+    render(<VideoTranslationResultWorkspace {...baseProps} subtitleOnly activeTab="subtitles" hasPendingChanges />);
+    expect(screen.getByRole('button', { name: '生成 V2' }).closest('.video-result-toolbar-actions')).not.toBeNull();
+  });
+
   it('opens shared editor settings without replacing the player and keeps explicit regeneration available', () => {
     const onOpen = vi.fn(), onRequest = vi.fn(), onImmersiveChange = vi.fn();
     const settings = { style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>,

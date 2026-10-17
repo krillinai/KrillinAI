@@ -398,8 +398,8 @@ export default function VideoTranslationResultWorkspace(props: {
     </div>
   ) : null;
 
-  const previewEditingAction = activeSubtitleOutput && props.onImmersiveChange ? (
-    <div className="video-result-preview-actions">
+  const editingAction = !props.immersive && activeSubtitleOutput && props.onImmersiveChange ? (
+    <div className="video-result-pane-actions">
       <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
         <Maximize2 size={15} aria-hidden="true" />{l('深度编辑', 'Advanced editing')}
       </button>
@@ -548,7 +548,7 @@ export default function VideoTranslationResultWorkspace(props: {
             versions={props.versions}
             onVersionChange={props.onVersionChange}
           />
-          {!props.immersive ? regenerationControls : null}
+          {!props.immersive ? props.subtitleOnly ? regenerationControls : editingAction : null}
         </div>
       </div>
 
@@ -564,7 +564,6 @@ export default function VideoTranslationResultWorkspace(props: {
               {props.videoOutputs.length === 0 && subtitleVideoPreview ? (
                 <section className="video-result-generated-section">
                   <div className="video-result-video-grid">{subtitleVideoPreview}</div>
-                  {previewEditingAction}
                 </section>
               ) : null}
               {props.videoOutputs.length > 0 ? (
@@ -610,7 +609,6 @@ export default function VideoTranslationResultWorkspace(props: {
                       );
                     })}
                   </div>
-                  {previewEditingAction}
                 </section>
               ) : null}
 
@@ -702,7 +700,7 @@ export default function VideoTranslationResultWorkspace(props: {
                 {props.onToggleAssistant ? <button type="button" aria-pressed={props.assistantOpen} onClick={props.onToggleAssistant}>
                   <MessageSquare size={15} />{l('AI 助手', 'AI assistant')}
                 </button> : null}
-              </> : activeSubtitleOutput && props.onImmersiveChange ? <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
+              </> : props.subtitleOnly && activeSubtitleOutput && props.onImmersiveChange ? <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
                 <Maximize2 size={15} />{l('深度编辑', 'Advanced editing')}
               </button> : null}
               {props.immersive && !props.subtitleDownloads?.length && activeSubtitleOutput ? <button type="button" className="subtitle-editor-export"
