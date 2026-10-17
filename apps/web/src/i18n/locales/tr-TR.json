@@ -3333,5 +3333,6 @@
   "Customize": "Özelleştir",
   "Save as template": "Şablon olarak kaydet",
   "Customize subtitle style": "Altyazı stilini özelleştir",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Henüz kayıtlı stil yok. Özelleştir bölümünde bir stili düzenleyip Şablon olarak kaydet seçeneğini seçin."
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Henüz kayıtlı stil yok. Özelleştir bölümünde bir stili düzenleyip Şablon olarak kaydet seçeneğini seçin.",
+  "Agent Mode": "Agent Modu"
 }

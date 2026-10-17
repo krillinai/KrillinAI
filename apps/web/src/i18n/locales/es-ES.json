@@ -3333,5 +3333,6 @@
   "Customize": "Personalizar",
   "Save as template": "Guardar como plantilla",
   "Customize subtitle style": "Personalizar estilo de subtítulos",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Aún no hay estilos guardados. Ajusta un estilo en Personalizar y luego elige Guardar como plantilla."
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Aún no hay estilos guardados. Ajusta un estilo en Personalizar y luego elige Guardar como plantilla.",
+  "Agent Mode": "Modo Agent"
 }

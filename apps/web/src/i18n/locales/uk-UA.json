@@ -3333,5 +3333,6 @@
   "Customize": "Налаштувати",
   "Save as template": "Зберегти як шаблон",
   "Customize subtitle style": "Налаштувати стиль субтитрів",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Збережених стилів ще немає. Змініть стиль через «Налаштувати», а потім виберіть «Зберегти як шаблон»."
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Збережених стилів ще немає. Змініть стиль через «Налаштувати», а потім виберіть «Зберегти як шаблон».",
+  "Agent Mode": "Режим Agent"
 }

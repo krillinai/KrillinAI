@@ -6,7 +6,7 @@ import { openCreatorLanguages } from '@opencreator/protocol';
 describe('additional language catalogs', () => {
   it('covers immersive subtitle editing controls in every client language', () => {
     for (const [language, catalog] of Object.entries(additionalLanguageCatalogs)) {
-      for (const key of ['Back to project', 'Subtitle editor', 'Undo', 'Redo', 'AI assistant', 'Advanced editing',
+      for (const key of ['Back to project', 'Subtitle editor', 'Undo', 'Redo', 'Agent Mode', 'Advanced editing',
         'Export subtitles', 'Resize subtitles and preview', 'Time', 'Original text', 'Done',
         'Current version', 'Adjusting from V{{0}}', 'Presets', 'My styles', 'Customize',
         'Save as template', 'Customize subtitle style',

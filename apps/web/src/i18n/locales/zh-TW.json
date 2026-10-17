@@ -3333,5 +3333,6 @@
   "Customize": "自訂樣式",
   "Save as template": "另存為範本",
   "Customize subtitle style": "自訂字幕樣式",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "還沒有儲存的樣式。在自訂樣式裡調整後點「另存為範本」。"
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "還沒有儲存的樣式。在自訂樣式裡調整後點「另存為範本」。",
+  "Agent Mode": "Agent 模式"
 }

@@ -777,7 +777,7 @@ export default function VideoTranslationResultWorkspace(props: {
                   <button type="button" aria-label={l('重做', 'Redo')} title={l('重做', 'Redo')} disabled={editReadOnly || !currentHistory?.future.length} onClick={() => travelHistory('future')}><Redo2 size={16} /></button>
                 </div>
                 {props.onToggleAssistant ? <button type="button" aria-pressed={props.assistantOpen} onClick={props.onToggleAssistant}>
-                  <MessageSquare size={15} />{l('AI 助手', 'AI assistant')}
+                  <MessageSquare size={15} />{l('Agent 模式', 'Agent Mode')}
                 </button> : null}
               </> : props.subtitleOnly && activeSubtitleOutput && props.onImmersiveChange ? <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
                 <Maximize2 size={15} />{l('深度编辑', 'Advanced editing')}

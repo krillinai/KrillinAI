@@ -3333,5 +3333,6 @@
   "Customize": "ปรับแต่ง",
   "Save as template": "บันทึกเป็นเทมเพลต",
   "Customize subtitle style": "ปรับแต่งสไตล์คำบรรยาย",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "ยังไม่มีสไตล์ที่บันทึกไว้ ปรับสไตล์ในปรับแต่ง แล้วเลือกบันทึกเป็นเทมเพลต"
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "ยังไม่มีสไตล์ที่บันทึกไว้ ปรับสไตล์ในปรับแต่ง แล้วเลือกบันทึกเป็นเทมเพลต",
+  "Agent Mode": "โหมด Agent"
 }

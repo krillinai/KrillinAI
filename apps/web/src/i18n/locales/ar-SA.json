@@ -3333,5 +3333,6 @@
   "Customize": "تخصيص",
   "Save as template": "حفظ كقالب",
   "Customize subtitle style": "تخصيص نمط الترجمة",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "لا توجد أنماط محفوظة بعد. عدّل النمط في «تخصيص»، ثم اختر «حفظ كقالب»."
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "لا توجد أنماط محفوظة بعد. عدّل النمط في «تخصيص»، ثم اختر «حفظ كقالب».",
+  "Agent Mode": "وضع Agent"
 }

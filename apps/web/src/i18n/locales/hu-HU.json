@@ -3333,5 +3333,6 @@
   "Customize": "Testreszabás",
   "Save as template": "Mentés sablonként",
   "Customize subtitle style": "Feliratstílus testreszabása",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Még nincsenek mentett stílusok. Módosíts egy stílust a Testreszabás alatt, majd válaszd a Mentés sablonként lehetőséget."
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Még nincsenek mentett stílusok. Módosíts egy stílust a Testreszabás alatt, majd válaszd a Mentés sablonként lehetőséget.",
+  "Agent Mode": "Agent mód"
 }

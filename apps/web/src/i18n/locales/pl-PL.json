@@ -3333,5 +3333,6 @@
   "Customize": "Dostosuj",
   "Save as template": "Zapisz jako szablon",
   "Customize subtitle style": "Dostosuj styl napisów",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Nie ma jeszcze zapisanych stylów. Zmień styl w Dostosuj, a następnie wybierz Zapisz jako szablon."
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Nie ma jeszcze zapisanych stylów. Zmień styl w Dostosuj, a następnie wybierz Zapisz jako szablon.",
+  "Agent Mode": "Tryb Agent"
 }

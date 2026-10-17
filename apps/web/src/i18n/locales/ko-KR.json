@@ -3333,5 +3333,6 @@
   "Customize": "사용자 지정",
   "Save as template": "템플릿으로 저장",
   "Customize subtitle style": "자막 스타일 사용자 지정",
-  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "저장된 스타일이 없습니다. 사용자 지정에서 스타일을 조정한 다음 템플릿으로 저장을 선택하세요."
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "저장된 스타일이 없습니다. 사용자 지정에서 스타일을 조정한 다음 템플릿으로 저장을 선택하세요.",
+  "Agent Mode": "Agent 모드"
 }
