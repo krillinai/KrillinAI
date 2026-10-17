@@ -513,7 +513,7 @@ export default function VideoTranslationResultWorkspace(props: {
       }}>
       <div className="video-result-toolbar">
         <div className="video-result-tabs" role="tablist" aria-label={l('产出物类型', 'Output types')}>
-          {resultTabs.filter(tab => !props.subtitleOnly || tab.value === 'subtitles' || tab.value === 'settings').map(tab => {
+          {resultTabs.filter(tab => tab.value === 'settings' || tab.value === (props.subtitleOnly ? 'subtitles' : 'video')).map(tab => {
             const Icon = tab.icon;
             return (
               <button
@@ -525,7 +525,7 @@ export default function VideoTranslationResultWorkspace(props: {
               >
                 <Icon size={15} strokeWidth={1.8} aria-hidden="true" />
                 {localizeResultTab(tab.label, l)}
-                {tab.value === 'subtitles' && hasSubtitleDrafts ? (
+                {tab.value === (props.subtitleOnly ? 'subtitles' : 'video') && hasSubtitleDrafts ? (
                   <span className="video-result-unsaved" aria-label={l('有未保存的字幕修改', 'Unsaved subtitle changes')} />
                 ) : null}
               </button>
