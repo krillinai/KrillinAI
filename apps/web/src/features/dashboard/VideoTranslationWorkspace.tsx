@@ -21,7 +21,6 @@ import {
   Languages,
   Mic2,
   MonitorPlay,
-  Play,
   Pencil,
   Plus,
   RotateCcw,
@@ -3357,42 +3356,6 @@ export default function VideoTranslationWorkspace(props: {
     }
   }
 
-  function renderTaskControlButton() {
-    if (activeStage !== undefined) {
-      const cancelRequested = activeStage.progress.cancelRequested === true;
-      return (
-        <button
-          className="video-translation-primary-action"
-          data-intent="danger"
-          type="button"
-          disabled={taskControlPending !== undefined || cancelRequested}
-          onClick={requestCancelTask}
-        >
-          <Square size={16} fill="currentColor" aria-hidden="true" />
-          {taskControlPending === 'canceling' || cancelRequested
-            ? l('正在终止...', 'Stopping...')
-            : l('终止任务', 'Stop task')}
-        </button>
-      );
-    }
-    if (resumableStage !== undefined) {
-      return (
-        <button
-          className="video-translation-primary-action"
-          type="button"
-          disabled={taskControlPending !== undefined}
-          onClick={() => void resumeTask()}
-        >
-          <Play size={16} strokeWidth={1.9} aria-hidden="true" />
-          {taskControlPending === 'resuming'
-            ? l('正在继续...', 'Resuming...')
-            : l('继续任务', 'Resume task')}
-        </button>
-      );
-    }
-    return null;
-  }
-
   async function saveSubtitles(variant: SubtitleResultVariant) {
     if (creatorSession === null || selectedResult === undefined) {
       setResultNotice(l('当前项目版本没有可编辑的真实字幕产物', 'This project version has no editable subtitle artifact.'));
@@ -4256,6 +4219,7 @@ export default function VideoTranslationWorkspace(props: {
 
         {workspacePhase === 'configure' ? (
         <div className="video-translation-actions-stack">
+        {activeStage === undefined && resumableStage === undefined ? (
         <footer className="video-translation-wizard-actions">
           {currentStep > 0 ? (
             <button className="video-translation-secondary-action" type="button" onClick={() => setCurrentStep((currentStep - 1) as WizardStep)}>
@@ -4263,9 +4227,7 @@ export default function VideoTranslationWorkspace(props: {
               {l('上一步', 'Back')}
             </button>
           ) : <span />}
-          {activeStage !== undefined || resumableStage !== undefined ? (
-            renderTaskControlButton()
-          ) : currentStep === 0 ? (
+          {currentStep === 0 ? (
             <div className="video-translation-action-group">
               {attemptedContinue && !hasSource ? (
                 <p className="video-translation-error" role="alert">{subtitleOnly ? l('请先添加需要翻译的 SRT 字幕', 'Add an SRT file to translate first') : l('请先添加需要翻译的视频', 'Add a video to translate first')}</p>
@@ -4296,6 +4258,7 @@ export default function VideoTranslationWorkspace(props: {
             </button>
           )}
         </footer>
+        ) : null}
         {resultNotice && !runIssueMessage ? (
           <div className="video-translation-run-notice" role="status">{resultNotice}</div>
         ) : null}

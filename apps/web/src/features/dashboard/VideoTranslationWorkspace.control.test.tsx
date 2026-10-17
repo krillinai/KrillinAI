@@ -1729,6 +1729,43 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByRole('tab', { name: '任务设置' })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it.each(['queued', 'running', 'canceled', 'interrupted'] as const)(
+    'keeps task controls in the collaboration panel across configuration steps when %s',
+    async status => {
+      const resumable = status === 'canceled' || status === 'interrupted';
+      const previewStage = {
+        ...stage({ id: 'preview_stage', status, dispatchStatus: resumable ? 'finished' : status === 'queued' ? 'queued' : 'claimed', progress: {} }),
+        stageId: 'preview-source-video'
+      };
+      const initialJob = job({
+        status: resumable ? 'canceled' : 'running', revision: 1, stages: [previewStage],
+        state: { currentStep: 0, furthestStep: 2 }
+      });
+      const applyAction = vi.fn(async () => ({ job: initialJob }));
+      const resumeJob = vi.fn(async () => ({ job: initialJob, stage: previewStage, control: 'resumed' }));
+      render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={initialJob}
+        service={{ applyAction, resumeJob, runAgentTurn: vi.fn() } as never}>
+        <VideoTranslationWorkspace onBack={vi.fn()} />
+      </CreatorSessionProvider></LanguageProvider>);
+
+      const workspace = screen.getByRole('region', { name: '视频翻译操作区' });
+      const taskButton = await screen.findByRole('button', { name: `${resumable ? '继续' : '终止'}原视频预览准备` });
+      expect(workspace).not.toContainElement(taskButton);
+      for (const step of [0, 1, 2]) {
+        fireEvent.click(within(workspace).getByRole('navigation', { name: '翻译流程' }).querySelectorAll('button')[step]!);
+        expect(workspace).toHaveAttribute('data-phase', 'configure');
+        expect(workspace).toHaveAttribute('data-step', String(step));
+        expect(within(workspace).queryByRole('button', { name: /继续任务|正在继续|终止任务|正在终止|开始翻译/ })).not.toBeInTheDocument();
+        expect(workspace.querySelector('.video-translation-wizard-actions')).toBeNull();
+        expect(taskButton).toBeEnabled();
+      }
+      if (resumable) {
+        fireEvent.click(taskButton);
+        await waitFor(() => expect(resumeJob).toHaveBeenCalledWith('job_control'));
+      }
+    }
+  );
+
   it('confirms cancellation and resumes from the canceled stage', async () => {
     const runningStage = stage({
       id: 'stage_subtitle_1',
