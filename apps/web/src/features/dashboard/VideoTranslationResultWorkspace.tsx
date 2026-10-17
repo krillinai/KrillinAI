@@ -2,7 +2,8 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties
+  type CSSProperties,
+  type ReactNode
 } from 'react';
 import {
   Captions,
@@ -17,6 +18,7 @@ import {
   RotateCcw,
   Save,
   Settings2,
+  X,
   Redo2,
   Undo2
 } from 'lucide-react';
@@ -119,6 +121,8 @@ export default function VideoTranslationResultWorkspace(props: {
   subtitleSavePending?: boolean;
   immersive?: boolean;
   assistantOpen?: boolean;
+  editorSettings?: { style: ReactNode; voice: ReactNode; disabled: boolean; onOpen(): void };
+  renderSubtitlePreview?(cues: SubtitleCue[], width: number, height: number): ReactNode;
   onImmersiveChange?(value: boolean): void;
   onToggleAssistant?(): void;
   onSubtitleCuesChange?(variant: SubtitleResultVariant, cues: SubtitleCue[]): void;
@@ -147,6 +151,10 @@ export default function VideoTranslationResultWorkspace(props: {
   const [subtitlePlaybackTime, setSubtitlePlaybackTime] = useState(0);
   const [subtitleDuration, setSubtitleDuration] = useState(0);
   const [subtitlePlaying, setSubtitlePlaying] = useState(false);
+  const [editorPanel, setEditorPanel] = useState<'style' | 'voice'>();
+  const [subtitleVideoSize, setSubtitleVideoSize] = useState({ width: 16, height: 9 });
+  const [auditionVoice, setAuditionVoice] = useState(false);
+  const [voicePlaybackFailed, setVoicePlaybackFailed] = useState(false);
   const [selectedCueId, setSelectedCueId] = useState<number>();
   const [editorWidth, setEditorWidth] = useState(60);
   const [, setHistoryRevision] = useState(0);
@@ -156,6 +164,7 @@ export default function VideoTranslationResultWorkspace(props: {
   const immersiveButtonRef = useRef<HTMLButtonElement>(null);
   const returnButtonRef = useRef<HTMLButtonElement>(null);
   const subtitleVideoRef = useRef<HTMLVideoElement>(null);
+  const subtitleAudioRef = useRef<HTMLAudioElement>(null);
   const subtitleCueRefs = useRef(new Map<number, HTMLElement>());
   const activeSubtitleVariant = availableSubtitleVariants.includes(selectedSubtitleVariant)
     ? selectedSubtitleVariant
@@ -215,6 +224,28 @@ export default function VideoTranslationResultWorkspace(props: {
     setSelectedCueId(undefined);
   }, [activeSubtitleVariant, activeSubtitleVideo?.src, props.version]);
 
+  useEffect(() => { setAuditionVoice(false); setVoicePlaybackFailed(false); }, [props.voiceOutput?.src, props.version]);
+
+  useEffect(() => {
+    const video = subtitleVideoRef.current;
+    if (!props.immersive || !auditionVoice || !props.voiceOutput?.src || !video) return;
+    const muted = video.muted;
+    video.muted = true;
+    return () => { video.muted = muted; };
+  }, [props.immersive, auditionVoice, props.voiceOutput?.src, activeSubtitleVideo?.src, activeSubtitleVariant, props.version]);
+
+  useEffect(() => {
+    const audio = subtitleAudioRef.current;
+    if (!audio) return;
+    let active = true;
+    if (props.immersive && auditionVoice && subtitlePlaying) {
+      audio.currentTime = subtitleVideoRef.current?.currentTime ?? 0;
+      audio.playbackRate = subtitleVideoRef.current?.playbackRate ?? 1;
+      void audio.play().catch(() => { if (active) { setVoicePlaybackFailed(true); setAuditionVoice(false); } });
+    } else audio.pause();
+    return () => { active = false; audio.pause(); };
+  }, [props.immersive, auditionVoice, subtitlePlaying, props.voiceOutput?.src, activeSubtitleVideo?.src, activeSubtitleVariant, props.version]);
+
   useEffect(() => {
     if (!props.immersive) return;
     returnButtonRef.current?.focus();
@@ -254,7 +285,15 @@ export default function VideoTranslationResultWorkspace(props: {
   function seekSubtitle(time: number) {
     if (!Number.isFinite(time)) return;
     if (subtitleVideoRef.current !== null) subtitleVideoRef.current.currentTime = Math.min(time, subtitleDuration || time);
+    syncVoiceTime(time, true);
     setSubtitlePlaybackTime(time);
+  }
+
+  function syncVoiceTime(time: number, force = false) {
+    const audio = subtitleAudioRef.current;
+    if (audio && (force || auditionVoice) && Math.abs(audio.currentTime - time) > .25) {
+      audio.currentTime = Math.min(time, Number.isFinite(audio.duration) ? audio.duration : time);
+    }
   }
 
   function replaceCues(cues: SubtitleCue[]) {
@@ -516,7 +555,20 @@ export default function VideoTranslationResultWorkspace(props: {
           {activeSubtitleOutput !== undefined ? (
             <div className="video-result-subtitle-preview-layout" ref={previewLayoutRef} data-subtitle-only={props.subtitleOnly || undefined}
               style={props.immersive ? { '--subtitle-editor-width': `${editorWidth}%` } as CSSProperties : undefined}>
-              {!props.subtitleOnly ? <section className="video-result-subtitle-video" aria-label={l('同步视频预览', 'Synchronized video preview')}>
+              {!props.subtitleOnly ? <section className="video-result-subtitle-video" data-settings-open={Boolean(props.immersive && editorPanel)} aria-label={l('同步视频预览', 'Synchronized video preview')}>
+                {props.immersive && props.editorSettings ? <div className="subtitle-editor-settings-nav" role="group" aria-label={l('项目设置', 'Project settings')}>
+                  {(['style', 'voice'] as const).map(panel => <button key={panel} type="button" aria-expanded={editorPanel === panel}
+                    aria-controls="subtitle-editor-settings-panel" onClick={() => { props.editorSettings?.onOpen(); setEditorPanel(current => current === panel ? undefined : panel); }}>
+                    {panel === 'style' ? <Captions size={15} /> : <Mic2 size={15} />}
+                    {panel === 'style' ? l('字幕样式', 'Subtitle style') : l('配音', 'Dubbing')}
+                  </button>)}
+                  {props.voiceOutput?.src ? <button type="button" className="subtitle-editor-voice-toggle" aria-pressed={auditionVoice}
+                    title={l('目标语言配音试听', 'Target-language dubbing preview')} aria-label={l('目标语言配音试听', 'Target-language dubbing preview')}
+                    onClick={() => { setVoicePlaybackFailed(false); setAuditionVoice(value => !value); }}><Mic2 size={15} /></button> : null}
+                </div> : null}
+                {props.immersive && props.voiceOutput?.src ? <audio ref={subtitleAudioRef} src={props.voiceOutput.src} preload="metadata" hidden
+                  onLoadedMetadata={() => syncVoiceTime(subtitlePlaybackTime, true)}
+                  onError={() => { setVoicePlaybackFailed(true); setAuditionVoice(false); }} /> : null}
                 <div
                   className="video-result-player-frame"
                   data-ratio={activeSubtitleOutput.variant === 'vertical' ? '9:16' : '16:9'}
@@ -530,19 +582,22 @@ export default function VideoTranslationResultWorkspace(props: {
                         src={activeSubtitleVideo.src}
                         controls
                         preload="metadata"
-                        onLoadedMetadata={event => { setSubtitlePlaybackTime(event.currentTarget.currentTime); setSubtitleDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0); }}
+                        onLoadedMetadata={event => { setSubtitlePlaybackTime(event.currentTarget.currentTime); setSubtitleDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0); setSubtitleVideoSize({ width: event.currentTarget.videoWidth || 16, height: event.currentTarget.videoHeight || 9 }); }}
                         onDurationChange={event => setSubtitleDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
                         onPlay={() => setSubtitlePlaying(true)}
                         onPause={() => setSubtitlePlaying(false)}
                         onEnded={() => setSubtitlePlaying(false)}
-                        onSeeked={event => setSubtitlePlaybackTime(event.currentTarget.currentTime)}
-                        onTimeUpdate={event => setSubtitlePlaybackTime(event.currentTarget.currentTime)}
+                        onRateChange={event => { if (subtitleAudioRef.current) subtitleAudioRef.current.playbackRate = event.currentTarget.playbackRate; }}
+                        onSeeked={event => { setSubtitlePlaybackTime(event.currentTarget.currentTime); syncVoiceTime(event.currentTarget.currentTime, true); }}
+                        onTimeUpdate={event => { setSubtitlePlaybackTime(event.currentTarget.currentTime); syncVoiceTime(event.currentTarget.currentTime); }}
                         aria-label={l(
                           `${subtitleVariantLabel(activeSubtitleOutput.variant, l)}视频预览`,
                           `${subtitleVariantLabel(activeSubtitleOutput.variant, l)} video preview`
                         )}
                       />
-                      {activeSubtitleCues.length > 0 ? (
+                      {activeSubtitleCues.length > 0 && props.immersive && props.renderSubtitlePreview ? <div className="subtitle-editor-styled-overlay">
+                        {props.renderSubtitlePreview(activeSubtitleCues, subtitleVideoSize.width, subtitleVideoSize.height)}
+                      </div> : activeSubtitleCues.length > 0 ? (
                         <div className="video-result-subtitle-overlay" aria-hidden="true">
                           {activeSubtitleCues.map(cue => (
                             <span key={cue.id}>
@@ -589,6 +644,22 @@ export default function VideoTranslationResultWorkspace(props: {
                 {activeSubtitleVideo?.source ? (
                   <small>{l('当前使用原视频同步预览', 'Using the source video for synchronized preview')}</small>
                 ) : null}
+                {props.immersive && props.editorSettings && editorPanel ? <section className="subtitle-editor-settings" id="subtitle-editor-settings-panel"
+                  aria-label={editorPanel === 'style' ? l('字幕样式', 'Subtitle style') : l('配音', 'Dubbing')}>
+                  <header><strong>{editorPanel === 'style' ? l('字幕样式', 'Subtitle style') : l('配音', 'Dubbing')}</strong>
+                    <button type="button" aria-label={l('关闭', 'Close')} onClick={() => setEditorPanel(undefined)}><X size={15} /></button></header>
+                  <fieldset disabled={props.editorSettings.disabled}>
+                    {editorPanel === 'style' ? props.editorSettings.style : props.editorSettings.voice}
+                  </fieldset>
+                  {editorPanel === 'voice' && props.voiceOutput ? <div className="subtitle-editor-voice-status">
+                    <span>{props.voiceOutput.fileName ?? l('目标语言配音', 'Target-language dubbing')} · V{props.voiceOutput.artifactVersion}</span>
+                    {props.voiceOutput.previewLoading ? <p role="status">{l('正在加载配音...', 'Loading dubbing...')}</p> : null}
+                    {props.voiceOutput.previewError || voicePlaybackFailed ? <>
+                      <p role="status">{l('配音试听暂时不可用，可直接下载文件。', 'Dubbing preview is unavailable. You can still download the file.')}</p>
+                      <button type="button" onClick={props.onReloadVoice}>{l('重新加载配音', 'Reload dubbing')}</button>
+                    </> : null}
+                  </div> : null}
+                </section> : null}
               </section> : null}
 
               {props.immersive && !props.subtitleOnly ? <div className="subtitle-editor-divider" role="separator" aria-orientation="vertical" tabIndex={0}
@@ -704,6 +775,7 @@ export default function VideoTranslationResultWorkspace(props: {
           {props.immersive && activeSubtitleOutput ? <SubtitleTimeline
             key={`${props.version}-${activeSubtitleVariant}`}
             cues={activeSubtitleOutput.cues} src={activeSubtitleVideo?.src}
+            voiceSrc={props.voiceOutput?.src}
             currentTime={subtitlePlaybackTime} duration={subtitleDuration} playing={subtitlePlaying}
             selectedId={selectedCueId} readOnly={editReadOnly || !props.onSubtitleCuesChange}
             onSelect={id => { setSelectedCueId(id); subtitleCueRefs.current.get(id)?.scrollIntoView?.({ block: 'nearest' }); }}
@@ -816,7 +888,7 @@ export default function VideoTranslationResultWorkspace(props: {
         </div>
       ) : null}
 
-      {!props.immersive && (props.hasPendingChanges || props.regenerationPending) ? (
+      {(props.hasPendingChanges || props.regenerationPending) ? (
         <div
           className="video-result-regenerate"
           data-confirming={props.regenerationPending}
@@ -825,7 +897,7 @@ export default function VideoTranslationResultWorkspace(props: {
         >
           {props.regenerationPending ? (
             <>
-              <span className="app-visually-hidden">
+              <span className={props.immersive ? 'subtitle-editor-regenerate-summary' : 'app-visually-hidden'}>
                 {l(
                   `将更新${props.affectedArtifacts.join('、')}，V${props.version} 的全部产出会保留`,
                   `Will update ${props.affectedArtifacts.join(', ')}. All V${props.version} outputs will be preserved`
@@ -833,11 +905,11 @@ export default function VideoTranslationResultWorkspace(props: {
               </span>
               <div className="video-result-regenerate-actions">
                 <button type="button" onClick={props.onCancelRegenerate}>{l('取消', 'Cancel')}</button>
-                <button type="button" onClick={props.onConfirmRegenerate}>{l(`确认生成 V${props.nextVersion}`, `Confirm and generate V${props.nextVersion}`)}</button>
+                <button type="button" disabled={props.subtitleSavePending || props.editorSettings?.disabled} onClick={props.onConfirmRegenerate}>{l(`确认生成 V${props.nextVersion}`, `Confirm and generate V${props.nextVersion}`)}</button>
               </div>
             </>
           ) : (
-            <button type="button" onClick={props.onRequestRegenerate}>
+            <button type="button" disabled={props.subtitleSavePending || props.editorSettings?.disabled} onClick={props.onRequestRegenerate}>
               {props.subtitleDirty ? l(`保存并生成 V${props.nextVersion}`, `Save and generate V${props.nextVersion}`) : l(`生成 V${props.nextVersion}`, `Generate V${props.nextVersion}`)}
             </button>
           )}

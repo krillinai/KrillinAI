@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import VideoTranslationResultWorkspace, { type SubtitleResultOutput } from './VideoTranslationResultWorkspace.js';
@@ -57,6 +57,78 @@ function EditingHarness(props: { preview?: boolean; readOnly?: boolean; saving?:
 }
 
 describe('VideoTranslationResultWorkspace', () => {
+  it('opens shared editor settings without replacing the player and keeps explicit regeneration available', () => {
+    const onOpen = vi.fn(), onRequest = vi.fn();
+    const settings = { style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>, disabled: false, onOpen };
+    const { rerender } = render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
+      editorSettings={settings} hasPendingChanges onRequestRegenerate={onRequest}
+      subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
+    const video = screen.getByLabelText('横屏字幕视频预览');
+    fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
+    expect(onOpen).toHaveBeenCalledOnce();
+    expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '配音' }));
+    expect(screen.getByText('Shared dubbing settings')).toBeVisible();
+    expect(screen.getByLabelText('横屏字幕视频预览')).toBe(video);
+    fireEvent.click(screen.getByRole('button', { name: '生成 V2' }));
+    expect(onRequest).toHaveBeenCalledOnce();
+    rerender(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
+      editorSettings={{ ...settings, disabled: true }} hasPendingChanges regenerationPending affectedArtifacts={['配音', '成片']}
+      subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
+    expect(screen.getByText('将更新配音、成片，V1 的全部产出会保留')).toBeVisible();
+    expect(screen.getByRole('button', { name: '确认生成 V2' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
+    expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeDisabled();
+  });
+
+  it('synchronizes generated dubbing with the video and restores its original audio on exit', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    try {
+      const props = { ...baseProps, activeTab: 'subtitles' as const, immersive: true,
+        editorSettings: { style: null, voice: null, disabled: false, onOpen: vi.fn() },
+        subtitleVideoPreviews: { horizontal: { artifactId: 'source', src: 'blob:source', source: true } },
+        voiceOutput: { artifactId: 'dub', artifactVersion: 1, src: 'blob:dub' } };
+      const { container, rerender } = render(<VideoTranslationResultWorkspace {...props} />);
+      const video = screen.getByLabelText('横屏字幕视频预览') as HTMLVideoElement;
+      const audio = container.querySelector('audio')!;
+      video.currentTime = 2;
+      fireEvent.click(screen.getByRole('button', { name: '目标语言配音试听' }));
+      expect(video.muted).toBe(true);
+      fireEvent.play(video);
+      expect(play).toHaveBeenCalled();
+      expect(audio.currentTime).toBe(2);
+      video.currentTime = 6;
+      fireEvent.timeUpdate(video);
+      expect(audio.currentTime).toBe(6);
+      fireEvent.pause(video);
+      expect(pause).toHaveBeenCalled();
+      rerender(<VideoTranslationResultWorkspace {...props} immersive={false} />);
+      expect(video.muted).toBe(false);
+      expect(container.querySelector('audio')).toBeNull();
+    } finally { play.mockRestore(); pause.mockRestore(); }
+  });
+
+  it('keeps dubbing selected when pausing intentionally aborts a pending play request', async () => {
+    let rejectPlay!: (error: Error) => void;
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => new Promise((_, reject) => { rejectPlay = reject; }));
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    try {
+      const { unmount } = render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
+        editorSettings={{ style: null, voice: null, disabled: false, onOpen: vi.fn() }}
+        subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }}
+        voiceOutput={{ artifactId: 'dub', artifactVersion: 1, src: 'blob:dub' }} />);
+      const video = screen.getByLabelText('横屏字幕视频预览');
+      const toggle = screen.getByRole('button', { name: '目标语言配音试听' });
+      fireEvent.click(toggle);
+      fireEvent.play(video);
+      fireEvent.pause(video);
+      await act(async () => rejectPlay(new DOMException('Playback paused', 'AbortError')));
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      unmount();
+    } finally { play.mockRestore(); pause.mockRestore(); }
+  });
+
   it('enters and exits immersive editing with the same video element, playhead and draft', () => {
     render(<EditingHarness preview />);
     const video = screen.getByLabelText('横屏字幕视频预览') as HTMLVideoElement;
@@ -79,6 +151,8 @@ describe('VideoTranslationResultWorkspace', () => {
     render(<EditingHarness />);
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
     expect(document.querySelector('video')).toBeNull();
+    expect(screen.queryByRole('button', { name: '字幕样式' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '配音' })).toBeNull();
     expect(screen.getByText('仅字幕时间轴')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: '跳转到 00:00:00,000' }));
     const playhead = screen.getByRole('slider', { name: '播放位置' });

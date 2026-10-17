@@ -6,6 +6,13 @@ import { mergeSubtitle, retimeSubtitle, splitSubtitle, subtitleSeconds, subtitle
 
 const MAX_WAVEFORM_BYTES = 64 * 1024 * 1024;
 
+function waveformSvgPath(peaks: number[]) {
+  return peaks.map((peak, i, all) => {
+    const x = i * 10000 / Math.max(1, all.length - 1);
+    return `M${x.toFixed(1)},${(30 - peak * 28).toFixed(1)}v${(peak * 56).toFixed(1)}`;
+  }).join('');
+}
+
 function useWaveform(src: string | undefined, duration: number) {
   const [result, setResult] = useState<{ src?: string; peaks: number[]; duration: number; status: 'loading' | 'ready' | 'unavailable' }>({ peaks: [], duration: 0, status: 'loading' });
   useEffect(() => {
@@ -52,6 +59,7 @@ function useWaveform(src: string | undefined, duration: number) {
 export default function SubtitleTimeline(props: {
   cues: SubtitleCue[];
   src?: string;
+  voiceSrc?: string;
   currentTime: number;
   duration: number;
   playing: boolean;
@@ -75,7 +83,9 @@ export default function SubtitleTimeline(props: {
   const trackRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const waveform = useWaveform(props.src, props.duration);
-  const duration = Math.max(1, props.duration, waveform.duration, ...props.cues.map(cue => subtitleSeconds(cue.end) || 0));
+  const voiceWaveform = useWaveform(props.voiceSrc, props.duration);
+  const duration = Math.max(1, props.duration, waveform.duration, voiceWaveform.duration, ...props.cues.map(cue => subtitleSeconds(cue.end) || 0));
+  const clipTop = props.voiceSrc ? 150 : 98;
   const selected = props.cues.find(cue => cue.id === props.selectedId);
   const canSplit = selected && props.currentTime - subtitleSeconds(selected.start) >= 0.08
     && subtitleSeconds(selected.end) - props.currentTime >= 0.08;
@@ -90,10 +100,8 @@ export default function SubtitleTimeline(props: {
     return { cue, start, end, lane };
   });
   const tickCount = Math.max(2, Math.round(Math.floor(viewportWidth / 110) * zoom));
-  const waveformPath = useMemo(() => waveform.peaks.map((peak, i, all) => {
-    const x = i * 10000 / Math.max(1, all.length - 1);
-    return `M${x.toFixed(1)},${(30 - peak * 28).toFixed(1)}v${(peak * 56).toFixed(1)}`;
-  }).join(''), [waveform.peaks]);
+  const waveformPath = useMemo(() => waveformSvgPath(waveform.peaks), [waveform.peaks]);
+  const voiceWaveformPath = useMemo(() => waveformSvgPath(voiceWaveform.peaks), [voiceWaveform.peaks]);
 
   useEffect(() => {
     const scroll = scrollRef.current;
@@ -105,6 +113,10 @@ export default function SubtitleTimeline(props: {
   }, [collapsed]);
 
   useEffect(() => { setError(''); }, [props.selectedId]);
+
+  useEffect(() => {
+    if (props.voiceSrc) setHeight(value => Math.max(value, Math.min(280, window.innerHeight * .5)));
+  }, [props.voiceSrc]);
 
   useEffect(() => {
     if (scrub.current || !props.playing || !scrollRef.current || !trackRef.current) return;
@@ -223,7 +235,7 @@ export default function SubtitleTimeline(props: {
     </div>
     {error ? <p className="subtitle-timeline-error" role="alert">{error}</p> : null}
     {!collapsed ? <div className="subtitle-timeline-scroll" ref={scrollRef} dir="ltr">
-      <div className="subtitle-timeline-track" ref={trackRef} style={{ width: `${zoom * 100}%`, minHeight: `${105 + Math.max(1, lanes.length) * 40}px` }}>
+      <div className="subtitle-timeline-track" ref={trackRef} style={{ width: `${zoom * 100}%`, minHeight: `${clipTop + 7 + Math.max(1, lanes.length) * 40}px` }}>
         <div className="subtitle-timeline-seek" role="slider" tabIndex={0} aria-label={l('播放位置', 'Playback position')}
           aria-valuemin={0} aria-valuemax={duration} aria-valuenow={props.currentTime} aria-valuetext={subtitleTimestamp(props.currentTime)}
           aria-keyshortcuts={props.src ? 'Space Enter ArrowLeft ArrowRight Home End' : 'ArrowLeft ArrowRight Home End'}
@@ -244,9 +256,18 @@ export default function SubtitleTimeline(props: {
               : l('无法生成此媒体的波形，仍可调整字幕时间。', 'Waveform unavailable for this media. Subtitle timing is still editable.')}
           </span> : null}
         </div>
+        {props.voiceSrc ? <div className="subtitle-timeline-voice" role="slider" tabIndex={0} aria-label={l('目标语言配音试听', 'Target-language dubbing preview')}
+          aria-valuemin={0} aria-valuemax={duration} aria-valuenow={props.currentTime} aria-valuetext={subtitleTimestamp(props.currentTime)}
+          onPointerDown={beginScrub} onPointerMove={event => { if (scrub.current?.pointerId === event.pointerId) props.onSeek(pointTime(event.clientX)); }}
+          onPointerUp={event => finishScrub(event, true)} onPointerCancel={event => finishScrub(event)} onLostPointerCapture={event => finishScrub(event)}
+          onDoubleClick={() => { if (props.src) props.onTogglePlay(); }} onKeyDown={positionKeyDown}>
+          <span>{l('配音', 'Dubbing')}</span>
+          {voiceWaveform.status === 'ready' ? <svg aria-hidden="true" viewBox="0 0 10000 60" preserveAspectRatio="none"
+            style={{ width: `${voiceWaveform.duration / duration * 100}%` }}><path d={voiceWaveformPath} /></svg> : null}
+        </div> : null}
         {positioned.filter(({ start, end }) => Number.isFinite(start) && end > start).map(({ cue, start, end, lane }) => <div key={cue.id}
           className="subtitle-timeline-clip" data-selected={props.selectedId === cue.id} data-active={props.currentTime >= start && props.currentTime < end}
-          style={{ left: `${start / duration * 100}%`, width: `${(end - start) / duration * 100}%`, top: `${98 + lane * 40}px` }}>
+          style={{ left: `${start / duration * 100}%`, width: `${(end - start) / duration * 100}%`, top: `${clipTop + lane * 40}px` }}>
           <button type="button" className="subtitle-timeline-clip-body" title={`${cue.start} – ${cue.end}\n${cue.text}`}
             onFocus={() => props.onSelect(cue.id)} onClick={() => { props.onSelect(cue.id); props.onSeek(start); }}
             onPointerDown={event => beginDrag(event, cue, 'move')} onPointerMove={event => moveDrag(event)} onPointerUp={event => moveDrag(event, true)}

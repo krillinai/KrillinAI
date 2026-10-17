@@ -68,6 +68,7 @@ import {
   type CreatorArtifact,
   type CreatorJson,
   type CreatorResultSnapshot,
+  type CreatorSubtitlePreviewRequest,
   type CreatorTtsProvider,
   type VideoMetadataResponse
 } from '@opencreator/protocol';
@@ -2615,10 +2616,10 @@ export default function VideoTranslationWorkspace(props: {
   const subtitleVideoArtifacts: Partial<Record<SubtitleResultVariant, CreatorArtifact>> = {
     horizontal: selectedSubtitleArtifacts.horizontal === undefined
       ? undefined
-      : selectedVideoArtifacts.horizontal ?? selectedVideoArtifacts.dubbed ?? selectedSourceVideoArtifact,
+      : selectedSourceVideoArtifact ?? selectedVideoArtifacts.horizontal ?? selectedVideoArtifacts.dubbed,
     vertical: selectedSubtitleArtifacts.vertical === undefined
       ? undefined
-      : selectedVideoArtifacts.vertical ?? selectedSourceVideoArtifact
+      : selectedSourceVideoArtifact ?? selectedVideoArtifacts.vertical
   };
   const hasVoiceArtifact = selectedVoiceArtifact !== undefined;
   const [videoPreviews, setVideoPreviews] = useState<Record<string, {
@@ -2685,7 +2686,7 @@ export default function VideoTranslationWorkspace(props: {
   useEffect(() => {
     const { session, localize } = mediaPreviewContextRef.current;
     if (
-      resultTab !== 'voice'
+      (resultTab !== 'voice' && !(subtitleImmersive && resultTab === 'subtitles'))
       || selectedVoiceArtifactId === undefined
       || session === null || !canOpenMediaPreview
     ) {
@@ -2720,7 +2721,7 @@ export default function VideoTranslationWorkspace(props: {
       canceled = true;
       if (objectUrl !== undefined) URL.revokeObjectURL(objectUrl);
     };
-  }, [canOpenMediaPreview, mediaPreviewJobId, resultTab, selectedVoiceArtifactId, voicePreviewReload]);
+  }, [canOpenMediaPreview, mediaPreviewJobId, resultTab, subtitleImmersive, selectedVoiceArtifactId, voicePreviewReload]);
   const selectedResultSource = selectedResult?.source;
   const selectedSubtitleCues = selectedResult?.subtitleCues ?? [];
   const horizontalSubtitleDraftKey = subtitleDraftKey(resultVersion, 'horizontal');
@@ -2728,7 +2729,7 @@ export default function VideoTranslationWorkspace(props: {
   const baseHorizontalSubtitleCues = subtitleCuesWithSource(
     selectedSubtitleCues,
     selectedSourceSubtitleArtifact,
-    selectedSubtitleOnly || selectedResultSettings?.bilingual === true
+    selectedSubtitleOnly || subtitleImmersive || selectedResultSettings?.bilingual === true
   );
   const baseVerticalSubtitleCues = subtitleCuesFromArtifact(selectedVerticalSubtitleArtifact);
   const displayedHorizontalSubtitleCues = subtitleDrafts[horizontalSubtitleDraftKey] ?? baseHorizontalSubtitleCues;
@@ -3455,6 +3456,14 @@ export default function VideoTranslationWorkspace(props: {
     setResultNotice('');
   }
 
+  function prepareEditorSettings() {
+    if (!selectedResult || draftBaseVersion === selectedResult.value) return;
+    applySourceSnapshot(selectedResult.source);
+    applySettingsSnapshot(selectedResult.settings);
+    setDraftBaseVersion(selectedResult.value);
+    setResultProposal(undefined);
+  }
+
   function returnToBaseResult() {
     const version = draftBaseVersion ?? resultVersion;
     setResultVersion(version);
@@ -3508,6 +3517,24 @@ export default function VideoTranslationWorkspace(props: {
     }
   }
 
+  const subtitleRenderStyle: CreatorSubtitlePreviewRequest['subtitleStyle'] = {
+    fontPreset: subtitleFont,
+    fontWeight: subtitleWeight,
+    fontSize: subtitleSize,
+    primaryColor: subtitleColor,
+    secondaryColor: subtitleSecondaryColor,
+    outlineColor: subtitleOutlineColor,
+    outlineWidth: subtitleOutlineWidth,
+    shadow: {
+      enabled: subtitleShadowEnabled,
+      color: subtitleShadowColor,
+      opacity: subtitleShadowOpacity,
+      offsetX: subtitleShadowOffsetX,
+      offsetY: subtitleShadowOffsetY,
+      blur: subtitleShadowBlur
+    }
+  };
+
   const subtitleStylePreview = (
     <div
       className="video-translation-subtitle-preview"
@@ -3549,23 +3576,7 @@ export default function VideoTranslationWorkspace(props: {
             subtitlePosition,
             translationText: l('这是一段译文字幕', 'This is a translated subtitle'),
             originalText: l('这是一段原文字幕', 'This is an original subtitle'),
-            subtitleStyle: {
-              fontPreset: subtitleFont,
-              fontWeight: subtitleWeight,
-              fontSize: subtitleSize,
-              primaryColor: subtitleColor,
-              secondaryColor: subtitleSecondaryColor,
-              outlineColor: subtitleOutlineColor,
-              outlineWidth: subtitleOutlineWidth,
-              shadow: {
-                enabled: subtitleShadowEnabled,
-                color: subtitleShadowColor,
-                opacity: subtitleShadowOpacity,
-                offsetX: subtitleShadowOffsetX,
-                offsetY: subtitleShadowOffsetY,
-                blur: subtitleShadowBlur
-              }
-            }
+            subtitleStyle: subtitleRenderStyle
           }}
         />
       </div>
@@ -3680,6 +3691,232 @@ export default function VideoTranslationWorkspace(props: {
     </>
   );
 
+  const subtitleLayoutControls = (
+    <>
+      <Switch
+        checked={bilingual}
+        label={l('双语字幕', 'Bilingual subtitles')}
+        description={l('同时保留原文和译文', 'Keep both the original and translated text')}
+        onChange={value => {
+          setBilingual(value);
+        }}
+      />
+      {bilingual ? (
+        <div className="video-translation-inline-setting">
+          <span>{l('译文位置', 'Translation position')}</span>
+          <div role="group" aria-label={l('译文位置', 'Translation position')}>
+            <button type="button" aria-pressed={subtitlePosition === 'top'} onClick={() => setSubtitlePosition('top')}>{l('在上', 'Above')}</button>
+            <button type="button" aria-pressed={subtitlePosition === 'bottom'} onClick={() => setSubtitlePosition('bottom')}>{l('在下', 'Below')}</button>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+
+  const compositionControl = (
+    <div className="video-translation-option-block" data-agent-focus={agentFocus === 'output'}>
+      <div className="video-translation-option-title">
+        <span className="video-translation-option-icon"><MonitorPlay size={17} strokeWidth={1.8} /></span>
+        <Switch
+          checked={composeVideo}
+          label={l('合成字幕视频', 'Render subtitled video')}
+          description={l('将字幕直接嵌入成片', 'Embed subtitles directly in the final video')}
+          onChange={setComposeVideo}
+        />
+      </div>
+    </div>
+  );
+
+  const outputFormatControl = (
+    <label className="video-translation-field video-translation-output-format-inline">
+      <span>{l('输出画幅', 'Output format')}</span>
+      <div className="video-translation-select-wrap">
+        <select
+          aria-label={l('输出画幅', 'Output format')}
+          value={videoFormat}
+          onChange={event => setVideoFormat(event.target.value as VideoFormat)}
+        >
+          {([
+            ['horizontal', '16:9', '横屏'],
+            ['vertical', '9:16', '竖屏'],
+            ['all', '双画幅', '全部']
+          ] as const).map(([value, ratio, label]) => (
+            <option
+              value={value}
+              disabled={sourceOrientation === 'portrait' && value !== 'vertical'}
+              title={sourceOrientation === 'portrait' && value !== 'vertical'
+                ? l('竖屏源视频仅支持竖屏输出', 'Portrait source videos only support portrait output')
+                : undefined}
+              key={value}
+            >
+              {value === 'all' ? l('双画幅', '16:9 + 9:16') : ratio} {localizeFormatLabel(label, l)}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+      </div>
+    </label>
+  );
+
+  const subtitleStyleChoices = (
+    <>
+      <h3 className="video-translation-subtitle-style-title">{l('字幕样式', 'Subtitle style')}</h3>
+      <div className="video-translation-subtitle-style-tabs-row">
+        <div className="video-translation-subtitle-style-tabs" role="tablist" aria-label={l('字幕样式分类', 'Subtitle style groups')}>
+          {([
+            ['recommended', l('推荐', 'Presets')],
+            ['mine', l('我的样式', 'My styles')]
+          ] as const).map(([tab, label]) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              id={`subtitle-style-tab-${tab}`}
+              aria-selected={subtitleStyleTab === tab}
+              aria-controls="subtitle-style-tabpanel"
+              onClick={() => setSubtitleStyleTab(tab)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div
+        id="subtitle-style-tabpanel"
+        className="video-translation-subtitle-presets"
+        role="radiogroup"
+        aria-label={subtitleStyleTab === 'mine' ? l('我的样式', 'My styles') : l('推荐样式', 'Recommended styles')}
+      >
+        {subtitleStyleTab === 'recommended' ? subtitleStylePresets.map(preset => (
+          <button
+            key={preset.id}
+            type="button"
+            role="radio"
+            aria-checked={activeSubtitlePreset?.id === preset.id}
+            className="video-translation-subtitle-preset"
+            onClick={() => applySubtitleStyle(preset.style)}
+          >
+            <SubtitlePresetThumbnail style={preset.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
+            <span>{l(...preset.name)}</span>
+          </button>
+        )) : null}
+        {subtitleStyleTab === 'mine' && savedSubtitleStyles.length === 0 ? (
+          <p className="video-translation-subtitle-presets-empty">
+            {l('还没有保存的样式。在自定义样式里调整后点「另存为模版」。', 'No saved styles yet. Adjust a style in Customize, then choose Save as template.')}
+          </p>
+        ) : null}
+        {subtitleStyleTab === 'mine' ? savedSubtitleStyles.map(saved => (
+          <div key={saved.id} className="video-translation-subtitle-preset-saved">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={activeSavedSubtitleStyle?.id === saved.id}
+              className="video-translation-subtitle-preset"
+              onClick={() => applySubtitleStyle(saved.style)}
+            >
+              <SubtitlePresetThumbnail style={saved.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
+              <span>{saved.name}</span>
+            </button>
+            <div className="video-translation-subtitle-preset-actions">
+              <button
+                type="button"
+                aria-label={l(`编辑模版 ${saved.name}`, `Edit template ${saved.name}`)}
+                title={l('编辑模版', 'Edit template')}
+                aria-haspopup="dialog"
+                onClick={() => openSavedStyleEditor(saved)}
+              >
+                <Pencil size={11} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={l(`删除模版 ${saved.name}`, `Delete template ${saved.name}`)}
+                title={l('删除模版', 'Delete template')}
+                onClick={() => deleteSavedSubtitleStyle(saved.id)}
+              >
+                <X size={12} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        )) : null}
+        <button
+          ref={styleDrawerTriggerRef}
+          type="button"
+          className="video-translation-subtitle-preset"
+          data-custom="true"
+          data-active={activeSubtitlePreset === undefined && activeSavedSubtitleStyle === undefined}
+          aria-haspopup="dialog"
+          aria-expanded={styleDrawerSnapshot !== undefined}
+          onClick={() => setStyleDrawerSnapshot(currentSubtitleStyle)}
+        >
+          {activeSubtitlePreset === undefined && activeSavedSubtitleStyle === undefined ? (
+            <SubtitlePresetThumbnail style={currentSubtitleStyle} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
+          ) : (
+            <span className="video-translation-subtitle-preset-thumb" data-empty="true" aria-hidden="true">
+              <SlidersHorizontal size={18} strokeWidth={1.8} />
+            </span>
+          )}
+          <span>{l('自定义样式', 'Customize')}</span>
+        </button>
+      </div>
+    </>
+  );
+
+  const verticalTitleControls = (
+    videoFormat === 'vertical' || videoFormat === 'all' ? (
+    <div className="video-translation-title-fields">
+      <label className="video-translation-field">
+        <span>{l('竖屏主标题', 'Vertical video title')} <small>{l('选填', 'Optional')}</small></span>
+        <input value={verticalTitle} onChange={event => setVerticalTitle(event.target.value)} placeholder={l('留空将自动生成', 'Leave blank to generate automatically')} />
+      </label>
+      <label className="video-translation-field">
+        <span>{l('竖屏副标题', 'Vertical video subtitle')} <small>{l('选填', 'Optional')}</small></span>
+        <input value={verticalSubtitle} onChange={event => setVerticalSubtitle(event.target.value)} placeholder={l('留空将自动生成', 'Leave blank to generate automatically')} />
+      </label>
+    </div>
+    ) : null
+  );
+
+  const dubbingSettings = (
+    <div className="video-translation-option-block video-translation-dubbing-settings" data-agent-focus={agentFocus === 'dubbing'}>
+      <div className="video-translation-option-title">
+        <span className="video-translation-option-icon"><Mic2 size={17} strokeWidth={1.8} /></span>
+        <Switch
+          checked={dubbing}
+          label={l('生成目标语言配音', 'Generate target-language dubbing')}
+          description={l('匹配翻译后的语速与停顿', 'Match the translated pacing and pauses')}
+          onChange={value => {
+            setDubbing(value);
+          }}
+        />
+      </div>
+      {dubbing ? (
+        <div className="video-translation-option-content video-translation-dubbing-row">
+          {officialSpeech.official ? <OfficialModelField label={l('语音合成模型', 'Speech model')} service={officialSpeech} /> : <div className="video-translation-voice-source">
+            <span>{l('语音服务', 'Speech service')}</span>
+            <div>
+              <strong>{ttsProviderLabel(ttsProvider, l)}</strong>
+              <small>{ttsModel || l('本地语音服务', 'Local speech service')}</small>
+            </div>
+          </div>}
+          <TtsVoicePicker
+            id="video-translation-voice"
+            provider={ttsProvider}
+            model={ttsModel}
+            value={voiceCode}
+            service={props.creatorServicesService ?? null}
+            label={l('配音音色', 'Dubbing voice')}
+            disabled={submitting || activeStage !== undefined}
+            onChange={(voiceId, voice) => {
+              setVoiceCode(voiceId);
+              setVoiceName(voice?.name ?? voiceId);
+            }}
+            onVoiceResolved={voice => setVoiceName(voice.name)}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+
   return (
     <main className="video-translation-page" data-subtitle-immersive={subtitleImmersive && workspacePhase === 'result' && resultTab === 'subtitles' || undefined}
       data-subtitle-assistant={subtitleAssistantOpen || undefined}>
@@ -3777,8 +4014,27 @@ export default function VideoTranslationWorkspace(props: {
               subtitleDirtyByVariant={subtitleDirtyByVariant}
               subtitleSavePending={submitting}
               immersive={subtitleImmersive}
+              editorSettings={!selectedSubtitleOnly ? {
+                style: <>{compositionControl}{composeVideo ? <>{outputFormatControl}{subtitleLayoutControls}{subtitleStyleChoices}{verticalTitleControls}</> : null}</>,
+                voice: <>{!composeVideo ? compositionControl : null}{composeVideo ? dubbingSettings : null}</>,
+                disabled: submitting || activeStage !== undefined,
+                onOpen: prepareEditorSettings
+              } : undefined}
+              renderSubtitlePreview={creatorSession?.openSubtitlePreview ? (cues, width, height) => <VideoTranslationStylePreview
+                render={creatorSession.openSubtitlePreview}
+                input={{
+                  width: Math.max(32, Math.round(960 * width / Math.max(width, height))),
+                  height: Math.max(32, Math.round(960 * height / Math.max(width, height))),
+                  bilingual,
+                  subtitlePosition,
+                  // The preview renderer accepts one plain-text line per language.
+                  translationText: cues.map(cue => cue.text).join(' ').replace(/[{}\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, 128) || ' ',
+                  originalText: cues.map(cue => cue.sourceText ?? '').join(' ').replace(/[{}\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, 128) || ' ',
+                  subtitleStyle: subtitleRenderStyle
+                }}
+              /> : undefined}
               assistantOpen={subtitleAssistantOpen}
-              onImmersiveChange={value => { setSubtitleImmersive(value); if (value) setResultTab('subtitles'); else setSubtitleAssistantOpen(false); }}
+              onImmersiveChange={value => { setSubtitleImmersive(value); if (value) { prepareEditorSettings(); setResultTab('subtitles'); } else setSubtitleAssistantOpen(false); }}
               onToggleAssistant={() => setSubtitleAssistantOpen(value => !value)}
               onSubtitleCuesChange={updateSubtitleCues}
               nextVersion={nextVersion}
@@ -3910,23 +4166,7 @@ export default function VideoTranslationWorkspace(props: {
 
               <div className="video-translation-toggle-list" data-agent-focus={agentFocus === 'subtitles'}>
                 {!subtitleOnly ? <VideoTranslationSubtitleImport sourceLanguage={sourceLanguage} targetLanguage={targetLanguage} disabled={submitting || activeStage !== undefined} /> : null}
-                <Switch
-                  checked={bilingual}
-                  label={l('双语字幕', 'Bilingual subtitles')}
-                  description={l('同时保留原文和译文', 'Keep both the original and translated text')}
-                  onChange={value => {
-                    setBilingual(value);
-                  }}
-                />
-                {bilingual ? (
-                  <div className="video-translation-inline-setting">
-                    <span>{l('译文位置', 'Translation position')}</span>
-                    <div role="group" aria-label={l('译文位置', 'Translation position')}>
-                      <button type="button" aria-pressed={subtitlePosition === 'top'} onClick={() => setSubtitlePosition('top')}>{l('在上', 'Above')}</button>
-                      <button type="button" aria-pressed={subtitlePosition === 'bottom'} onClick={() => setSubtitlePosition('bottom')}>{l('在下', 'Below')}</button>
-                    </div>
-                  </div>
-                ) : null}
+                {subtitleLayoutControls}
                 {!subtitleOnly ? <Switch
                   checked={preferPlatformCaptions && sourceType === 'url'}
                   label={l('优先使用平台字幕', 'Prefer platform subtitles')}
@@ -3941,203 +4181,22 @@ export default function VideoTranslationWorkspace(props: {
           {workspacePhase === 'configure' && currentStep === 2 ? (
             <div className="video-translation-output-settings">
               <section className="video-translation-step-panel video-translation-subtitle-style" aria-label={l('视频与字幕', 'Video & subtitles')}>
-                <div className="video-translation-option-block" data-agent-focus={agentFocus === 'output'}>
-                  <div className="video-translation-option-title">
-                    <span className="video-translation-option-icon"><MonitorPlay size={17} strokeWidth={1.8} /></span>
-                    <Switch
-                      checked={composeVideo}
-                      label={l('合成字幕视频', 'Render subtitled video')}
-                      description={l('将字幕直接嵌入成片', 'Embed subtitles directly in the final video')}
-                      onChange={setComposeVideo}
-                    />
-                  </div>
-                </div>
+                {compositionControl}
                 {composeVideo ? (
                   <>
                     <div className="video-translation-subtitle-style-section">
                       <div className="video-translation-subtitle-style-body">
                       <div className="video-translation-subtitle-style-column">
-                        <label className="video-translation-field video-translation-output-format-inline">
-                          <span>{l('输出画幅', 'Output format')}</span>
-                          <div className="video-translation-select-wrap">
-                            <select
-                              aria-label={l('输出画幅', 'Output format')}
-                              value={videoFormat}
-                              onChange={event => setVideoFormat(event.target.value as VideoFormat)}
-                            >
-                              {([
-                                ['horizontal', '16:9', '横屏'],
-                                ['vertical', '9:16', '竖屏'],
-                                ['all', '双画幅', '全部']
-                              ] as const).map(([value, ratio, label]) => (
-                                <option
-                                  value={value}
-                                  disabled={sourceOrientation === 'portrait' && value !== 'vertical'}
-                                  title={sourceOrientation === 'portrait' && value !== 'vertical'
-                                    ? l('竖屏源视频仅支持竖屏输出', 'Portrait source videos only support portrait output')
-                                    : undefined}
-                                  key={value}
-                                >
-                                  {value === 'all' ? l('双画幅', '16:9 + 9:16') : ratio} {localizeFormatLabel(label, l)}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                          </div>
-                        </label>
+                        {outputFormatControl}
                         {subtitleStylePreview}
                       </div>
                       <div className="video-translation-subtitle-style-column">
-                      <h3 className="video-translation-subtitle-style-title">{l('字幕样式', 'Subtitle style')}</h3>
-                      <div className="video-translation-subtitle-style-tabs-row">
-                        <div className="video-translation-subtitle-style-tabs" role="tablist" aria-label={l('字幕样式分类', 'Subtitle style groups')}>
-                          {([
-                            ['recommended', l('推荐', 'Presets')],
-                            ['mine', l('我的样式', 'My styles')]
-                          ] as const).map(([tab, label]) => (
-                            <button
-                              key={tab}
-                              type="button"
-                              role="tab"
-                              id={`subtitle-style-tab-${tab}`}
-                              aria-selected={subtitleStyleTab === tab}
-                              aria-controls="subtitle-style-tabpanel"
-                              onClick={() => setSubtitleStyleTab(tab)}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div
-                        id="subtitle-style-tabpanel"
-                        className="video-translation-subtitle-presets"
-                        role="radiogroup"
-                        aria-label={subtitleStyleTab === 'mine' ? l('我的样式', 'My styles') : l('推荐样式', 'Recommended styles')}
-                      >
-                        {subtitleStyleTab === 'recommended' ? subtitleStylePresets.map(preset => (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            role="radio"
-                            aria-checked={activeSubtitlePreset?.id === preset.id}
-                            className="video-translation-subtitle-preset"
-                            onClick={() => applySubtitleStyle(preset.style)}
-                          >
-                            <SubtitlePresetThumbnail style={preset.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
-                            <span>{l(...preset.name)}</span>
-                          </button>
-                        )) : null}
-                        {subtitleStyleTab === 'mine' && savedSubtitleStyles.length === 0 ? (
-                          <p className="video-translation-subtitle-presets-empty">
-                            {l('还没有保存的样式。在自定义样式里调整后点「另存为模版」。', 'No saved styles yet. Adjust a style in Customize, then choose Save as template.')}
-                          </p>
-                        ) : null}
-                        {subtitleStyleTab === 'mine' ? savedSubtitleStyles.map(saved => (
-                          <div key={saved.id} className="video-translation-subtitle-preset-saved">
-                            <button
-                              type="button"
-                              role="radio"
-                              aria-checked={activeSavedSubtitleStyle?.id === saved.id}
-                              className="video-translation-subtitle-preset"
-                              onClick={() => applySubtitleStyle(saved.style)}
-                            >
-                              <SubtitlePresetThumbnail style={saved.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
-                              <span>{saved.name}</span>
-                            </button>
-                            <div className="video-translation-subtitle-preset-actions">
-                              <button
-                                type="button"
-                                aria-label={l(`编辑模版 ${saved.name}`, `Edit template ${saved.name}`)}
-                                title={l('编辑模版', 'Edit template')}
-                                aria-haspopup="dialog"
-                                onClick={() => openSavedStyleEditor(saved)}
-                              >
-                                <Pencil size={11} aria-hidden="true" />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={l(`删除模版 ${saved.name}`, `Delete template ${saved.name}`)}
-                                title={l('删除模版', 'Delete template')}
-                                onClick={() => deleteSavedSubtitleStyle(saved.id)}
-                              >
-                                <X size={12} aria-hidden="true" />
-                              </button>
-                            </div>
-                          </div>
-                        )) : null}
-                        <button
-                          ref={styleDrawerTriggerRef}
-                          type="button"
-                          className="video-translation-subtitle-preset"
-                          data-custom="true"
-                          data-active={activeSubtitlePreset === undefined && activeSavedSubtitleStyle === undefined}
-                          aria-haspopup="dialog"
-                          aria-expanded={styleDrawerSnapshot !== undefined}
-                          onClick={() => setStyleDrawerSnapshot(currentSubtitleStyle)}
-                        >
-                          {activeSubtitlePreset === undefined && activeSavedSubtitleStyle === undefined ? (
-                            <SubtitlePresetThumbnail style={currentSubtitleStyle} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
-                          ) : (
-                            <span className="video-translation-subtitle-preset-thumb" data-empty="true" aria-hidden="true">
-                              <SlidersHorizontal size={18} strokeWidth={1.8} />
-                            </span>
-                          )}
-                          <span>{l('自定义样式', 'Customize')}</span>
-                        </button>
+                        {subtitleStyleChoices}
                       </div>
                       </div>
-                      </div>
-                      {videoFormat === 'vertical' || videoFormat === 'all' ? (
-                      <div className="video-translation-title-fields">
-                        <label className="video-translation-field">
-                          <span>{l('竖屏主标题', 'Vertical video title')} <small>{l('选填', 'Optional')}</small></span>
-                          <input value={verticalTitle} onChange={event => setVerticalTitle(event.target.value)} placeholder={l('留空将自动生成', 'Leave blank to generate automatically')} />
-                        </label>
-                        <label className="video-translation-field">
-                          <span>{l('竖屏副标题', 'Vertical video subtitle')} <small>{l('选填', 'Optional')}</small></span>
-                          <input value={verticalSubtitle} onChange={event => setVerticalSubtitle(event.target.value)} placeholder={l('留空将自动生成', 'Leave blank to generate automatically')} />
-                        </label>
-                      </div>
-                      ) : null}
+                      {verticalTitleControls}
                     </div>
-                    <div className="video-translation-option-block video-translation-dubbing-settings" data-agent-focus={agentFocus === 'dubbing'}>
-                      <div className="video-translation-option-title">
-                        <span className="video-translation-option-icon"><Mic2 size={17} strokeWidth={1.8} /></span>
-                        <Switch
-                          checked={dubbing}
-                          label={l('生成目标语言配音', 'Generate target-language dubbing')}
-                          description={l('匹配翻译后的语速与停顿', 'Match the translated pacing and pauses')}
-                          onChange={value => {
-                            setDubbing(value);
-                          }}
-                        />
-                      </div>
-                      {dubbing ? (
-                        <div className="video-translation-option-content video-translation-dubbing-row">
-                          {officialSpeech.official ? <OfficialModelField label={l('语音合成模型', 'Speech model')} service={officialSpeech} /> : <div className="video-translation-voice-source">
-                            <span>{l('语音服务', 'Speech service')}</span>
-                            <div>
-                              <strong>{ttsProviderLabel(ttsProvider, l)}</strong>
-                              <small>{ttsModel || l('本地语音服务', 'Local speech service')}</small>
-                            </div>
-                          </div>}
-                          <TtsVoicePicker
-                            id="video-translation-voice"
-                            provider={ttsProvider}
-                            model={ttsModel}
-                            value={voiceCode}
-                            service={props.creatorServicesService ?? null}
-                            label={l('配音音色', 'Dubbing voice')}
-                            onChange={(voiceId, voice) => {
-                              setVoiceCode(voiceId);
-                              setVoiceName(voice?.name ?? voiceId);
-                            }}
-                            onVoiceResolved={voice => setVoiceName(voice.name)}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
+                    {dubbingSettings}
                   </>
                 ) : null}
               </section>
