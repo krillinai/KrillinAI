@@ -42,14 +42,14 @@ export function TtsVoiceLibraryPopover(props: {
       const anchorBottom = Math.max(top + 12, Math.min(rect.bottom, bottom - 12));
       const below = bottom - anchorBottom - 16;
       const above = anchorTop - top - 16;
-      const opensAbove = below < 520 && above > below;
-      const panelWidth = Math.min(600, width - 24);
+      const opensAbove = below < 760 && above > below;
+      const panelWidth = Math.min(760, width - 24);
       const panelLeft = getComputedStyle(trigger).direction === 'rtl' ? rect.left : rect.right - panelWidth;
       const next = {
         left: Math.max(left + 12, Math.min(panelLeft, left + width - panelWidth - 12)),
         top: opensAbove ? anchorTop - 8 : anchorBottom + 8,
         width: panelWidth,
-        maxHeight: Math.max(0, Math.min(620, opensAbove ? above : below)),
+        maxHeight: Math.max(0, Math.min(760, opensAbove ? above : below)),
         above: opensAbove
       };
       setPosition(previous => previous && Object.keys(next).every(key => previous[key as keyof typeof next] === next[key as keyof typeof next]) ? previous : next);

@@ -10,7 +10,10 @@
 .tts-voice-library-trigger:focus-visible { outline: 2px solid var(--state-focus-ring); outline-offset: 2px; }
 .tts-voice-library-trigger:disabled { opacity: .5; }
 [dir='rtl'] .tts-voice-library-chevron { transform: rotate(180deg); }
-.tts-voice-library-popover { position: fixed; z-index: 500; display: grid; align-content: start; gap: 16px; padding: 16px; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface-popover); color: var(--text); container: tts-library / inline-size; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.tts-voice-library-popover { position: fixed; z-index: 500; display: flex; flex-direction: column; gap: 16px; padding: 16px; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface-popover); color: var(--text); container: tts-library / inline-size; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.tts-voice-library-popover > .tts-voice-library { display: flex; flex-direction: column; min-height: 0; }
+.tts-voice-library-popover .tts-voice-library > * { flex-shrink: 0; }
+.tts-voice-library-popover .tts-voice-library-list { flex-shrink: 1; min-height: 0; max-height: 480px; }
 .tts-voice-library { min-width: 0; display: grid; gap: 12px; }
 .tts-voice-library-heading { display: flex; align-items: center; gap: 10px; }
 .tts-voice-library-heading h2 { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0; color: var(--text); font-size: 14px; font-weight: 600; }
