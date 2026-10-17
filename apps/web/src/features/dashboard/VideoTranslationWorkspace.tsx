@@ -24,6 +24,8 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  RectangleHorizontal,
+  RectangleVertical,
   SlidersHorizontal,
   Sparkles,
   Square,
@@ -1878,6 +1880,7 @@ export default function VideoTranslationWorkspace(props: {
   const composeVideo = !subtitleOnly && composeVideoRequested;
   const dubbing = composeVideo && dubbingRequested;
   const [videoFormat, setVideoFormat] = useState<VideoFormat>('horizontal');
+  const outputFormatName = useId();
   const [sourceOrientation, setSourceOrientation] = useState<VideoOrientation>(() => (
     creatorSession?.state.sourceOrientation === 'portrait' ? 'portrait' : 'landscape'
   ));
@@ -3731,7 +3734,29 @@ export default function VideoTranslationWorkspace(props: {
     </div>
   );
 
-  const outputFormatControl = (
+  const outputFormatOptions = [
+    ['horizontal', '16:9', '横屏'],
+    ['vertical', '9:16', '竖屏'],
+    ['all', '双画幅', '全部']
+  ] as const;
+  const outputFormatControl = subtitleImmersive ? (
+    <div className="video-translation-output-format-options" role="radiogroup" aria-label={l('输出画幅', 'Output format')}>
+      {outputFormatOptions.map(([value, ratio, label]) => (
+        <label className="video-translation-output-format-choice" data-selected={videoFormat === value || undefined} key={value}
+          title={sourceOrientation === 'portrait' && value !== 'vertical'
+            ? l('竖屏源视频仅支持竖屏输出', 'Portrait source videos only support portrait output') : undefined}>
+          <span className="video-translation-output-format-icon" aria-hidden="true">
+            {value !== 'vertical' ? <RectangleHorizontal size={24} strokeWidth={1.5} /> : null}
+            {value !== 'horizontal' ? <RectangleVertical size={24} strokeWidth={1.5} /> : null}
+          </span>
+          <span>{value === 'all' ? l('双画幅', '16:9 + 9:16') : ratio} {localizeFormatLabel(label, l)}</span>
+          <input type="radio" name={outputFormatName} value={value} checked={videoFormat === value}
+            disabled={sourceOrientation === 'portrait' && value !== 'vertical'}
+            onChange={() => setVideoFormat(value)} />
+        </label>
+      ))}
+    </div>
+  ) : (
     <label className="video-translation-field video-translation-output-format-inline">
       <span>{l('输出画幅', 'Output format')}</span>
       <div className="video-translation-select-wrap">
@@ -3740,11 +3765,7 @@ export default function VideoTranslationWorkspace(props: {
           value={videoFormat}
           onChange={event => setVideoFormat(event.target.value as VideoFormat)}
         >
-          {([
-            ['horizontal', '16:9', '横屏'],
-            ['vertical', '9:16', '竖屏'],
-            ['all', '双画幅', '全部']
-          ] as const).map(([value, ratio, label]) => (
+          {outputFormatOptions.map(([value, ratio, label]) => (
             <option
               value={value}
               disabled={sourceOrientation === 'portrait' && value !== 'vertical'}

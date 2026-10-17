@@ -197,6 +197,16 @@
 .subtitle-editor-settings .video-translation-option-block { padding: 0; }
 .subtitle-editor-settings .video-translation-option-content { margin: 12px 0 0; padding-top: 12px; }
 .subtitle-editor-settings .video-translation-output-format-inline { max-width: none; }
+.video-translation-output-format-options { display: grid; gap: 10px; }
+.video-translation-output-format-choice { display: grid; grid-template-columns: 48px minmax(0, 1fr) 16px; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; line-height: 1.5; }
+.video-translation-output-format-choice:hover:not(:has(:disabled)) { border-color: var(--border-strong); background: var(--surface-2); }
+.video-translation-output-format-choice[data-selected="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.video-translation-output-format-choice:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.video-translation-output-format-choice:has(:disabled) { opacity: .5; cursor: default; }
+.video-translation-output-format-icon { display: flex; align-items: center; justify-content: center; gap: 2px; color: var(--muted); }
+.video-translation-output-format-icon svg { flex-shrink: 0; }
+.video-translation-output-format-choice[data-selected="true"] .video-translation-output-format-icon { color: var(--accent); }
+.video-translation-output-format-choice > input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: inherit; }
 .subtitle-editor-settings .video-translation-option-title { align-items: start; }
 .subtitle-editor-voice-status { display: grid; gap: 8px; padding-block: 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
 .subtitle-editor-voice-status p { margin: 0; }

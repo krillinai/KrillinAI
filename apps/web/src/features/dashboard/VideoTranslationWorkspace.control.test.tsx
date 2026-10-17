@@ -126,7 +126,12 @@ describe('VideoTranslationWorkspace task controls', () => {
     } else if (panel === '配音') {
       fireEvent.click(within(dialog).getByRole('switch', { name: '生成目标语言配音' }));
     } else {
-      fireEvent.change(within(dialog).getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
+      const formats = within(dialog).getByRole('radiogroup', { name: '输出画幅' });
+      expect(within(formats).getAllByRole('radio')).toHaveLength(3);
+      expect(within(formats).getByRole('radio', { name: '16:9 横屏' })).toBeChecked();
+      expect(within(dialog).queryByRole('combobox', { name: '输出画幅' })).not.toBeInTheDocument();
+      fireEvent.click(within(formats).getByRole('radio', { name: '9:16 竖屏' }));
+      expect(within(formats).getByRole('radio', { name: '9:16 竖屏' })).toBeChecked();
     }
     await waitFor(() => expect(current.state.composeVideo).toBe(true));
     expect(original.state.composeVideo).toBe(false);
