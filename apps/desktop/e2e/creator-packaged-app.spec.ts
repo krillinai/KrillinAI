@@ -857,8 +857,8 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     expect(ytDlpStatus.body.ytDlp).toMatchObject({
       channel: 'nightly',
       source: 'bundled',
-      currentVersion: '2026.08.29.232711',
-      bundledVersion: '2026.08.29.232711'
+      currentVersion: buildManifest.ytDlpVersion,
+      bundledVersion: buildManifest.ytDlpVersion
     });
     expect(typeof ytDlpStatus.body.ytDlp.updateAvailable).toBe('boolean');
     if (ytDlpStatus.body.ytDlp.updateAvailable) {
