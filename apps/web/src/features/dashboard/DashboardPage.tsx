@@ -210,7 +210,8 @@ const recommendedTabWorkspaces = new Set<CreatorWorkspace>([
   'video-download',
   'video-translation',
   'video-generation',
-  'image-generation'
+  'image-generation',
+  'smart-dubbing'
 ]);
 
 const CREATOR_JOB_CREATE_ATTEMPT_TIMEOUT_MS = 4_000;

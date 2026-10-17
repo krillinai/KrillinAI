@@ -867,17 +867,18 @@ describe('DashboardPage', () => {
     const videoTranslationCard = screen.getByRole('button', { name: /^视频翻译/ });
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
-    expect(appCards).toHaveLength(4);
+    expect(appCards).toHaveLength(5);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
       '视频下载',
       '视频翻译',
       '视频生成',
-      '图像生成'
+      '图像生成',
+      '文本转语音'
     ]);
     expect(screen.queryByRole('button', { name: /^火柴人动画 角色、分镜与完整动画/ }))
       .not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^自动剪辑/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^文本转语音/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^文本转语音/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^视频生成/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^文章写作/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
@@ -901,7 +902,7 @@ describe('DashboardPage', () => {
 
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索应用' }), { target: { value: '' } });
     fireEvent.click(screen.getByRole('tab', { name: '推荐' }));
-    expect(container.querySelectorAll('.dashboard-app-card')).toHaveLength(4);
+    expect(container.querySelectorAll('.dashboard-app-card')).toHaveLength(5);
     expect(screen.queryByRole('button', { name: /^小红书帖子/ })).not.toBeInTheDocument();
   });
 
