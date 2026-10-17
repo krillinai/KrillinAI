@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Teksti puheeksi",
+  "Text to Speech preview": "Teksti puheeksi esikatselu",
+  "Text to Speech task": "Teksti puheeksitehtävä",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Teksti puheeksi ei ole käytettävissä. Tarkista Runtime-liitäntä.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Teksti puheeksi ei tue Edge TTS:tä. Valitse asetuksista Alibaba Cloud, OpenAI tai MiniMax.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Valitse Alibaba Cloud, OpenAI tai MiniMax Teksti puheeksia varten.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Määritä palveluntarjoaja, malli ja oletusääni, joka jaetaan videon kääntämisen ja Teksti puheeksi.",
   "Multilingual": "Monikielinen",
   "Search voices": "Etsi ääniä",
   "All languages": "Kaikki kielet",

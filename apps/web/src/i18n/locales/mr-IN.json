@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "मजकूर ते वाणी",
+  "Text to Speech preview": "मजकूर ते वाणी पूर्वावलोकन",
+  "Text to Speech task": "मजकूर ते वाणी कार्य",
+  "Text to Speech is unavailable. Check the Runtime connection.": "मजकूर ते वाणी अनुपलब्ध आहे. Runtime कनेक्शन तपासा.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "मजकूर ते वाणी Edge TTS ला सपोर्ट करत नाही. सेटिंग्जमध्ये Alibaba Cloud, OpenAI किंवा MiniMax निवडा.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "मजकूर ते वाणीसाठी Alibaba Cloud, OpenAI किंवा MiniMax निवडा.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "व्हिडिओ भाषांतर आणि मजकूर ते वाणीद्वारे सामायिक केलेला प्रदाता, मॉडेल आणि डीफॉल्ट व्हॉइस कॉन्फिगर करा.",
   "Multilingual": "बहुभाषिक",
   "Search voices": "आवाज शोधा",
   "All languages": "सर्व भाषा",

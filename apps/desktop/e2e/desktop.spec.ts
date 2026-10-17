@@ -1386,7 +1386,7 @@ test('@package-smoke 创作模块连接内嵌 Runtime 并使用默认项目', as
       ['video-download', '视频下载'],
       ['image-generation', '图像生成'],
       ['video-generation', '视频生成'],
-      ['smart-dubbing', '智能配音'],
+      ['smart-dubbing', '文本转语音'],
       ['cover-generator', '封面生成'],
       ['stickman-video', '火柴人动画']
     ]) {

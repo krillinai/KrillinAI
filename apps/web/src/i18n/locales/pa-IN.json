@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "ਟੈਕਸਟ ਤੋਂ ਬੋਲੀ",
+  "Text to Speech preview": "ਟੈਕਸਟ ਤੋਂ ਬੋਲੀ ਪ੍ਰੀਵਿਊ",
+  "Text to Speech task": "ਟੈਕਸਟ ਤੋਂ ਬੋਲੀ ਟਾਸਕ",
+  "Text to Speech is unavailable. Check the Runtime connection.": "ਟੈਕਸਟ ਤੋਂ ਬੋਲੀ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। Runtime ਕਨੈਕਸ਼ਨ ਦੀ ਜਾਂਚ ਕਰੋ।",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "ਟੈਕਸਟ ਤੋਂ ਬੋਲੀ Edge TTS ਦਾ ਸਮਰਥਨ ਨਹੀਂ ਕਰਦੀ ਹੈ। ਸੈਟਿੰਗਾਂ ਵਿੱਚ Alibaba Cloud, OpenAI, ਜਾਂ MiniMax ਚੁਣੋ।",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "ਟੈਕਸਟ ਤੋਂ ਬੋਲੀ ਲਈ Alibaba Cloud, OpenAI, ਜਾਂ MiniMax ਚੁਣੋ।",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "ਵੀਡੀਓ ਅਨੁਵਾਦ ਅਤੇ ਟੈਕਸਟ ਤੋਂ ਬੋਲੀ ਦੁਆਰਾ ਸਾਂਝੇ ਕੀਤੇ ਪ੍ਰਦਾਤਾ, ਮਾਡਲ ਅਤੇ ਡਿਫੌਲਟ ਵੌਇਸ ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੋ।",
   "Multilingual": "ਬਹੁਭਾਸ਼ੀ",
   "Search voices": "ਆਵਾਜ਼ਾਂ ਖੋਜੋ",
   "All languages": "ਸਾਰੀਆਂ ਭਾਸ਼ਾਵਾਂ",

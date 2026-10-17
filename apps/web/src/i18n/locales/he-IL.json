@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "המרת טקסט לדיבור",
+  "Text to Speech preview": "תצוגה מקדימה של המרת טקסט לדיבור",
+  "Text to Speech task": "משימת המרת טקסט לדיבור",
+  "Text to Speech is unavailable. Check the Runtime connection.": "המרת טקסט לדיבור אינו זמין. בדוק את חיבור Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "המרת טקסט לדיבור אינו תומך ב-Edge TTS. בחר Alibaba Cloud, OpenAI או MiniMax בהגדרות.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "בחר Alibaba Cloud, OpenAI או MiniMax עבור המרת טקסט לדיבור.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "הגדר את הספק, הדגם וקול ברירת המחדל המשותף על ידי תרגום וידאו והמרת טקסט לדיבור.",
   "Multilingual": "רב־לשוני",
   "Search voices": "חיפוש קולות",
   "All languages": "כל השפות",

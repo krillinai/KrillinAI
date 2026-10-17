@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "ข้อความเป็นเสียงพูด",
+  "Text to Speech preview": "ตัวอย่างข้อความเป็นเสียงพูด",
+  "Text to Speech task": "งานแปลงข้อความเป็นเสียงพูด",
+  "Text to Speech is unavailable. Check the Runtime connection.": "ไม่สามารถใช้งานข้อความเป็นเสียงพูดได้ ตรวจสอบการเชื่อมต่อ Runtime",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "ข้อความเป็นเสียงพูด ไม่รองรับ Edge TTS เลือก Alibaba Cloud, OpenAI หรือ MiniMax ในการตั้งค่า",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "เลือก Alibaba Cloud, OpenAI หรือ MiniMax สำหรับข้อความเป็นเสียงพูด",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "กำหนดค่าผู้ให้บริการ โมเดล และเสียงเริ่มต้นที่แชร์โดยการแปลวิดีโอและข้อความเป็นเสียงพูด",
   "Multilingual": "หลายภาษา",
   "Search voices": "ค้นหาเสียง",
   "All languages": "ทุกภาษา",

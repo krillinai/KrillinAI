@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "टेक्स्ट से वाक्",
+  "Text to Speech preview": "टेक्स्ट से वाक् पूर्वावलोकन",
+  "Text to Speech task": "टेक्स्ट से वाक् कार्य",
+  "Text to Speech is unavailable. Check the Runtime connection.": "टेक्स्ट से वाक् उपलब्ध नहीं है. Runtime कनेक्शन की जाँच करें.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "टेक्स्ट से वाक् Edge TTS का समर्थन नहीं करती। सेटिंग्स में Alibaba Cloud, OpenAI, या MiniMax चुनें।",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "टेक्स्ट से वाक् के लिए Alibaba Cloud, OpenAI, या MiniMax चुनें।",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "वीडियो अनुवाद और टेक्स्ट से वाक् द्वारा साझा किए गए प्रदाता, मॉडल और डिफ़ॉल्ट आवाज को कॉन्फ़िगर करें।",
   "Multilingual": "बहुभाषी",
   "Search voices": "आवाज़ें खोजें",
   "All languages": "सभी भाषाएँ",

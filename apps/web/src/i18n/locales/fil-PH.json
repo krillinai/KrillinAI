@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Teksto tungo sa pananalita",
+  "Text to Speech preview": "Preview ng Teksto tungo sa pananalita",
+  "Text to Speech task": "Gawain sa Teksto tungo sa pananalita",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Hindi available ang Teksto tungo sa pananalita. Suriin ang Runtime na koneksyon.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Hindi sinusuportahan ng Teksto tungo sa pananalita ang Edge TTS. Piliin ang Alibaba Cloud, OpenAI, o MiniMax sa Mga Setting.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Piliin ang Alibaba Cloud, OpenAI, o MiniMax para sa Teksto tungo sa pananalita.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "I-configure ang provider, modelo, at default na boses na ibinahagi ng pagsasalin ng video at Teksto tungo sa pananalita.",
   "Multilingual": "Maraming wika",
   "Search voices": "Maghanap ng boses",
   "All languages": "Lahat ng wika",

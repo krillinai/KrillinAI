@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "உரையிலிருந்து பேச்சு",
+  "Text to Speech preview": "உரையிலிருந்து பேச்சு முன்னோட்டம்",
+  "Text to Speech task": "உரையிலிருந்து பேச்சு பணி",
+  "Text to Speech is unavailable. Check the Runtime connection.": "உரையிலிருந்து பேச்சு கிடைக்கவில்லை. Runtime இணைப்பைச் சரிபார்க்கவும்.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "உரையிலிருந்து பேச்சு Edge TTS ஐ ஆதரிக்காது. அமைப்புகளில் Alibaba Cloud, OpenAI அல்லது MiniMax என்பதைத் தேர்ந்தெடுக்கவும்.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "உரையிலிருந்து பேச்சுகிற்கு Alibaba Cloud, OpenAI அல்லது MiniMax ஐத் தேர்ந்தெடுக்கவும்.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "வீடியோ மொழிபெயர்ப்பு மற்றும் உரையிலிருந்து பேச்சு மூலம் பகிர்ந்த வழங்குநர், மாதிரி மற்றும் இயல்புநிலை குரல் ஆகியவற்றை உள்ளமைக்கவும்.",
   "Multilingual": "பன்மொழி",
   "Search voices": "குரல்களைத் தேடு",
   "All languages": "அனைத்து மொழிகளும்",

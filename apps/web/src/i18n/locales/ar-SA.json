@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "تحويل النص إلى كلام",
+  "Text to Speech preview": "معاينة تحويل النص إلى كلام",
+  "Text to Speech task": "مهمة تحويل النص إلى كلام",
+  "Text to Speech is unavailable. Check the Runtime connection.": "تحويل النص إلى كلام غير متوفر. تحقق من اتصال Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "تحويل النص إلى كلام لا يدعم Edge TTS. حدد Alibaba Cloud أو OpenAI أو MiniMax في الإعدادات.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "حدد Alibaba Cloud أو OpenAI أو MiniMax لتحويل النص إلى كلام.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "قم بتكوين الموفر والطراز والصوت الافتراضي الذي تتم مشاركته من خلال ترجمة الفيديو وتحويل النص إلى كلام.",
   "Multilingual": "متعدد اللغات",
   "Search voices": "البحث عن صوت",
   "All languages": "كل اللغات",

@@ -877,7 +877,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('button', { name: /^火柴人动画 角色、分镜与完整动画/ }))
       .not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^自动剪辑/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^智能配音/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^文本转语音/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^视频生成/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^文章写作/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
@@ -891,7 +891,7 @@ describe('DashboardPage', () => {
     expect(Array.from(container.querySelectorAll('.dashboard-app-card strong')).map(card => card.textContent))
       .toEqual([
         '视频下载', '视频翻译', '视频生成', '图像生成', '文章写作', '火柴人动画',
-        '视频切片', '封面生成', '小红书帖子', '短视频脚本', '智能配音'
+        '视频切片', '封面生成', '小红书帖子', '短视频脚本', '文本转语音'
       ]);
     expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
 
@@ -1938,7 +1938,7 @@ describe('DashboardPage', () => {
     expect(within(directory).getByRole('button', { name: /^封面生成/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '音频处理' }));
-    expect(within(directory).getByRole('button', { name: /^智能配音/ })).toBeInTheDocument();
+    expect(within(directory).getByRole('button', { name: /^文本转语音/ })).toBeInTheDocument();
     expect(directory.querySelectorAll('.dashboard-app-card')).toHaveLength(1);
   });
 
@@ -1966,7 +1966,7 @@ describe('DashboardPage', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: '智能配音' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '文本转语音' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: '配音文案内容' }), {
       target: { value: '这是一段需要生成语音的测试文案。' }
     });
@@ -1992,7 +1992,7 @@ describe('DashboardPage', () => {
     expect(summary).toHaveTextContent('MP3');
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
 
-    expect(await screen.findByLabelText('智能配音试听')).toHaveAttribute('src', 'blob:smart-dubbing');
+    expect(await screen.findByLabelText('文本转语音试听')).toHaveAttribute('src', 'blob:smart-dubbing');
     expect(screen.getByText('OpenCreator-dubbing-V1.mp3')).toBeInTheDocument();
     expect(screen.queryByText('Creator Runtime 未连接，Agent 不会生成替代回复。')).not.toBeInTheDocument();
     expect(applyAction).toHaveBeenCalledWith(

@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Текст у мовлення",
+  "Text to Speech preview": "Попередній перегляд перетворення тексту в мовлення",
+  "Text to Speech task": "Завдання перетворення тексту в мовлення",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Текст у мовлення недоступний. Перевірте з’єднання Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Текст у мовлення не підтримує Edge TTS. Виберіть Alibaba Cloud, OpenAI або MiniMax у налаштуваннях.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Виберіть Alibaba Cloud, OpenAI або MiniMax для перетворення тексту в мовлення.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Налаштуйте постачальника, модель і голос за замовчуванням, спільний для перекладу відео та перетворення тексту в мовлення.",
   "Multilingual": "Багатомовний",
   "Search voices": "Пошук голосів",
   "All languages": "Усі мови",

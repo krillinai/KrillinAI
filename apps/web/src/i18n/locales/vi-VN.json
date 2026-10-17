@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Chuyển văn bản thành giọng nói",
+  "Text to Speech preview": "Xem trước chuyển văn bản thành giọng nói",
+  "Text to Speech task": "Tác vụ chuyển văn bản thành giọng nói",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Chuyển văn bản thành giọng nói không khả dụng. Hãy kiểm tra kết nối Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Chuyển văn bản thành giọng nói không hỗ trợ Edge TTS. Hãy chọn Alibaba Cloud, OpenAI hoặc MiniMax trong Cài đặt.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Chọn Alibaba Cloud, OpenAI hoặc MiniMax để chuyển văn bản thành giọng nói.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Cấu hình nhà cung cấp, mô hình và giọng đọc mặc định dùng chung cho dịch video và chuyển văn bản thành giọng nói.",
   "Multilingual": "Đa ngôn ngữ",
   "Search voices": "Tìm giọng nói",
   "All languages": "Tất cả ngôn ngữ",

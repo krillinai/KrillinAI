@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Metinden konuşmaya",
+  "Text to Speech preview": "Metinden konuşmaya önizlemesi",
+  "Text to Speech task": "Metinden konuşmaya görevi",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Metinden konuşmaya kullanılamıyor. Runtime bağlantısını kontrol edin.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Metinden konuşmaya Edge TTS'i desteklemiyor. Ayarlar'dan Alibaba Cloud, OpenAI veya MiniMax seçin.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Metinden konuşmaya için Alibaba Cloud, OpenAI veya MiniMax seçin.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Video çevirisi ve Metinden konuşmaya tarafından ortak kullanılan sağlayıcıyı, modeli ve varsayılan sesi yapılandırın.",
   "Multilingual": "Çok dilli",
   "Search voices": "Ses ara",
   "All languages": "Tüm diller",

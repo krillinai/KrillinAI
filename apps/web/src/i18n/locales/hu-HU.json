@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Szövegfelolvasás",
+  "Text to Speech preview": "Szövegfelolvasási előnézet",
+  "Text to Speech task": "Szövegfelolvasási feladat",
+  "Text to Speech is unavailable. Check the Runtime connection.": "A szövegfelolvasás nem érhető el. Ellenőrizze a Runtime csatlakozást.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "A szövegfelolvasás nem támogatja az Edge TTS-t. Válassza az Alibaba Cloud, OpenAI vagy MiniMax lehetőséget a Beállításokban.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Válassza az Alibaba Cloud, OpenAI vagy MiniMax lehetőséget a szövegfelolvasáshoz.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Konfigurálja a szolgáltatót, a modellt és az alapértelmezett hangot, amelyet videófordítással és szövegfelolvasással osztanak meg.",
   "Multilingual": "Többnyelvű",
   "Search voices": "Hangok keresése",
   "All languages": "Minden nyelv",

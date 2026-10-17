@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Синтез речи",
+  "Text to Speech preview": "Предпросмотр синтеза речи",
+  "Text to Speech task": "Задача синтеза речи",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Синтез речи недоступен. Проверьте подключение к Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Синтез речи не поддерживает Edge TTS. Выберите в настройках Alibaba Cloud, OpenAI или MiniMax.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Для синтеза речи выберите Alibaba Cloud, OpenAI или MiniMax.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Настройте провайдера, модель и голос по умолчанию — общие для перевода видео и синтеза речи.",
   "Multilingual": "Многоязычный",
   "Search voices": "Поиск голосов",
   "All languages": "Все языки",

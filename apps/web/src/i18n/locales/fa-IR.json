@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "تبدیل متن به گفتار",
+  "Text to Speech preview": "پیش نمایش تبدیل متن به گفتار",
+  "Text to Speech task": "وظیفه تبدیل متن به گفتار",
+  "Text to Speech is unavailable. Check the Runtime connection.": "تبدیل متن به گفتار در دسترس نیست. اتصال Runtime را بررسی کنید.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "تبدیل متن به گفتار از Edge TTS پشتیبانی نمی کند. Alibaba Cloud، OpenAI، یا MiniMax را در تنظیمات انتخاب کنید.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Alibaba Cloud، OpenAI یا MiniMax را برای تبدیل متن به گفتار انتخاب کنید.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "ارائه‌دهنده، مدل و صدای پیش‌فرض به اشتراک‌گذاشته‌شده با ترجمه ویدیو و تبدیل متن به گفتار را پیکربندی کنید.",
   "Multilingual": "چندزبانه",
   "Search voices": "جستجوی صداها",
   "All languages": "همه زبان‌ها",

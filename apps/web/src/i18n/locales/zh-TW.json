@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "文字轉語音",
+  "Text to Speech preview": "文字轉語音預覽",
+  "Text to Speech task": "文字轉語音任務",
+  "Text to Speech is unavailable. Check the Runtime connection.": "無法使用文字轉語音。請檢查 Runtime 連線。",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "文字轉語音不支援 Edge TTS。請在設定中選擇 Alibaba Cloud、OpenAI 或 MiniMax。",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "請選擇 Alibaba Cloud、OpenAI 或 MiniMax 進行文字轉語音。",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "設定影片翻譯與文字轉語音共用的供應商、模型與預設語音。",
   "Multilingual": "多語種",
   "Search voices": "搜尋音色",
   "All languages": "全部語言",

@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Texto a voz",
+  "Text to Speech preview": "Vista previa del Texto a voz",
+  "Text to Speech task": "Tarea de Texto a voz",
+  "Text to Speech is unavailable. Check the Runtime connection.": "El Texto a voz no está disponible. Verifique la conexión del tiempo de ejecución.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "El Texto a voz no es compatible con Edge TTS. Seleccione Alibaba Cloud, OpenAI o MiniMax en Configuración.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Seleccione Alibaba Cloud, OpenAI o MiniMax para el Texto a voz.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Configure el proveedor, el modelo y la voz predeterminada compartida por la traducción de videos y el Texto a voz.",
   "Multilingual": "Multilingüe",
   "Search voices": "Buscar voces",
   "All languages": "Todos los idiomas",

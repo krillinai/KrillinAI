@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Текст у говор",
+  "Text to Speech preview": "Преглед претварања текста у говор",
+  "Text to Speech task": "Задатак претварања текста у говор",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Текст у говор није доступно. Проверите везу Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "претварање текста у говор не подржава Edge TTS. Изаберите Alibaba Cloud, OpenAI или MiniMax у подешавањима.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Изаберите Alibaba Cloud, OpenAI или MiniMax за претварање текста у говор.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Конфигуришите добављача, модел и подразумевани глас који дели видео превод и претварање текста у говор.",
   "Multilingual": "Вишејезично",
   "Search voices": "Претражи гласове",
   "All languages": "Сви језици",

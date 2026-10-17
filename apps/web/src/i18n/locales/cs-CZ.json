@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Převod textu na řeč",
+  "Text to Speech preview": "Náhled převodu textu na řeč",
+  "Text to Speech task": "Úloha převodu textu na řeč",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Převod textu na řeč není k dispozici. Zkontrolujte připojení Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Převod textu na řeč nepodporuje Edge TTS. V Nastavení vyberte Alibaba Cloud, OpenAI nebo MiniMax.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Pro převod textu na řeč vyberte Alibaba Cloud, OpenAI nebo MiniMax.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Nakonfigurujte poskytovatele, model a výchozí hlas sdílený překladem videa a převodem textu na řeč.",
   "Multilingual": "Vícejazyčný",
   "Search voices": "Hledat hlasy",
   "All languages": "Všechny jazyky",

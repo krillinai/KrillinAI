@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures/runtime.js';
 
-test('统一配音配置在设置、智能配音和视频翻译中保持一致', async ({ page, runtime }) => {
+test('统一配音配置在设置、文本转语音和视频翻译中保持一致', async ({ page, runtime }) => {
   await page.route('**/.opencreator/runtime/creator-services/tts/voices?**', async route => {
     const url = new URL(route.request().url());
     const provider = url.searchParams.get('provider');
@@ -89,7 +89,7 @@ test('统一配音配置在设置、智能配音和视频翻译中保持一致',
   expect(saved.configuredCredentials).toContain('tts.aliyun.apiKey');
 
   await page.goto(`${runtime.origin}/#/workbench?tool=smart-dubbing`);
-  await expect(page.getByRole('heading', { name: '智能配音' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '文本转语音' })).toBeVisible();
   await page.getByRole('textbox', { name: '配音文案内容' }).fill('这是统一配音配置的端到端验证。');
   await expect(page.locator('.smart-dubbing-provider-row')).toContainText('阿里云百炼');
   await expect(page.locator('.smart-dubbing-provider-row')).toContainText('qwen3-tts-flash');

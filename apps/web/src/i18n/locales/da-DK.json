@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Tekst til tale",
+  "Text to Speech preview": "Forhåndsvisning af Tekst til tale",
+  "Text to Speech task": "Tekst til tale opgave",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Tekst til tale er ikke tilgængelig. Kontroller Runtime-forbindelsen.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Tekst til tale understøtter ikke Edge TTS. Vælg Alibaba Cloud, OpenAI eller MiniMax i Indstillinger.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Vælg Alibaba Cloud, OpenAI eller MiniMax til Tekst til tale.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Konfigurer udbyderen, modellen og standardstemmen, der deles af videooversættelse og Tekst til tale.",
   "Multilingual": "Flersproget",
   "Search voices": "Søg efter stemmer",
   "All languages": "Alle sprog",

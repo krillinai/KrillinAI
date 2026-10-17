@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "テキスト読み上げ",
+  "Text to Speech preview": "テキスト読み上げプレビュー",
+  "Text to Speech task": "テキスト読み上げタスク",
+  "Text to Speech is unavailable. Check the Runtime connection.": "テキスト読み上げは利用できません。ランタイム接続を確認してください。",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "テキスト読み上げはEdge TTSには対応しておりません。 [設定] で Alibaba Cloud、OpenAI、または MiniMax を選択します。",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "テキスト読み上げには、Alibaba Cloud、OpenAI、または MiniMax を選択します。",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "動画翻訳やテキスト読み上げで共有するプロバイダー、モデル、デフォルト音声を設定します。",
   "Multilingual": "多言語",
   "Search voices": "音声を検索",
   "All languages": "すべての言語",

@@ -210,7 +210,7 @@ export default function SmartDubbingWorkspace(props: {
     if (official.official && !official.ready) { setError(l('官方语音服务暂不可用，请在账户页面检查连接状态', 'Official speech service is unavailable. Check your account.')); return; }
     if (busy) return;
     if (session === null) {
-      setError(l('智能配音服务暂不可用，请检查 Runtime 连接', 'Smart dubbing is unavailable. Check the Runtime connection.'));
+      setError(l('文本转语音服务暂不可用，请检查 Runtime 连接', 'Text to Speech is unavailable. Check the Runtime connection.'));
       return;
     }
     if (!text.trim()) {
@@ -223,8 +223,8 @@ export default function SmartDubbingWorkspace(props: {
     }
     if (provider === 'edge-tts') {
       setError(l(
-        '智能配音暂不支持 Edge TTS，请先在设置中选择阿里云百炼、OpenAI 或 MiniMax',
-        'AI dubbing does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.'
+        '文本转语音暂不支持 Edge TTS，请先在设置中选择阿里云百炼、OpenAI 或 MiniMax',
+        'Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.'
       ));
       return;
     }
@@ -341,7 +341,7 @@ export default function SmartDubbingWorkspace(props: {
 
   return (
     <CreatorToolShell
-      title={l('智能配音', 'AI Dubbing')}
+      title={l('文本转语音', 'Text to Speech')}
       subtitle={l('自然音色、表达风格与可下载音频', 'Natural voices, expressive delivery, and downloadable audio')}
       context={busy
         ? l('正在生成配音', 'Generating dubbing')
@@ -349,7 +349,7 @@ export default function SmartDubbingWorkspace(props: {
           ? l(`${result.format.toUpperCase()} 配音已完成`, `${result.format.toUpperCase()} dubbing ready`)
           : `${voiceName || voice || providerLabel(provider, l)} · ${speed.toFixed(2)}x`}
       taskSummary={summary}
-      stepLabel={busy ? l('正在生成配音', 'Generating dubbing') : l('智能配音', 'AI dubbing')}
+      stepLabel={busy ? l('正在生成配音', 'Generating dubbing') : l('文本转语音', 'Text to Speech')}
       currentIssue={visibleError || undefined}
       suggestions={result
         ? [l('换成温暖风格', 'Use a warm style'), l('语速慢一点', 'Make it slower')]
@@ -364,7 +364,7 @@ export default function SmartDubbingWorkspace(props: {
       contentClassName="smart-dubbing-workspace-content"
     >
       <div className="creator-tool-stack smart-dubbing-studio">
-        <form className="smart-dubbing-composer" aria-label={l('智能配音', 'AI Dubbing')} onSubmit={event => {
+        <form className="smart-dubbing-composer" aria-label={l('文本转语音', 'Text to Speech')} onSubmit={event => {
           event.preventDefault();
           void generate();
         }}>
@@ -481,7 +481,7 @@ export default function SmartDubbingWorkspace(props: {
               <div className="smart-dubbing-result">
                 <span className="smart-dubbing-result-icon"><FileAudio size={28} strokeWidth={1.5} aria-hidden="true" /></span>
                 <div><strong>{result.fileName}</strong><small>{formatBytes(result.size)} · {result.model}</small></div>
-                <audio controls src={audioUrl} aria-label={l('智能配音试听', 'AI dubbing preview')} />
+                <audio controls src={audioUrl} aria-label={l('文本转语音试听', 'Text to Speech preview')} />
                 <div className="smart-dubbing-result-actions">
                   <button className="creator-tool-primary" type="button" onClick={download}><Download size={15} strokeWidth={1.8} aria-hidden="true" />{l('下载音频', 'Download audio')}</button>
                 </div>
@@ -556,7 +556,7 @@ function formatGenerationError(error: unknown, l: (zh: string, en: string) => st
     return l('请先在设置的配音服务中配置当前服务商的 API Key', 'Configure the selected TTS provider API key in Settings first');
   }
   if (code === 'SMART_DUBBING_PROVIDER_UNSUPPORTED' || code === 'unsupported_capability') {
-    return l('当前配音服务商不支持智能配音，请在设置中选择阿里云百炼、OpenAI 或 MiniMax', 'Select Alibaba Cloud, OpenAI, or MiniMax for AI dubbing.');
+    return l('当前配音服务商不支持文本转语音，请在设置中选择阿里云百炼、OpenAI 或 MiniMax', 'Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.');
   }
   if (
     code === 'SMART_DUBBING_UPSTREAM_ERROR'

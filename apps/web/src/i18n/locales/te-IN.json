@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "వచనం నుండి ప్రసంగం",
+  "Text to Speech preview": "వచనం నుండి ప్రసంగం ప్రివ్యూ",
+  "Text to Speech task": "వచనం నుండి ప్రసంగం టాస్క్",
+  "Text to Speech is unavailable. Check the Runtime connection.": "వచనం నుండి ప్రసంగం అందుబాటులో లేదు. Runtime కనెక్షన్‌ని తనిఖీ చేయండి.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "వచనం నుండి ప్రసంగం Edge TTSకి మద్దతు ఇవ్వదు. సెట్టింగ్‌లలో Alibaba Cloud, OpenAI లేదా MiniMaxని ఎంచుకోండి.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "వచనం నుండి ప్రసంగం కోసం Alibaba Cloud, OpenAI లేదా MiniMaxని ఎంచుకోండి.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "వీడియో అనువాదం మరియు వచనం నుండి ప్రసంగం ద్వారా భాగస్వామ్యం చేయబడిన ప్రొవైడర్, మోడల్ మరియు డిఫాల్ట్ వాయిస్‌ని కాన్ఫిగర్ చేయండి.",
   "Multilingual": "బహుభాషా",
   "Search voices": "స్వరాలను వెతకండి",
   "All languages": "అన్ని భాషలు",

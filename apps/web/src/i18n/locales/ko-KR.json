@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "텍스트 음성 변환",
+  "Text to Speech preview": "텍스트 음성 변환 미리보기",
+  "Text to Speech task": "텍스트 음성 변환 작업",
+  "Text to Speech is unavailable. Check the Runtime connection.": "텍스트 음성 변환을 사용할 수 없습니다. 런타임 연결을 확인하세요.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "텍스트 음성 변환은 Edge TTS를 지원하지 않습니다. 설정에서 Alibaba Cloud, OpenAI 또는 MiniMax를 선택하세요.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "텍스트 음성 변환을 위해 Alibaba Cloud, OpenAI 또는 MiniMax를 선택하세요.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "영상번역, 텍스트 음성 변환에서 공유하는 제공자, 모델, 기본 음성을 구성합니다.",
   "Multilingual": "다국어",
   "Search voices": "음성 검색",
   "All languages": "모든 언어",

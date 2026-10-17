@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Text în vorbire",
+  "Text to Speech preview": "Previzualizare Text în vorbire",
+  "Text to Speech task": "Sarcină de Text în vorbire",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Conversia textului în vorbire nu este disponibilă. Verificați conexiunea Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Conversia textului în vorbire nu acceptă Edge TTS. Selectați Alibaba Cloud, OpenAI sau MiniMax în Setări.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Selectați Alibaba Cloud, OpenAI sau MiniMax pentru Text în vorbire.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Configurați furnizorul, modelul și vocea implicită partajată prin traducerea video și conversia textului în vorbire.",
   "Multilingual": "Multilingv",
   "Search voices": "Caută voci",
   "All languages": "Toate limbile",

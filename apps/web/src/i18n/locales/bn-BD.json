@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "টেক্সট থেকে কথায় রূপান্তর",
+  "Text to Speech preview": "টেক্সট থেকে কথায় রূপান্তর প্রিভিউ",
+  "Text to Speech task": "টেক্সট থেকে কথায় রূপান্তর টাস্ক",
+  "Text to Speech is unavailable. Check the Runtime connection.": "টেক্সট থেকে কথায় রূপান্তর অনুপলব্ধ. Runtime সংযোগ পরীক্ষা করুন।",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "টেক্সট থেকে কথায় রূপান্তর Edge TTS সমর্থন করে না। সেটিংসে Alibaba Cloud, OpenAI, বা MiniMax নির্বাচন করুন৷",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "টেক্সট থেকে কথায় রূপান্তরের জন্য Alibaba Cloud, OpenAI, বা MiniMax নির্বাচন করুন।",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "ভিডিও অনুবাদ এবং টেক্সট থেকে কথায় রূপান্তর দ্বারা ভাগ করা প্রদানকারী, মডেল এবং ডিফল্ট ভয়েস কনফিগার করুন।",
   "Multilingual": "বহুভাষিক",
   "Search voices": "কণ্ঠ খুঁজুন",
   "All languages": "সব ভাষা",

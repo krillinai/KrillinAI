@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Κείμενο σε ομιλία",
+  "Text to Speech preview": "Προεπισκόπηση μετατροπής κειμένου σε ομιλία",
+  "Text to Speech task": "Εργασία μετατροπής κειμένου σε ομιλία",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Η μετατροπή κειμένου σε ομιλία δεν είναι διαθέσιμη. Ελέγξτε τη σύνδεση Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Η μετατροπή κειμένου σε ομιλία δεν υποστηρίζει το Edge TTS. Επιλέξτε Alibaba Cloud, OpenAI ή MiniMax στις Ρυθμίσεις.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Επιλέξτε Alibaba Cloud, OpenAI ή MiniMax για μετατροπή κειμένου σε ομιλία.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Διαμορφώστε τον πάροχο, το μοντέλο και την προεπιλεγμένη φωνή που μοιράζεται με μετάφραση βίντεο και μετατροπή κειμένου σε ομιλία.",
   "Multilingual": "Πολύγλωσσο",
   "Search voices": "Αναζήτηση φωνών",
   "All languages": "Όλες οι γλώσσες",

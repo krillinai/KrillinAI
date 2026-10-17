@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Tekst naar spraak",
+  "Text to Speech preview": "Preview van Tekst naar spraak",
+  "Text to Speech task": "Taak voor tekst naar spraak",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Tekst naar spraak is niet beschikbaar. Controleer de Runtime-verbinding.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Tekst naar spraak ondersteunt Edge TTS niet. Selecteer Alibaba Cloud, OpenAI of MiniMax in Instellingen.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Selecteer Alibaba Cloud, OpenAI of MiniMax voor Tekst naar spraak.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Configureer de provider, het model en de standaardstem die wordt gedeeld door videovertaling en Tekst naar spraak.",
   "Multilingual": "Meertalig",
   "Search voices": "Stemmen zoeken",
   "All languages": "Alle talen",

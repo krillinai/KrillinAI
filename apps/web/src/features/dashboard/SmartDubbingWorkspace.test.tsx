@@ -28,7 +28,7 @@ it.each([false, true])('opens speech style and speed only when the selected offi
 it('validates and submits the complete dubbing form directly without persisting wizard steps', async () => {
   const fixture = createFixture({ voiceCode: '' });
   await renderWorkspace(fixture);
-  const form = screen.getByRole('form', { name: '智能配音' });
+  const form = screen.getByRole('form', { name: '文本转语音' });
   const submit = within(form).getByRole('button', { name: '开始生成' });
   fireEvent.click(submit);
   expect(within(form.parentElement!).getByRole('alert')).toHaveTextContent('请先填写需要配音的文案');
@@ -78,7 +78,7 @@ it('keeps the editor and voice controls locked until a submission finishes', asy
     return apply(id, request);
   });
   await renderWorkspace(fixture);
-  const form = screen.getByRole('form', { name: '智能配音' });
+  const form = screen.getByRole('form', { name: '文本转语音' });
   fireEvent.click(within(form).getByRole('button', { name: '开始生成' }));
   await waitFor(() => expect(fixture.applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(true));
   expect(screen.getByRole('textbox', { name: '配音文案内容' })).toBeDisabled();
@@ -100,7 +100,7 @@ it('restores completed audio beside the editable form and downloads it without r
     downloads.push({ fileName: this.download, href: this.href });
   });
   const view = await renderWorkspace(fixture, { ...job, status: 'completed', artifacts: [artifact] });
-  await waitFor(() => expect(screen.getByLabelText('智能配音试听')).toHaveAttribute('src', 'blob:dubbing-result'));
+  await waitFor(() => expect(screen.getByLabelText('文本转语音试听')).toHaveAttribute('src', 'blob:dubbing-result'));
   expect(screen.getByRole('textbox', { name: '配音文案内容' })).toBeEnabled();
   expect(screen.getAllByRole('button', { name: '重新生成' })).toHaveLength(1);
   fireEvent.change(screen.getByRole('textbox', { name: '配音文案内容' }), { target: { value: 'Next script' } });
@@ -126,9 +126,9 @@ it('shows provider failures on the same page with a settings recovery link', asy
 });
 
 it.each([
-  { language: 'zh-CN' as const, form: '智能配音', script: '配音文案内容', clear: '清空文案', sample: '填入示例文案', expand: '展开编辑区', summary: '任务摘要' },
-  { language: 'en-US' as const, form: 'AI Dubbing', script: 'Dubbing script content', clear: 'Clear script', sample: 'Use sample script', expand: 'Expand editor', summary: 'Task summary' },
-  { language: 'ar-SA' as const, form: 'دبلجة الذكاء الاصطناعي', script: 'دبلجة محتوى البرنامج النصي', clear: 'مسح النص', sample: 'استخدم نموذج البرنامج النصي', expand: 'قم بتوسيع المحرر', summary: 'ملخص المهمة' }
+  { language: 'zh-CN' as const, form: '文本转语音', script: '配音文案内容', clear: '清空文案', sample: '填入示例文案', expand: '展开编辑区', summary: '任务摘要' },
+  { language: 'en-US' as const, form: 'Text to Speech', script: 'Dubbing script content', clear: 'Clear script', sample: 'Use sample script', expand: 'Expand editor', summary: 'Task summary' },
+  { language: 'ar-SA' as const, form: 'تحويل النص إلى كلام', script: 'دبلجة محتوى البرنامج النصي', clear: 'مسح النص', sample: 'استخدم نموذج البرنامج النصي', expand: 'قم بتوسيع المحرر', summary: 'ملخص المهمة' }
 ])('localizes the single form and editor actions in $language', async copy => {
   await renderWorkspace(createFixture(), undefined, copy.language);
   const form = screen.getByRole('form', { name: copy.form });

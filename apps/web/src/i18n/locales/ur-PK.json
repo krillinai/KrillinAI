@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "متن سے تقریر",
+  "Text to Speech preview": "متن سے تقریر کا پیش نظارہ",
+  "Text to Speech task": "متن سے تقریر کا کام",
+  "Text to Speech is unavailable. Check the Runtime connection.": "متن سے تقریر دستیاب نہیں ہے۔ Runtime کنکشن چیک کریں۔",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "متن سے تقریر Edge TTS کو سپورٹ نہیں کرتی ہے۔ ترتیبات میں Alibaba Cloud، OpenAI، یا MiniMax کو منتخب کریں۔",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "متن سے تقریر کے لیے Alibaba Cloud، OpenAI، یا MiniMax کو منتخب کریں۔",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "ویڈیو ترجمہ اور متن سے تقریر کے ذریعے اشتراک کردہ فراہم کنندہ، ماڈل، اور ڈیفالٹ آواز کو ترتیب دیں۔",
   "Multilingual": "کثیر لسانی",
   "Search voices": "آوازیں تلاش کریں",
   "All languages": "تمام زبانیں",

@@ -1,4 +1,11 @@
 {
+  "Text to Speech": "Teks ke ucapan",
+  "Text to Speech preview": "Pratinjau Teks ke ucapan",
+  "Text to Speech task": "Tugas Teks ke ucapan",
+  "Text to Speech is unavailable. Check the Runtime connection.": "Teks ke ucapan tidak tersedia. Periksa koneksi Runtime.",
+  "Text to Speech does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.": "Teks ke ucapan tidak mendukung Edge TTS. Pilih Alibaba Cloud, OpenAI, atau MiniMax di Pengaturan.",
+  "Select Alibaba Cloud, OpenAI, or MiniMax for Text to Speech.": "Pilih Alibaba Cloud, OpenAI, atau MiniMax untuk Teks ke ucapan.",
+  "Configure the provider, model, and default voice shared by video translation and Text to Speech.": "Konfigurasikan penyedia, model, dan suara default yang digunakan bersama oleh terjemahan video dan Teks ke ucapan.",
   "Multilingual": "Multibahasa",
   "Search voices": "Cari suara",
   "All languages": "Semua bahasa",
