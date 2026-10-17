@@ -705,7 +705,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## کمیونٹی
 
-<p><strong>کم از کم 100 ممالک اور خطوں</strong> کے GitHub صارفین نے OpenCreator کو اسٹار دیا ہے۔</p>
+<p><strong>کم از کم 104 ممالک اور خطوں</strong> کے GitHub صارفین نے OpenCreator کو اسٹار دیا ہے۔</p>
 
 <img src="../images/star-coverage-map.svg" alt="OpenCreator کو GitHub اسٹار دینے والے ممالک اور خطوں کا نقشہ" width="760" />
 
