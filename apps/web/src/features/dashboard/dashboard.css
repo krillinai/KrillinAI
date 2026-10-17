@@ -13791,6 +13791,7 @@
 }
 
 .video-result-workspace {
+  position: relative;
   min-height: 0;
   height: 100%;
   display: flex;
@@ -13971,6 +13972,27 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.video-result-workspace > .video-result-notice {
+  position: absolute;
+  z-index: 12;
+  grid-column: 1;
+  grid-row: 1;
+  inset-block-start: 60px;
+  inset-inline: 16px;
+  width: fit-content;
+  max-width: min(480px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-popover);
+  color: var(--text);
+  overflow-wrap: anywhere;
+  pointer-events: none;
 }
 
 .video-result-regenerate {

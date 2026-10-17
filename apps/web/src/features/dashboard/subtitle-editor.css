@@ -53,8 +53,6 @@
   grid-template-columns: minmax(0, 1fr) clamp(360px, 34vw, 480px);
   grid-template-rows: minmax(0, 1fr);
 }
-.video-result-workspace[data-settings-open="true"]:has(> .video-result-notice) { grid-template-rows: auto minmax(0, 1fr); }
-.video-result-workspace[data-settings-open="true"] > .video-result-notice,
 .video-result-workspace[data-settings-open="true"] > .video-result-subtitle-pane { grid-column: 1; min-width: 0; }
 .video-result-workspace[data-immersive="true"][data-settings-open="true"] .video-result-subtitle-preview-layout[data-editor-settings="true"] {
   grid-template-columns: minmax(0, var(--subtitle-editor-width, 45%)) 7px minmax(0, 1fr);
@@ -62,8 +60,7 @@
 .video-result-workspace[data-settings-open="true"] .subtitle-editor-settings-nav { display: none; }
 
 .video-result-workspace[data-immersive="true"] > .video-result-notice {
-  margin: 0;
-  padding: 8px 20px;
+  inset-block-start: 88px;
 }
 
 .video-result-workspace[data-immersive="true"] .video-result-subtitle-pane {
@@ -288,7 +285,7 @@ body:has(.video-translation-page[data-subtitle-immersive="true"]) .tts-voice-lib
 
 @media (max-width: 760px) {
   .video-result-workspace[data-immersive="true"][data-settings-open="true"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(220px, 36%); }
-  .video-result-workspace[data-settings-open="true"]:has(> .video-result-notice) { grid-template-rows: auto minmax(0, 1fr) minmax(220px, 36%); }
+  .video-result-workspace[data-immersive="true"] > .video-result-notice { inset-block-start: 140px; }
   .video-result-workspace[data-immersive="true"][data-settings-open="true"] .video-result-subtitle-pane { grid-template-rows: auto minmax(230px, 1fr) auto; overflow-y: auto; }
   .subtitle-editor-settings { grid-column: 1; grid-row: -2 / -1; border-inline-start: 0; border-block-start: 1px solid var(--border); }
   .video-result-workspace[data-immersive="true"][data-settings-open="true"] .video-result-subtitle-preview-layout[data-editor-settings="true"] { grid-template-columns: minmax(0, 1fr); }
