@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 import { ChevronDown, ChevronUp, Merge, Pause, Play, Scissors, ZoomIn, ZoomOut } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { SubtitleCue } from './VideoTranslationResultWorkspace.js';
@@ -60,6 +60,7 @@ export default function SubtitleTimeline(props: {
   onSelect(id: number): void;
   onSeek(time: number): void;
   onTogglePlay(): void;
+  onPlaybackChange(playing: boolean): void;
   onChange(cues: SubtitleCue[]): void;
 }) {
   const l = useLocalizedCopy();
@@ -70,6 +71,7 @@ export default function SubtitleTimeline(props: {
   const [error, setError] = useState('');
   const [dragCue, setDragCue] = useState<SubtitleCue>();
   const drag = useRef<{ cue: SubtitleCue; x: number; mode: 'move' | 'start' | 'end'; pixelsPerSecond: number }>();
+  const scrub = useRef<{ pointerId: number; resume: boolean }>();
   const trackRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const waveform = useWaveform(props.src, props.duration);
@@ -105,7 +107,7 @@ export default function SubtitleTimeline(props: {
   useEffect(() => { setError(''); }, [props.selectedId]);
 
   useEffect(() => {
-    if (!props.playing || !scrollRef.current || !trackRef.current) return;
+    if (scrub.current || !props.playing || !scrollRef.current || !trackRef.current) return;
     const scroll = scrollRef.current;
     const x = props.currentTime / duration * trackRef.current.scrollWidth;
     if (x < scroll.scrollLeft || x > scroll.scrollLeft + scroll.clientWidth - 40) scroll.scrollLeft = Math.max(0, x - 80);
@@ -114,6 +116,36 @@ export default function SubtitleTimeline(props: {
   function pointTime(clientX: number) {
     const rect = trackRef.current!.getBoundingClientRect();
     return Math.max(0, Math.min(duration, (clientX - rect.left) / rect.width * duration));
+  }
+
+  function beginScrub(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || scrub.current) return;
+    event.preventDefault();
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    scrub.current = { pointerId: event.pointerId, resume: Boolean(props.src && props.playing) };
+    if (scrub.current.resume) props.onPlaybackChange(false);
+    props.onSeek(pointTime(event.clientX));
+  }
+
+  function finishScrub(event: PointerEvent<HTMLDivElement>, seek = false) {
+    const active = scrub.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+    if (seek) props.onSeek(pointTime(event.clientX));
+    scrub.current = undefined;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (active.resume) props.onPlaybackChange(true);
+  }
+
+  function positionKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      props.onSeek(event.key === 'Home' ? 0 : event.key === 'End' ? duration : Math.max(0, Math.min(duration, props.currentTime + (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? 5 : .1))));
+    } else if (props.src && (event.key === ' ' || event.key === 'Enter')) {
+      event.preventDefault();
+      if (!event.repeat && !scrub.current) props.onTogglePlay();
+    }
   }
 
   function beginDrag(event: PointerEvent<HTMLElement>, cue: SubtitleCue, mode: 'move' | 'start' | 'end') {
@@ -192,24 +224,26 @@ export default function SubtitleTimeline(props: {
     {error ? <p className="subtitle-timeline-error" role="alert">{error}</p> : null}
     {!collapsed ? <div className="subtitle-timeline-scroll" ref={scrollRef} dir="ltr">
       <div className="subtitle-timeline-track" ref={trackRef} style={{ width: `${zoom * 100}%`, minHeight: `${105 + Math.max(1, lanes.length) * 40}px` }}>
-        <div className="subtitle-timeline-ruler" role="slider" tabIndex={0} aria-label={l('播放位置', 'Playback position')}
+        <div className="subtitle-timeline-seek" role="slider" tabIndex={0} aria-label={l('播放位置', 'Playback position')}
           aria-valuemin={0} aria-valuemax={duration} aria-valuenow={props.currentTime} aria-valuetext={subtitleTimestamp(props.currentTime)}
-          onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); props.onSeek(pointTime(event.clientX)); }}
-          onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) props.onSeek(pointTime(event.clientX)); }}
-          onKeyDown={event => {
-            if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-              event.preventDefault(); props.onSeek(event.key === 'Home' ? 0 : event.key === 'End' ? duration : Math.max(0, Math.min(duration, props.currentTime + (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? 5 : .1))));
-            }
-          }}>
-          {Array.from({ length: tickCount }, (_, i) => <span key={i} style={{ left: `${i / tickCount * 100}%` }}>{subtitleTimestamp(duration * i / tickCount).replace(/^00:/, '').replace(',', '.')}</span>)}
+          aria-keyshortcuts={props.src ? 'Space Enter ArrowLeft ArrowRight Home End' : 'ArrowLeft ArrowRight Home End'}
+          onPointerDown={beginScrub}
+          onPointerMove={event => { if (scrub.current?.pointerId === event.pointerId) props.onSeek(pointTime(event.clientX)); }}
+          onPointerUp={event => finishScrub(event, true)} onPointerCancel={event => finishScrub(event)}
+          onLostPointerCapture={event => finishScrub(event)}
+          onDoubleClick={() => { if (props.src) props.onTogglePlay(); }}
+          onKeyDown={positionKeyDown}>
+          <div className="subtitle-timeline-ruler" aria-hidden="true">
+            {Array.from({ length: tickCount }, (_, i) => <span key={i} style={{ left: `${i / tickCount * 100}%` }}>{subtitleTimestamp(duration * i / tickCount).replace(/^00:/, '').replace(',', '.')}</span>)}
+          </div>
+          <div className="subtitle-timeline-waveform" aria-hidden="true" style={{ width: `${(waveform.duration || duration) / duration * 100}%` }}>
+            {waveform.status === 'ready' ? <svg viewBox="0 0 10000 60" preserveAspectRatio="none"><path d={waveformPath} /></svg> : null}
+          </div>
+          {waveform.status !== 'ready' ? <span className="subtitle-timeline-waveform-status" role="status">
+            {!props.src ? l('仅字幕时间轴', 'Subtitle timing only') : waveform.status === 'loading' ? l('正在生成音频波形…', 'Generating audio waveform…')
+              : l('无法生成此媒体的波形，仍可调整字幕时间。', 'Waveform unavailable for this media. Subtitle timing is still editable.')}
+          </span> : null}
         </div>
-        <div className="subtitle-timeline-waveform" aria-hidden="true" style={{ width: `${(waveform.duration || duration) / duration * 100}%` }}>
-          {waveform.status === 'ready' ? <svg viewBox="0 0 10000 60" preserveAspectRatio="none"><path d={waveformPath} /></svg> : null}
-        </div>
-        {waveform.status !== 'ready' ? <span className="subtitle-timeline-waveform-status" role="status">
-          {!props.src ? l('仅字幕时间轴', 'Subtitle timing only') : waveform.status === 'loading' ? l('正在生成音频波形…', 'Generating audio waveform…')
-            : l('无法生成此媒体的波形，仍可调整字幕时间。', 'Waveform unavailable for this media. Subtitle timing is still editable.')}
-        </span> : null}
         {positioned.filter(({ start, end }) => Number.isFinite(start) && end > start).map(({ cue, start, end, lane }) => <div key={cue.id}
           className="subtitle-timeline-clip" data-selected={props.selectedId === cue.id} data-active={props.currentTime >= start && props.currentTime < end}
           style={{ left: `${start / duration * 100}%`, width: `${(end - start) / duration * 100}%`, top: `${98 + lane * 40}px` }}>

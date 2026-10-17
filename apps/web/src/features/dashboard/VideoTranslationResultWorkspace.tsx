@@ -708,6 +708,12 @@ export default function VideoTranslationResultWorkspace(props: {
             selectedId={selectedCueId} readOnly={editReadOnly || !props.onSubtitleCuesChange}
             onSelect={id => { setSelectedCueId(id); subtitleCueRefs.current.get(id)?.scrollIntoView?.({ block: 'nearest' }); }}
             onSeek={seekSubtitle} onChange={replaceCues}
+            onPlaybackChange={playing => {
+              const video = subtitleVideoRef.current;
+              if (!video) return;
+              if (playing) void video.play().catch(() => setSubtitlePlaying(false));
+              else video.pause();
+            }}
             onTogglePlay={() => {
               const video = subtitleVideoRef.current;
               if (!video) return;
