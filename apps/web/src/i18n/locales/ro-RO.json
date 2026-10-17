@@ -3327,5 +3327,11 @@
   "Replace with": "Înlocuiește cu",
   "Replace": "Înlocuiește",
   "Replace all": "Înlocuiește tot",
-  "No matches": "Nicio potrivire"
+  "No matches": "Nicio potrivire",
+  "Presets": "Presetări",
+  "My styles": "Stilurile mele",
+  "Customize": "Personalizează",
+  "Save as template": "Salvează ca șablon",
+  "Customize subtitle style": "Personalizează stilul subtitrărilor",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Nu există încă stiluri salvate. Ajustează un stil în Personalizează, apoi alege Salvează ca șablon."
 }

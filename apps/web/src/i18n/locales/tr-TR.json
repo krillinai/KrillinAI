@@ -3327,5 +3327,11 @@
   "Replace with": "Yeni metin",
   "Replace": "Değiştir",
   "Replace all": "Tümünü değiştir",
-  "No matches": "Eşleşme yok"
+  "No matches": "Eşleşme yok",
+  "Presets": "Hazır stiller",
+  "My styles": "Stillerim",
+  "Customize": "Özelleştir",
+  "Save as template": "Şablon olarak kaydet",
+  "Customize subtitle style": "Altyazı stilini özelleştir",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Henüz kayıtlı stil yok. Özelleştir bölümünde bir stili düzenleyip Şablon olarak kaydet seçeneğini seçin."
 }

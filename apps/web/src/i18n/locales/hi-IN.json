@@ -3327,5 +3327,11 @@
   "Replace with": "इससे बदलें",
   "Replace": "बदलें",
   "Replace all": "सभी बदलें",
-  "No matches": "कोई मिलान नहीं"
+  "No matches": "कोई मिलान नहीं",
+  "Presets": "प्रीसेट",
+  "My styles": "मेरी शैलियाँ",
+  "Customize": "कस्टमाइज़ करें",
+  "Save as template": "टेम्पलेट के रूप में सहेजें",
+  "Customize subtitle style": "सबटाइटल शैली कस्टमाइज़ करें",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "अभी कोई शैली सहेजी नहीं गई है। कस्टमाइज़ करें में शैली बदलें, फिर टेम्पलेट के रूप में सहेजें चुनें।"
 }

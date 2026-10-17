@@ -3327,5 +3327,11 @@
   "Replace with": "Nahradit za",
   "Replace": "Nahradit",
   "Replace all": "Nahradit vše",
-  "No matches": "Žádné shody"
+  "No matches": "Žádné shody",
+  "Presets": "Předvolby",
+  "My styles": "Moje styly",
+  "Customize": "Přizpůsobit",
+  "Save as template": "Uložit jako šablonu",
+  "Customize subtitle style": "Přizpůsobit styl titulků",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Zatím nemáte uložené styly. Upravte styl přes Přizpůsobit a pak zvolte Uložit jako šablonu."
 }

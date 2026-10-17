@@ -3327,5 +3327,11 @@
   "Replace with": "Ersätt med",
   "Replace": "Ersätt",
   "Replace all": "Ersätt alla",
-  "No matches": "Inga träffar"
+  "No matches": "Inga träffar",
+  "Presets": "Förinställningar",
+  "My styles": "Mina stilar",
+  "Customize": "Anpassa",
+  "Save as template": "Spara som mall",
+  "Customize subtitle style": "Anpassa undertextstil",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Inga sparade stilar ännu. Justera en stil under Anpassa och välj sedan Spara som mall."
 }

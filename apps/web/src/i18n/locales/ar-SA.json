@@ -3327,5 +3327,11 @@
   "Replace with": "استبدال بـ",
   "Replace": "استبدال",
   "Replace all": "استبدال الكل",
-  "No matches": "لا توجد تطابقات"
+  "No matches": "لا توجد تطابقات",
+  "Presets": "أنماط جاهزة",
+  "My styles": "أنماطي",
+  "Customize": "تخصيص",
+  "Save as template": "حفظ كقالب",
+  "Customize subtitle style": "تخصيص نمط الترجمة",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "لا توجد أنماط محفوظة بعد. عدّل النمط في «تخصيص»، ثم اختر «حفظ كقالب»."
 }

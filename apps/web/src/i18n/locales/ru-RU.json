@@ -3327,5 +3327,11 @@
   "Replace with": "Заменить на",
   "Replace": "Заменить",
   "Replace all": "Заменить всё",
-  "No matches": "Совпадений нет"
+  "No matches": "Совпадений нет",
+  "Presets": "Готовые стили",
+  "My styles": "Мои стили",
+  "Customize": "Настроить",
+  "Save as template": "Сохранить как шаблон",
+  "Customize subtitle style": "Настроить стиль субтитров",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Сохранённых стилей пока нет. Измените стиль через «Настроить», затем выберите «Сохранить как шаблон»."
 }

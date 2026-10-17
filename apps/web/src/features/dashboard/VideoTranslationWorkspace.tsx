@@ -3829,83 +3829,76 @@ export default function VideoTranslationWorkspace(props: {
             </button>
           ))}
         </div>
-      </div>
-      <div
-        id="subtitle-style-tabpanel"
-        className="video-translation-subtitle-presets"
-        role="radiogroup"
-        aria-label={subtitleStyleTab === 'mine' ? l('我的样式', 'My styles') : l('推荐样式', 'Recommended styles')}
-      >
-        {subtitleStyleTab === 'recommended' ? subtitleStylePresets.map(preset => (
-          <button
-            key={preset.id}
-            type="button"
-            role="radio"
-            aria-checked={activeSubtitlePreset?.id === preset.id}
-            className="video-translation-subtitle-preset"
-            onClick={() => selectSubtitleStyle(preset.style)}
-          >
-            <SubtitlePresetThumbnail style={preset.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
-            <span>{l(...preset.name)}</span>
-          </button>
-        )) : null}
-        {subtitleStyleTab === 'mine' && savedSubtitleStyles.length === 0 ? (
-          <p className="video-translation-subtitle-presets-empty">
-            {l('还没有保存的样式。在自定义样式里调整后点「另存为模版」。', 'No saved styles yet. Adjust a style in Customize, then choose Save as template.')}
-          </p>
-        ) : null}
-        {subtitleStyleTab === 'mine' ? savedSubtitleStyles.map(saved => (
-          <div key={saved.id} className="video-translation-subtitle-preset-saved">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={activeSavedSubtitleStyle?.id === saved.id}
-              className="video-translation-subtitle-preset"
-              onClick={() => selectSubtitleStyle(saved.style)}
-            >
-              <SubtitlePresetThumbnail style={saved.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
-              <span>{saved.name}</span>
-            </button>
-            <div className="video-translation-subtitle-preset-actions">
-              <button
-                type="button"
-                aria-label={l(`编辑模版 ${saved.name}`, `Edit template ${saved.name}`)}
-                title={l('编辑模版', 'Edit template')}
-                aria-haspopup="dialog"
-                onClick={() => openSavedStyleEditor(saved)}
-              >
-                <Pencil size={11} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label={l(`删除模版 ${saved.name}`, `Delete template ${saved.name}`)}
-                title={l('删除模版', 'Delete template')}
-                onClick={() => deleteSavedSubtitleStyle(saved.id)}
-              >
-                <X size={12} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        )) : null}
         <button
           ref={styleDrawerTriggerRef}
           type="button"
-          className="video-translation-subtitle-preset"
-          data-custom="true"
-          data-active={activeSubtitlePreset === undefined && activeSavedSubtitleStyle === undefined}
+          className="video-translation-subtitle-customize"
           aria-haspopup="dialog"
           aria-expanded={styleDrawerSnapshot !== undefined}
           onClick={() => setStyleDrawerSnapshot(currentSubtitleStyle)}
         >
-          {activeSubtitlePreset === undefined && activeSavedSubtitleStyle === undefined ? (
-            <SubtitlePresetThumbnail style={currentSubtitleStyle} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
-          ) : (
-            <span className="video-translation-subtitle-preset-thumb" data-empty="true" aria-hidden="true">
-              <SlidersHorizontal size={18} strokeWidth={1.8} />
-            </span>
-          )}
+          <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden="true" />
           <span>{l('自定义样式', 'Customize')}</span>
         </button>
+      </div>
+      <div
+        id="subtitle-style-tabpanel"
+        role="tabpanel"
+        aria-labelledby={`subtitle-style-tab-${subtitleStyleTab}`}
+      >
+        {subtitleStyleTab === 'mine' && savedSubtitleStyles.length === 0 ? (
+          <p className="video-translation-subtitle-presets-empty">
+            {l('还没有保存的样式。在自定义样式里调整后点「另存为模版」。', 'No saved styles yet. Adjust a style in Customize, then choose Save as template.')}
+          </p>
+        ) : <div className="video-translation-subtitle-presets" role="radiogroup"
+          aria-label={subtitleStyleTab === 'mine' ? l('我的样式', 'My styles') : l('推荐样式', 'Recommended styles')}>
+          {subtitleStyleTab === 'recommended' ? subtitleStylePresets.map(preset => (
+            <button
+              key={preset.id}
+              type="button"
+              role="radio"
+              aria-checked={activeSubtitlePreset?.id === preset.id}
+              className="video-translation-subtitle-preset"
+              onClick={() => selectSubtitleStyle(preset.style)}
+            >
+              <SubtitlePresetThumbnail style={preset.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
+              <span>{l(...preset.name)}</span>
+            </button>
+          )) : null}
+          {subtitleStyleTab === 'mine' ? savedSubtitleStyles.map(saved => (
+            <div key={saved.id} className="video-translation-subtitle-preset-saved">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={activeSavedSubtitleStyle?.id === saved.id}
+                className="video-translation-subtitle-preset"
+                onClick={() => selectSubtitleStyle(saved.style)}
+              >
+                <SubtitlePresetThumbnail style={saved.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
+                <span>{saved.name}</span>
+              </button>
+              <div className="video-translation-subtitle-preset-actions">
+                <button
+                  type="button"
+                  aria-label={l(`编辑模版 ${saved.name}`, `Edit template ${saved.name}`)}
+                  title={l('编辑模版', 'Edit template')}
+                  aria-haspopup="dialog"
+                  onClick={() => openSavedStyleEditor(saved)}
+                >
+                  <Pencil size={11} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={l(`删除模版 ${saved.name}`, `Delete template ${saved.name}`)}
+                  title={l('删除模版', 'Delete template')}
+                  onClick={() => deleteSavedSubtitleStyle(saved.id)}
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          )) : null}
+        </div>}
       </div>
     </>
   );

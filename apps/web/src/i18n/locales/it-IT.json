@@ -3327,5 +3327,11 @@
   "Replace with": "Sostituisci con",
   "Replace": "Sostituisci",
   "Replace all": "Sostituisci tutto",
-  "No matches": "Nessuna corrispondenza"
+  "No matches": "Nessuna corrispondenza",
+  "Presets": "Predefiniti",
+  "My styles": "I miei stili",
+  "Customize": "Personalizza",
+  "Save as template": "Salva come modello",
+  "Customize subtitle style": "Personalizza lo stile dei sottotitoli",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Non ci sono ancora stili salvati. Modifica uno stile in Personalizza, poi scegli Salva come modello."
 }

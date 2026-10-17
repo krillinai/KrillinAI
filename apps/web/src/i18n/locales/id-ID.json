@@ -3327,5 +3327,11 @@
   "Replace with": "Ganti dengan",
   "Replace": "Ganti",
   "Replace all": "Ganti semua",
-  "No matches": "Tidak ada kecocokan"
+  "No matches": "Tidak ada kecocokan",
+  "Presets": "Preset",
+  "My styles": "Gaya saya",
+  "Customize": "Sesuaikan",
+  "Save as template": "Simpan sebagai templat",
+  "Customize subtitle style": "Sesuaikan gaya subtitel",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Belum ada gaya tersimpan. Atur gaya di Sesuaikan, lalu pilih Simpan sebagai templat."
 }

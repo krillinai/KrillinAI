@@ -3327,5 +3327,11 @@
   "Replace with": "Αντικατάσταση με",
   "Replace": "Αντικατάσταση",
   "Replace all": "Αντικατάσταση όλων",
-  "No matches": "Δεν βρέθηκαν αντιστοιχίες"
+  "No matches": "Δεν βρέθηκαν αντιστοιχίες",
+  "Presets": "Προεπιλογές",
+  "My styles": "Τα στυλ μου",
+  "Customize": "Προσαρμογή",
+  "Save as template": "Αποθήκευση ως πρότυπο",
+  "Customize subtitle style": "Προσαρμογή στυλ υποτίτλων",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Δεν υπάρχουν αποθηκευμένα στυλ ακόμη. Αλλάξτε ένα στυλ στην Προσαρμογή και επιλέξτε Αποθήκευση ως πρότυπο."
 }

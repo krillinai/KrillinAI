@@ -3327,5 +3327,11 @@
   "Replace with": "இதனால் மாற்று",
   "Replace": "மாற்று",
   "Replace all": "அனைத்தையும் மாற்று",
-  "No matches": "பொருத்தங்கள் இல்லை"
+  "No matches": "பொருத்தங்கள் இல்லை",
+  "Presets": "முன்னமைவுகள்",
+  "My styles": "எனது பாணிகள்",
+  "Customize": "தனிப்பயனாக்கு",
+  "Save as template": "வார்ப்புருவாகச் சேமி",
+  "Customize subtitle style": "வசன பாணியைத் தனிப்பயனாக்கு",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "சேமித்த பாணிகள் இன்னும் இல்லை. தனிப்பயனாக்கு பகுதியில் பாணியை மாற்றி, வார்ப்புருவாகச் சேமி என்பதைத் தேர்ந்தெடுக்கவும்."
 }

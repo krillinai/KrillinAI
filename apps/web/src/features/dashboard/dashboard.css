@@ -1228,9 +1228,36 @@
 
 .video-translation-subtitle-style-tabs-row {
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
+.video-translation-subtitle-customize {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.video-translation-subtitle-customize > svg { flex-shrink: 0; }
+.video-translation-subtitle-customize:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.video-translation-subtitle-customize:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .video-translation-subtitle-style-tabs {
+  flex: 1 1 180px;
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px;
@@ -1271,12 +1298,11 @@
 }
 
 .video-translation-subtitle-presets-empty {
-  grid-column: 1 / -1;
   margin: 0;
   padding: 12px;
   border: 1px dashed var(--border);
   border-radius: 8px;
-  color: var(--subtle);
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -1344,8 +1370,7 @@
   outline-offset: 2px;
 }
 
-.video-translation-subtitle-preset[aria-checked="true"],
-.video-translation-subtitle-preset[data-active="true"] {
+.video-translation-subtitle-preset[aria-checked="true"] {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
   color: var(--text);
@@ -1371,11 +1396,6 @@
   /* Preserve the thumbnail treatment against the global filter reset. */
   filter: brightness(0.55) blur(3px) !important;
   transform: scale(1.08);
-}
-
-.video-translation-subtitle-preset-thumb[data-empty="true"] {
-  place-items: center;
-  color: var(--muted);
 }
 
 .video-translation-subtitle-preset-lines {

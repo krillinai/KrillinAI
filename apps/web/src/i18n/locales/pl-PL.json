@@ -3327,5 +3327,11 @@
   "Replace with": "Zamień na",
   "Replace": "Zamień",
   "Replace all": "Zamień wszystkie",
-  "No matches": "Brak dopasowań"
+  "No matches": "Brak dopasowań",
+  "Presets": "Gotowe style",
+  "My styles": "Moje style",
+  "Customize": "Dostosuj",
+  "Save as template": "Zapisz jako szablon",
+  "Customize subtitle style": "Dostosuj styl napisów",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Nie ma jeszcze zapisanych stylów. Zmień styl w Dostosuj, a następnie wybierz Zapisz jako szablon."
 }

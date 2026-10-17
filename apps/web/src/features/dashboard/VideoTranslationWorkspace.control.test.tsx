@@ -1068,7 +1068,12 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
     expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('button', { name: '自定义样式' })).toHaveAttribute('data-active', 'true');
+    const customize = screen.getByRole('button', { name: '自定义样式' });
+    expect(screen.getByRole('radiogroup', { name: '推荐样式' })).not.toContainElement(customize);
+    expect(customize).not.toHaveAttribute('data-active');
+    expect(customize).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(customize);
+    expect(screen.getByRole('combobox', { name: '字幕大小' })).toHaveValue('large');
   });
 
   it('saves the current subtitle style as a local template and deletes it', () => {
@@ -1087,7 +1092,10 @@ describe('VideoTranslationWorkspace task controls', () => {
 
     expect(screen.getByRole('tab', { name: '推荐' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('tab', { name: '我的样式' }));
-    expect(screen.getByText(/还没有保存的样式/)).toBeInTheDocument();
+    const empty = screen.getByRole('tabpanel', { name: '我的样式' });
+    expect(within(empty).getByText(/还没有保存的样式/)).toBeInTheDocument();
+    expect(within(empty).queryByRole('radio')).not.toBeInTheDocument();
+    expect(empty).not.toContainElement(screen.getByRole('button', { name: '自定义样式' }));
     fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     expect(screen.getByRole('region', { name: '字幕样式预览' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('spinbutton', { name: '描边宽度' }), { target: { value: '6' } });
