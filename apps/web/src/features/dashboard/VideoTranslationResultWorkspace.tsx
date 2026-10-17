@@ -414,12 +414,15 @@ export default function VideoTranslationResultWorkspace(props: {
           })}
         </div>
 
-        <CreatorResultVersionMenu
-          showCompletion={props.execution === undefined && generatedArtifactCount > 0}
-          version={props.version}
-          versions={props.versions}
-          onVersionChange={props.onVersionChange}
-        />
+        <div className="video-result-toolbar-actions">
+          <CreatorResultVersionMenu
+            showCompletion={props.execution === undefined && generatedArtifactCount > 0}
+            version={props.version}
+            versions={props.versions}
+            onVersionChange={props.onVersionChange}
+          />
+          {!props.immersive ? regenerationControls : null}
+        </div>
       </div>
 
       {props.notice ? <p className="video-result-notice" role="status">{props.notice}</p> : null}
@@ -606,6 +609,7 @@ export default function VideoTranslationResultWorkspace(props: {
                       )}
                 </button>
               ) : null}
+              {props.immersive && !editorPanel ? regenerationControls : null}
             </div>
           </header>
           {activeSubtitleOutput !== undefined ? (
@@ -948,7 +952,8 @@ export default function VideoTranslationResultWorkspace(props: {
         title={editorPanel === 'style' ? l('字幕样式', 'Subtitle style') : l('配音', 'Dubbing')}
         context={l(`正在基于 V${props.version} 调整`, `Adjusting from V${props.version}`)}
         workspace={rootRef.current?.closest<HTMLElement>('.video-translation-page') ?? rootRef.current} onClose={() => setEditorPanel(undefined)}
-        footer={<>{regenerationControls}<button type="button" onClick={() => setEditorPanel(undefined)}>{l('完成', 'Done')}</button></>}>
+        actions={regenerationControls}
+        footer={<button type="button" onClick={() => setEditorPanel(undefined)}>{l('完成', 'Done')}</button>}>
         <div className="subtitle-editor-settings-tabs" role="tablist" aria-label={l('项目设置', 'Project settings')}>
           {(['style', 'voice'] as const).map(panel => <button key={panel} type="button" role="tab" aria-selected={editorPanel === panel}
             id={`subtitle-editor-settings-tab-${panel}`} aria-controls="subtitle-editor-settings-content" tabIndex={editorPanel === panel ? 0 : -1}
@@ -972,7 +977,7 @@ export default function VideoTranslationResultWorkspace(props: {
             <button type="button" onClick={props.onReloadVoice}>{l('重新加载配音', 'Reload dubbing')}</button>
           </> : null}
         </div> : null}
-      </SubtitleEditorSettingsDrawer> : regenerationControls}
+      </SubtitleEditorSettingsDrawer> : null}
     </section>
   );
 }
@@ -982,6 +987,7 @@ function SubtitleEditorSettingsDrawer(props: {
   context: string;
   workspace: HTMLElement | null;
   children: ReactNode;
+  actions: ReactNode;
   footer: ReactNode;
   onClose(): void;
 }) {
@@ -1020,6 +1026,7 @@ function SubtitleEditorSettingsDrawer(props: {
     <section className="subtitle-editor-settings" id="subtitle-editor-settings-panel" ref={dialogRef}
       role="dialog" aria-modal="true" aria-label={props.title}>
       <header><div><h2>{props.title}</h2><p>{props.context}</p></div>
+        {props.actions}
         <button ref={closeRef} type="button" aria-label={l('关闭', 'Close')} onClick={props.onClose}><X size={18} /></button>
       </header>
       <div className="subtitle-editor-settings-body">{props.children}</div>

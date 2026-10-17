@@ -64,10 +64,12 @@ describe('VideoTranslationResultWorkspace', () => {
       editorSettings={settings} hasPendingChanges onRequestRegenerate={onRequest}
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     const video = screen.getByLabelText('横屏字幕视频预览');
+    expect(screen.getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
     expect(onOpen).toHaveBeenCalledOnce();
     const dialog = screen.getByRole('dialog', { name: '字幕样式' });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(within(dialog).getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
     expect(video.closest('.video-result-workspace')).toHaveAttribute('inert');
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeEnabled();
     fireEvent.click(within(dialog).getByRole('tab', { name: '配音' }));
@@ -80,6 +82,7 @@ describe('VideoTranslationResultWorkspace', () => {
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     expect(screen.getByText('将更新配音、成片，V1 的全部产出会保留')).toBeVisible();
     expect(screen.getByRole('button', { name: '确认生成 V2' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: '确认生成 V2' }).closest('header')).not.toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: '字幕样式' }));
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeDisabled();
     fireEvent.keyDown(screen.getByRole('button', { name: '关闭' }), { key: 'Escape' });

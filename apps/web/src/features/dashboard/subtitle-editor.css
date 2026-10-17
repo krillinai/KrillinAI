@@ -152,7 +152,9 @@
 .subtitle-editor-settings-nav .subtitle-editor-voice-toggle { margin-inline-start: auto; }
 .subtitle-editor-settings-backdrop { position: fixed; inset: 0; inset-block-start: var(--opencreator-titlebar-height, 0px); z-index: 1100; display: flex; justify-content: flex-end; background: color-mix(in srgb, #000 28%, transparent); }
 .subtitle-editor-settings { display: flex; flex-direction: column; width: min(520px, 100%); height: 100%; min-width: 0; background: var(--surface); box-shadow: -18px 0 60px color-mix(in srgb, #000 28%, transparent); color: var(--text); }
-.subtitle-editor-settings > header { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.subtitle-editor-settings > header { display: grid; flex: 0 0 auto; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.subtitle-editor-settings > header > button { grid-column: 3; grid-row: 1; }
+.subtitle-editor-settings > header > .video-result-regenerate[data-confirming="true"] { grid-column: 1 / -1; grid-row: 2; }
 .subtitle-editor-settings h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .subtitle-editor-settings header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
 .subtitle-editor-settings-body { flex: 1; min-height: 0; padding: 20px 24px; overflow-y: auto; overscroll-behavior: contain; }
@@ -177,7 +179,10 @@
 .subtitle-editor-voice-status p { margin: 0; }
 .subtitle-editor-styled-overlay { position: absolute; inset: 0; pointer-events: none; }
 .subtitle-editor-styled-overlay button { pointer-events: auto; }
-.video-result-workspace[data-immersive="true"] > .video-result-regenerate { flex: 0 0 auto; flex-wrap: wrap; gap: 12px; padding: 10px 20px; border-top: 1px solid var(--border); }
+.video-result-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.video-result-pane-actions > .video-result-regenerate { flex-wrap: wrap; gap: 12px; max-width: 560px; margin-inline-start: auto; }
+.video-result-pane-actions .video-result-regenerate button { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.video-result-pane-actions .video-result-regenerate-actions button:first-child { background: var(--surface); border-color: var(--border); color: var(--text); }
 .subtitle-editor-regenerate-summary { flex: 1; font-size: 12px; line-height: 1.5; color: var(--muted); }
 body:has(.video-translation-page[data-subtitle-immersive="true"]) .video-translation-style-drawer-backdrop { z-index: 1200; }
 body:has(.video-translation-page[data-subtitle-immersive="true"]) .video-translation-color-palette { z-index: 1201; }
