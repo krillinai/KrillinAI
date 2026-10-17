@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const readSource = (path: string) => readFileSync(path, 'utf8').replaceAll('\r\n', '\n');
-const appCss = readSource('src/styles/app.css');
+const appCss = [
+  readSource('src/styles/app.css'),
+  readSource('src/features/settings/settings-layout.css')
+].join('\n');
 const appControllerTsx = readSource('src/app/AppController.tsx');
 const skillMarketCss = readSource('src/features/plugins/skill-market.css');
 const schedulesCss = readSource('src/features/schedules/schedules-view.css');
