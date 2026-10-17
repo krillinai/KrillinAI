@@ -10,7 +10,7 @@ import type {
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
-import { beginPaneResize } from '../../components/layout/pane-resize-2026-07-29.js';
+import { beginPaneResize, paneInlineDirection } from '../../components/layout/pane-resize-2026-07-29.js';
 import { ApiClientError } from '../../runtime/errors.js';
 import { defaultModeForMeta, FileEditorPane, isPreviewable, type FileEditorMode } from './FileEditorPane.js';
 import { FileTopBar } from './FileTopBar.js';
@@ -458,7 +458,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
 
     const rect = body.getBoundingClientRect();
     setTreeWidth(clampPaneWidth(
-      rect.right - clientX,
+      paneInlineDirection(body) === -1 ? clientX - rect.left : rect.right - clientX,
       FILE_TREE_MIN_WIDTH,
       Math.min(FILE_TREE_MAX_WIDTH, Math.max(FILE_TREE_MIN_WIDTH, rect.width - FILE_EDITOR_MIN_WIDTH))
     ));
@@ -485,10 +485,10 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
   function handleTreeResizeKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      adjustTreeWidth(RESIZE_KEY_STEP);
+      adjustTreeWidth(RESIZE_KEY_STEP * paneInlineDirection(workspaceBodyRef.current));
     } else if (event.key === 'ArrowRight') {
       event.preventDefault();
-      adjustTreeWidth(-RESIZE_KEY_STEP);
+      adjustTreeWidth(-RESIZE_KEY_STEP * paneInlineDirection(workspaceBodyRef.current));
     }
   }
 

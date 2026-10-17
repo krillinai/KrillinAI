@@ -673,7 +673,7 @@ export const smartDubbingPanelAdapter: CreatorPanelAdapter = {
   ),
   stageLabel(stageId, l) {
     if (stageId === 'tts') return l('生成配音', 'Generate dubbing');
-    return l('智能配音任务', 'AI dubbing task');
+    return l('文本转语音任务', 'Text to Speech task');
   },
   phaseLabel(phase, l) {
     const labels: Record<string, string> = {

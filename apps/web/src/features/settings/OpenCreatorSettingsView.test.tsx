@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmDialogProvider } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
-import { languagePreferenceStorageKey } from '../../i18n/language.js';
+import { appLanguageOptions, languagePreferenceStorageKey } from '../../i18n/language.js';
 import { OpenCreatorSettingsView } from './OpenCreatorSettingsView.js';
 import type { GatewayAccountState } from '@opencreator/protocol';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
@@ -179,7 +179,8 @@ describe('OpenCreatorSettingsView', () => {
     expect(screen.getByText('默认权限')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: '默认权限' })).toHaveValue('follow-project');
     expect(screen.getByText('默认文件打开方式')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: '显示语言' })).toHaveValue('system');
+    expect(screen.getByRole('combobox', { name: '显示语言' })).toHaveAttribute('data-value', 'system');
+    fireEvent.focus(screen.getByRole('combobox', { name: '显示语言' }));
     expect(screen.getByRole('option', { name: '跟随系统（简体中文）' })).toBeInTheDocument();
     expect(screen.getByText('菜单栏显示')).toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: '动态背景' })).not.toBeInTheDocument();
@@ -195,12 +196,11 @@ describe('OpenCreatorSettingsView', () => {
       </LanguageProvider>
     );
 
-    fireEvent.change(screen.getByRole('combobox', { name: '显示语言' }), {
-      target: { value: 'en-US' }
-    });
+    fireEvent.focus(screen.getByRole('combobox', { name: '显示语言' }));
+    fireEvent.click(screen.getByRole('option', { name: 'English' }));
 
     expect(screen.getByRole('heading', { name: 'General' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Display language' })).toHaveValue('en-US');
+    expect(screen.getByRole('combobox', { name: 'Display language' })).toHaveAttribute('data-value', 'en-US');
     expect(screen.getByRole('button', { name: 'Back to app' })).toBeInTheDocument();
     expect(window.localStorage.getItem(languagePreferenceStorageKey)).toBe('en-US');
     expect(document.documentElement).toHaveAttribute('lang', 'en-US');
@@ -208,16 +208,39 @@ describe('OpenCreatorSettingsView', () => {
     window.localStorage.removeItem(languagePreferenceStorageKey);
   });
 
+  it('shows the actual system language while another display language is selected', () => {
+    render(<LanguageProvider initialPreference="en-US"><OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} /></LanguageProvider>);
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Display language' }));
+    fireEvent.click(screen.getByRole('option', { name: 'System (简体中文)' }));
+    expect(screen.getByRole('heading', { name: '常规' })).toBeInTheDocument();
+    expect(document.documentElement).toHaveAttribute('lang', 'zh-CN');
+    expect(window.localStorage.getItem(languagePreferenceStorageKey)).toBe('system');
+    window.localStorage.removeItem(languagePreferenceStorageKey);
+  });
+
   it.each([
     ['ja-JP', '一般'], ['ko-KR', '일반'], ['es-ES', 'General'],
-    ['fr-FR', 'Général'], ['de-DE', 'Allgemein'], ['pt-BR', 'Geral']
+    ['fr-FR', 'Général'], ['de-DE', 'Allgemein'], ['pt-BR', 'Geral'],
+    ['zh-TW', '一般'], ['it-IT', 'Generale'], ['ru-RU', 'Общие'],
+    ['tr-TR', 'Genel'], ['id-ID', 'Umum'], ['vi-VN', 'Chung'],
+    ['th-TH', 'ทั่วไป'], ['fil-PH', 'Pangkalahatan'], ['hi-IN', 'सामान्य'],
+    ['bn-BD', 'সাধারণ'], ['pl-PL', 'Ogólne'], ['uk-UA', 'Загальні'], ['nl-NL', 'Algemeen'],
+    ['ms-MY', 'Umum'], ['da-DK', 'Generelt'], ['nb-NO', 'Generelt'], ['fi-FI', 'Yleiset'],
+    ['cs-CZ', 'Obecné'], ['ro-RO', 'General'], ['hu-HU', 'Általános'], ['el-GR', 'Γενικά'],
+    ['ta-IN', 'பொது'], ['te-IN', 'సాధారణం'], ['bg-BG', 'Общи'],
+    ['sk-SK', 'Všeobecné'], ['hr-HR', 'Općenito'], ['sr-RS', 'Опште'],
+    ['ar-SA', 'عام'], ['fa-IR', 'عمومی'], ['ur-PK', 'عمومی'], ['he-IL', 'כללי'],
+    ['mr-IN', 'सामान्य'], ['gu-IN', 'સામાન્ય'], ['pa-IN', 'ਆਮ']
   ] as const)('offers and immediately switches to %s', (language, heading) => {
     render(<LanguageProvider initialPreference="en-US"><OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} /></LanguageProvider>);
     const select = screen.getByRole('combobox', { name: 'Display language' });
-    expect(select.querySelectorAll('option')).toHaveLength(10);
-    fireEvent.change(select, { target: { value: language } });
+    // The system option plus every supported display language.
+    fireEvent.focus(select);
+    const options = screen.getAllByRole('option').filter(option => option.hasAttribute('data-value'));
+    expect(options).toHaveLength(appLanguageOptions.length + 1);
+    fireEvent.click(options.find(option => option.dataset.value === language)!);
     expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
-    expect(select).toHaveValue(language);
+    expect(select).toHaveAttribute('data-value', language);
     expect(window.localStorage.getItem(languagePreferenceStorageKey)).toBe(language);
     expect(document.documentElement.lang).toBe(language);
     window.localStorage.removeItem(languagePreferenceStorageKey);

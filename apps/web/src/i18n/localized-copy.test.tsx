@@ -14,6 +14,12 @@ describe('inline multilingual copy', () => {
     expect(createLocalizedCopy('zh-CN')('中文', 'English', 'Svenska')).toBe('中文');
   });
 
+  it('serves Traditional Chinese from its catalog and falls back to the Chinese source, not English', () => {
+    const l = createLocalizedCopy('zh-TW');
+    expect(l('获取', 'Fetch')).toBe('擷取');
+    expect(l('未翻译的旧文案', 'Untranslated legacy copy')).toBe('未翻译的旧文案');
+  });
+
   it('updates already-rendered copy when the language preference changes', () => {
     function Copy() { const localize = useLocalizedCopy(); return <p>{localize('下载原视频并预览', 'Download source video and preview')}</p>; }
     render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><Copy /></LanguageProvider>);

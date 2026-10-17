@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect } from 'react';
 import { gatewayModelReady, gatewayModelSupports, type CreatorJson, type GatewayAccountState, type GatewayModel } from '@opencreator/protocol';
 import OfficialModelSelect, { officialModelLabel } from '../../components/forms/OfficialModelSelect.js';
+import ModelBrandIcon from '../../components/brand/ModelBrandIcon.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
 import './official-services.css';
@@ -45,7 +46,7 @@ export function OfficialModelField(props: { label: string; service: ReturnType<t
   const label = model ? officialModelLabel(model, l('自动选择', 'Automatic')) : l('暂不可用', 'Unavailable');
   return <label className="creator-tool-field">
     <span>{props.label}</span>
-    {models.length === 1 && props.service.ready ? <output className="official-model-value" aria-label={props.label}>{label}</output> :
+    {models.length === 1 && props.service.ready ? <output className="official-model-value" aria-label={props.label}><ModelBrandIcon model={model!} />{label}</output> :
       <OfficialModelSelect label={props.label} models={models} value={props.service.selected ?? model?.id ?? ''} disabled={!props.service.selectable || props.disabled || props.service.taskRunning} onChange={props.service.selectModel} />}
   </label>;
 }

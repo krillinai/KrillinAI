@@ -919,8 +919,8 @@ function TtsSettings(props: SettingsGroupProps) {
     <SettingsFieldset
       title={l('配音服务', 'Dubbing and speech synthesis')}
       description={l(
-        '统一配置视频翻译和智能配音使用的服务商、模型与默认音色。',
-        'Configure the provider, model, and default voice shared by video translation and AI dubbing.'
+        '统一配置视频翻译和文本转语音使用的服务商、模型与默认音色。',
+        'Configure the provider, model, and default voice shared by video translation and Text to Speech.'
       )}
     >
       <SelectField

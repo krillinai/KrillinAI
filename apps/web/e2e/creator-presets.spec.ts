@@ -359,7 +359,7 @@ test('@AC-4 六模块解析严格默认值，工作台首帧预填并持久化�
     runtime,
     module: 'smart-dubbing',
     job: jobs.get('smart-dubbing')!,
-    heading: '智能配音',
+    heading: '文本转语音',
     field: page.getByRole('textbox', { name: '配音文案内容' }),
     initialValue: '在这里输入需要配音的文案。',
     editedValue: '已编辑的沉静旁白文案。',
@@ -512,12 +512,10 @@ test('@AC-7 缺 Provider 时保留可编辑草稿、进入 needs_input 且不调
     await prompt.fill('缺少服务时仍应保留的编辑内容');
     await expectJobState(runtime, job.id, ['prompt'], '缺少服务时仍应保留的编辑内容');
 
-    await page.getByRole('button', { name: '继续' }).click();
     await expect(page.getByRole('combobox', { name: '视频服务' }))
       .toHaveValue('veo');
     await expect(page.getByRole('combobox', { name: '模型版本' }))
-      .toHaveValue('veo-3.1-generate-preview');
-    await page.getByRole('button', { name: '继续' }).click();
+      .toHaveValue('Veo 3.1');
     await page.getByRole('button', { name: '开始生成' }).click();
 
     await expect.poll(async () => (await getJob(runtime, job.id)).status)

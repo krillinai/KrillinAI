@@ -15,6 +15,174 @@ import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it.each([false, true])('opens and returns to outputs when composeVideo is %s without automatically rendering', async composeVideo => {
+    const target = subtitleArtifact(1, 'Hello world');
+    const initialJob = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      composeVideo, resultTab: 'subtitles', workspacePhase: 'result', resultVersion: 1
+    } });
+    const applyAction = vi.fn(async (_id: string, _request: { action: string }) => ({ job: initialJob }));
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={initialJob}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    expect(await screen.findByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('textbox', { name: '横屏字幕 1' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    expect(await screen.findByRole('button', { name: '返回项目' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '返回项目' }));
+    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('target-subtitle-v1.srt')).toBeVisible();
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+  });
+
+  it('shares immersive style and voice settings with configuration and only regenerates after confirmation', async () => {
+    const target = subtitleArtifact(1, 'Hello world');
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      workspacePhase: 'result', resultVersion: 1, composeVideo: true, dubbing: false,
+      ttsProvider: 'openai', ttsModel: 'gpt-4o-mini-tts', voiceCode: 'alloy', voiceName: 'Alloy'
+    } });
+    current.state.resultSnapshots = [{ version: 1, createdAt: target.createdAt, action: 'run-stage', stageId: 'subtitle',
+      description: 'Subtitles', artifactRefs: { target_subtitle: [target.id] }, changedArtifactIds: [target.id], staleArtifactIds: [], state: { ...current.state } }];
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    const services = {
+      getConfig: vi.fn(async () => ({ config: { tts: { provider: 'openai', openai: { model: 'gpt-4o-mini-tts', defaultVoiceId: 'alloy' } } } })),
+      getTtsVoices: vi.fn(async () => ({ voices: [
+        { id: 'alloy', name: 'Alloy', provider: 'openai', kind: 'builtin' },
+        { id: 'echo', name: 'Echo', provider: 'openai', kind: 'builtin' }
+      ] })),
+      previewTtsVoice: vi.fn()
+    };
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} creatorServicesService={services as never} />
+    </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(await screen.findByRole('tab', { name: '字幕' }));
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
+    fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'serif' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    fireEvent.click(within(screen.getByRole('dialog', { name: '自定义字幕样式' })).getByRole('button', { name: '完成' }));
+    fireEvent.click(within(screen.getByRole('complementary', { name: '字幕样式' })).getByRole('tab', { name: '配音' }));
+    fireEvent.click(screen.getByRole('switch', { name: '生成目标语言配音' }));
+    const picker = await screen.findByRole('combobox', { name: '配音音色' });
+    await waitFor(() => expect(picker).toBeEnabled());
+    fireEvent.click(picker);
+    fireEvent.click(await screen.findByRole('option', { name: /Echo/ }));
+    await waitFor(() => expect(current.state.voiceCode).toBe('echo'));
+    expect((current.state.subtitleStyle as Record<string, CreatorJson>).fontPreset).toBe('serif');
+    expect((current.state.subtitleStyle as Record<string, CreatorJson>).fontSize).toBe('large');
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
+    fireEvent.click(screen.getByRole('button', { name: '返回项目' }));
+    fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '调整设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '配音音色' })).toHaveAttribute('data-value', 'echo'));
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
+    expect(screen.getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
+    expect(screen.getByRole('combobox', { name: '字幕大小' })).toHaveValue('large');
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
+    fireEvent.click(screen.getByRole('button', { name: '返回 V1 成品' }));
+    fireEvent.click(screen.getByRole('tab', { name: '字幕' }));
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '生成 V2' }));
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '确认生成 V2' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'run-stage', input: {
+      stageId: 'tts', workflow: true, baseResultVersion: 1, inputResultVersion: 1
+    } })));
+  });
+
+  it.each([
+    ['字幕样式', 'render-horizontal'],
+    ['配音', 'tts'],
+    ['输出画幅', 'render-vertical']
+  ])('adds %s to a subtitle result through the editor without changing its original version', async (panel, stageId) => {
+    const target = subtitleArtifact(1, 'Hello world');
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      workspacePhase: 'result', resultVersion: 1, composeVideo: false, dubbing: false,
+      ttsProvider: 'openai', ttsModel: 'gpt-4o-mini-tts', voiceCode: 'alloy', voiceName: 'Alloy'
+    } });
+    const original = { version: 1, createdAt: target.createdAt, action: 'run-stage', stageId: 'subtitle',
+      description: 'Subtitles', artifactRefs: { target_subtitle: [target.id] }, changedArtifactIds: [target.id], staleArtifactIds: [], state: { ...current.state } };
+    current.state.resultSnapshots = [original];
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(await screen.findByRole('tab', { name: '字幕' }));
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: panel }));
+    const dialog = screen.getByRole('complementary', { name: panel });
+    expect(dialog.querySelector('video, .video-translation-subtitle-preview, .video-translation-subtitle-rendered-preview')).toBeNull();
+    expect(within(dialog).queryByRole('switch', { name: '合成字幕视频' })).toBeNull();
+    if (panel === '字幕样式') {
+      expect(within(dialog).getByRole('radiogroup', { name: '推荐样式' })).toBeVisible();
+    } else if (panel === '配音') {
+      fireEvent.click(within(dialog).getByRole('switch', { name: '生成目标语言配音' }));
+    } else {
+      fireEvent.change(within(dialog).getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
+    }
+    await waitFor(() => expect(current.state.composeVideo).toBe(true));
+    expect(original.state.composeVideo).toBe(false);
+    expect(original.state.dubbing).toBe(false);
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+    fireEvent.click(within(dialog).getByRole('button', { name: '生成 V2' }));
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+    fireEvent.click(within(dialog).getByRole('button', { name: '确认生成 V2' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'run-stage', input: {
+      stageId, workflow: true, baseResultVersion: 1, inputResultVersion: 1
+    } })));
+    expect(readCreatorResultSnapshots(current.state.resultSnapshots)[0]?.state.composeVideo).toBe(false);
+  });
+
+  it('retains immersive timing and split edits on return and persists them through the existing subtitle action', async () => {
+    const target = subtitleArtifact(1, 'Hello world');
+    target.metadata.cues = [{ id: 1, start: '00:00:00,000', end: '00:00:04,000', text: 'Hello world' }];
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      sourceType: 'subtitle', workspacePhase: 'result', resultTab: 'subtitles', resultVersion: 1
+    } });
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'edit-subtitle') {
+        const edited = { ...target, id: 'target-edited', version: 2, metadata: { ...target.metadata, cues: request.input.cues! } };
+        current = { ...current, revision: current.revision + 1, artifacts: [...current.artifacts, edited] };
+      } else current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}><VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: '深度编辑' }));
+    expect(document.querySelector('main.video-translation-page')).toHaveAttribute('data-subtitle-immersive', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '跳转到 00:00:00,000' }));
+    const end = screen.getByRole('spinbutton', { name: '结束时间' });
+    fireEvent.change(end, { target: { value: '4.5' } }); fireEvent.blur(end);
+    const playhead = screen.getByRole('slider', { name: '播放位置' });
+    for (let i = 0; i < 20; i++) fireEvent.keyDown(playhead, { key: 'ArrowRight' });
+    fireEvent.click(screen.getByRole('button', { name: '拆分' }));
+    fireEvent.click(screen.getByRole('button', { name: '返回项目' }));
+    expect(screen.getByRole('textbox', { name: '字幕 2' })).toHaveValue('world');
+    expect(screen.getByRole('button', { name: '保存字幕' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '保存字幕' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'edit-subtitle', input: expect.objectContaining({
+      artifactId: target.id, baseResultVersion: 1, preserveResultVersion: true,
+      cues: [
+        { id: 1, start: '00:00:00,000', end: '00:00:02,000', text: 'Hello' },
+        { id: 2, start: '00:00:02,000', end: '00:00:04,500', text: 'world' }
+      ]
+    }) })));
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存字幕' })).toBeDisabled());
+    expect(screen.getByRole('textbox', { name: '字幕 2' })).toHaveValue('world');
+  });
+
   it('localizes subtitle import controls across all languages without losing the selected file or preview', () => {
     const source = { ...subtitleArtifact(1, 'Original text'), id: 'source-srt', kind: 'source_subtitle', metadata: {
       ...subtitleArtifact(1, 'Original text').metadata, source: 'local-upload', fileName: 'lecture.en.srt', cueCount: 1
@@ -564,6 +732,8 @@ describe('VideoTranslationWorkspace task controls', () => {
       </LanguageProvider>
     );
 
+    expect(screen.getByRole('radio', { name: '经典' })).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     expect(screen.getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
     expect(screen.getByRole('combobox', { name: '字幕大小' })).toHaveValue('large');
     expect(screen.getByRole('button', { name: '选择译文颜色' })).toHaveTextContent('#7EE7FF');
@@ -580,6 +750,7 @@ describe('VideoTranslationWorkspace task controls', () => {
         <VideoTranslationWorkspace onBack={vi.fn()} />
       </CreatorSessionProvider>
     </LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     const trigger = screen.getByRole('button', { name: '选择译文颜色' });
     expect(screen.queryByRole('dialog', { name: '译文颜色色板' })).not.toBeInTheDocument();
     fireEvent.click(trigger);
@@ -601,8 +772,127 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(trigger);
     expect(screen.getByRole('textbox', { name: '译文颜色 HEX' })).toHaveValue('#123ABC');
-    fireEvent.pointerDown(screen.getByRole('combobox', { name: '输出画幅' }));
+    fireEvent.pointerDown(screen.getByRole('combobox', { name: '字幕字体' }));
     expect(screen.queryByRole('dialog', { name: '译文颜色色板' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '自定义字幕样式' })).toBeInTheDocument();
+  });
+
+  it('applies subtitle style presets and reverts drawer edits on cancel', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2, composeVideo: true } })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: '经典' }));
+    expect(screen.getByRole('radio', { name: '经典' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('radio', { name: '电影感' }));
+    expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '经典' })).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
+    const drawer = screen.getByRole('dialog', { name: '自定义字幕样式' });
+    expect(within(drawer).getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
+    fireEvent.change(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    fireEvent.click(within(drawer).getByRole('button', { name: '取消' }));
+    expect(screen.queryByRole('dialog', { name: '自定义字幕样式' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
+    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
+    expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('button', { name: '自定义样式' })).toHaveAttribute('data-active', 'true');
+  });
+
+  it('saves the current subtitle style as a local template and deletes it', () => {
+    window.localStorage.removeItem('opencreator.videoTranslation.savedSubtitleStyles');
+    const renderWorkspace = () => render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2, composeVideo: true } })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+    const { unmount } = renderWorkspace();
+
+    expect(screen.getByRole('tab', { name: '推荐' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('tab', { name: '我的样式' }));
+    expect(screen.getByText(/还没有保存的样式/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
+    expect(screen.getByRole('region', { name: '字幕样式预览' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('spinbutton', { name: '描边宽度' }), { target: { value: '6' } });
+    expect(screen.getByRole('slider', { name: '描边宽度滑块' })).toHaveValue('6');
+    fireEvent.change(screen.getByRole('slider', { name: '模糊滑块' }), { target: { value: '3' } });
+    expect(screen.getByRole('spinbutton', { name: '模糊' })).toHaveValue(3);
+    fireEvent.click(screen.getByRole('button', { name: '另存为模版' }));
+    fireEvent.change(screen.getByRole('textbox', { name: '模版名称' }), { target: { value: '口播粗描边' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
+
+    expect(screen.getByRole('tab', { name: '我的样式' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('radio', { name: '经典' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '口播粗描边' })).toHaveAttribute('aria-checked', 'true');
+    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')).toEqual([
+      expect.objectContaining({ name: '口播粗描边', style: expect.objectContaining({ subtitleOutlineWidth: 6, subtitleShadowBlur: 3 }) })
+    ]);
+
+    unmount();
+    renderWorkspace();
+    expect(screen.getByRole('tab', { name: '我的样式' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('radio', { name: '口播粗描边' }));
+    expect(screen.getByRole('radio', { name: '口播粗描边' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '删除模版 口播粗描边' }));
+    expect(screen.queryByRole('radio', { name: '口播粗描边' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '推荐' })).toHaveAttribute('aria-selected', 'true');
+    expect(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles')).toBe('[]');
+  });
+
+  it('edits a saved subtitle template and restores the active style on cancel', () => {
+    window.localStorage.setItem('opencreator.videoTranslation.savedSubtitleStyles', JSON.stringify([{
+      id: 'saved-test',
+      name: '口播',
+      style: { subtitleFont: 'serif', subtitleWeight: 'bold', subtitleSize: 'large', subtitleColor: '#FFE45C', subtitleSecondaryColor: '#FFFFFF', subtitleOutlineColor: '#000000', subtitleOutlineWidth: 3, subtitleShadowEnabled: true, subtitleShadowColor: '#000000', subtitleShadowOpacity: 0.6, subtitleShadowOffsetX: 1.5, subtitleShadowOffsetY: 1.5, subtitleShadowBlur: 0.5 }
+    }]));
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2, composeVideo: true } })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    // Cancel restores the style that was active before editing and leaves the template unchanged.
+    fireEvent.click(screen.getByRole('button', { name: '编辑模版 口播' }));
+    const drawer = screen.getByRole('dialog', { name: '编辑模版' });
+    expect(within(drawer).getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
+    fireEvent.change(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
+    fireEvent.click(within(drawer).getByRole('button', { name: '取消' }));
+    expect(screen.getByRole('radio', { name: '口播' })).toHaveAttribute('aria-checked', 'false');
+    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')[0].style.subtitleSize).toBe('large');
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑模版 口播' }));
+    fireEvent.change(screen.getByRole('textbox', { name: '模版名称' }), { target: { value: '口播小字' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
+
+    expect(screen.queryByRole('dialog', { name: '编辑模版' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '口播小字' })).toHaveAttribute('aria-checked', 'true');
+    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')).toEqual([
+      expect.objectContaining({ id: 'saved-test', name: '口播小字', style: expect.objectContaining({ subtitleSize: 'small', subtitleFont: 'serif' }) })
+    ]);
+    window.localStorage.removeItem('opencreator.videoTranslation.savedSubtitleStyles');
   });
 
   it('uses the same preset and custom color controls for original, outline, and shadow', () => {
@@ -617,7 +907,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       </LanguageProvider>
     );
 
-    fireEvent.click(screen.getByText('更多样式'));
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     for (const label of ['原文颜色', '描边颜色', '阴影颜色']) {
       fireEvent.click(screen.getByRole('button', { name: `选择${label}` }));
       const preset = screen.getByRole('button', { name: `${label} #7EE7FF` });
@@ -625,7 +915,8 @@ describe('VideoTranslationWorkspace task controls', () => {
       expect(preset).toHaveAttribute('aria-pressed', 'true');
       expect(screen.getByRole('textbox', { name: `${label} HEX` })).toHaveValue('#7EE7FF');
     }
-    expect(screen.getAllByRole('slider')).toHaveLength(2);
+    // Two from the open color picker, five from the outline and shadow range controls.
+    expect(screen.getAllByRole('slider')).toHaveLength(7);
     expect(screen.queryByText('自定义')).not.toBeInTheDocument();
   });
 
@@ -920,6 +1211,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       </LanguageProvider>
     );
 
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), {
       target: { value: 'rounded' }
     });
@@ -937,10 +1229,6 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.change(screen.getByRole('textbox', { name: '原文颜色 HEX' }), {
       target: { value: '#654321' }
     });
-    const advancedStyles = screen.getByText('更多样式').closest('details');
-    expect(advancedStyles).not.toHaveAttribute('open');
-    fireEvent.click(screen.getByText('更多样式'));
-    expect(advancedStyles).toHaveAttribute('open');
     fireEvent.click(screen.getByRole('button', { name: '选择描边颜色' }));
     fireEvent.change(screen.getByRole('textbox', { name: '描边颜色 HEX' }), {
       target: { value: '#111111' }

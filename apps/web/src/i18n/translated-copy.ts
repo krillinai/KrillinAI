@@ -5,13 +5,47 @@ const catalogs: Partial<Record<AppLanguage, LanguageCatalog>> = {};
 export const additionalLanguageCatalogs: Readonly<typeof catalogs> = catalogs;
 
 const catalogLoaders = {
-  'sv-SE': () => import('./locales/sv-SE.json'),
   'ja-JP': () => import('./locales/ja-JP.json'),
+  'sv-SE': () => import('./locales/sv-SE.json'),
   'ko-KR': () => import('./locales/ko-KR.json'),
   'es-ES': () => import('./locales/es-ES.json'),
   'fr-FR': () => import('./locales/fr-FR.json'),
   'de-DE': () => import('./locales/de-DE.json'),
-  'pt-BR': () => import('./locales/pt-BR.json')
+  'pt-BR': () => import('./locales/pt-BR.json'),
+  'zh-TW': () => import('./locales/zh-TW.json'),
+  'it-IT': () => import('./locales/it-IT.json'),
+  'ru-RU': () => import('./locales/ru-RU.json'),
+  'tr-TR': () => import('./locales/tr-TR.json'),
+  'id-ID': () => import('./locales/id-ID.json'),
+  'vi-VN': () => import('./locales/vi-VN.json'),
+  'th-TH': () => import('./locales/th-TH.json'),
+  'fil-PH': () => import('./locales/fil-PH.json'),
+  'hi-IN': () => import('./locales/hi-IN.json'),
+  'bn-BD': () => import('./locales/bn-BD.json'),
+  'pl-PL': () => import('./locales/pl-PL.json'),
+  'uk-UA': () => import('./locales/uk-UA.json'),
+  'nl-NL': () => import('./locales/nl-NL.json'),
+  'ms-MY': () => import('./locales/ms-MY.json'),
+  'da-DK': () => import('./locales/da-DK.json'),
+  'nb-NO': () => import('./locales/nb-NO.json'),
+  'fi-FI': () => import('./locales/fi-FI.json'),
+  'cs-CZ': () => import('./locales/cs-CZ.json'),
+  'ro-RO': () => import('./locales/ro-RO.json'),
+  'hu-HU': () => import('./locales/hu-HU.json'),
+  'el-GR': () => import('./locales/el-GR.json'),
+  'ta-IN': () => import('./locales/ta-IN.json'),
+  'te-IN': () => import('./locales/te-IN.json'),
+  'bg-BG': () => import('./locales/bg-BG.json'),
+  'sk-SK': () => import('./locales/sk-SK.json'),
+  'hr-HR': () => import('./locales/hr-HR.json'),
+  'sr-RS': () => import('./locales/sr-RS.json'),
+  'ar-SA': () => import('./locales/ar-SA.json'),
+  'fa-IR': () => import('./locales/fa-IR.json'),
+  'ur-PK': () => import('./locales/ur-PK.json'),
+  'he-IL': () => import('./locales/he-IL.json'),
+  'mr-IN': () => import('./locales/mr-IN.json'),
+  'gu-IN': () => import('./locales/gu-IN.json'),
+  'pa-IN': () => import('./locales/pa-IN.json')
 };
 const pendingCatalogs = new Map<AppLanguage, Promise<void>>();
 
@@ -34,6 +68,11 @@ export function loadLanguageCatalog(language: AppLanguage): Promise<void> {
 
 type TemplateMatcher = { pattern: RegExp; slots: string[]; translation: string };
 const templateMatchers = new Map<AppLanguage, TemplateMatcher[]>();
+
+export function translateTraditionalChinese(english: string): string | undefined {
+  const translated = translateEnglishCopy('zh-TW', english);
+  return translated === english ? undefined : translated;
+}
 
 export function translateEnglishCopy(language: AppLanguage, english: string): string {
   const catalog = additionalLanguageCatalogs[language];

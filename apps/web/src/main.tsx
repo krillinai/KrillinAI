@@ -24,6 +24,7 @@ import { installAutoHidingScrollbars } from './styles/scrollbar-visibility.js';
 import { installWindowResizeStability } from './styles/window-resize-stability.js';
 import { hasLanguageCatalog, loadLanguageCatalog } from './i18n/translated-copy.js';
 import './styles/app.css';
+import './styles/rtl.css';
 
 const desktopHostBridge = readDesktopHostBridge();
 

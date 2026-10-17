@@ -35,7 +35,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, us
 import { AppLayout } from '../components/layout/AppLayout.js';
 import { RuntimeConnectionNotice, RuntimeConnectionProvider } from './runtime-connection-context.js';
 import { DesktopWindowControls } from '../components/layout/DesktopWindowControls.js';
-import { beginPaneResize } from '../components/layout/pane-resize-2026-07-29.js';
+import { beginPaneResize, paneInlineDirection } from '../components/layout/pane-resize-2026-07-29.js';
 import { Timeline, type TimelineHandle } from '../components/timeline/Timeline.js';
 import { eventToTimelineItem, type TimelineItem } from '../components/timeline/timeline-model.js';
 import type { CapabilitiesViewProps } from '../features/capabilities/CapabilitiesView.js';
@@ -4214,7 +4214,7 @@ export function AppController(props: AppControllerProps) {
 
     const rect = layout.getBoundingClientRect();
     setConversationPaneWidth(clampPaneWidth(
-      clientX - rect.left,
+      paneInlineDirection(layout) === -1 ? rect.right - clientX : clientX - rect.left,
       CONVERSATION_PANE_MIN_WIDTH,
       Math.max(
         CONVERSATION_PANE_MIN_WIDTH,
@@ -4250,10 +4250,10 @@ export function AppController(props: AppControllerProps) {
   function handleConversationResizeKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      adjustConversationPaneWidth(-RESIZE_KEY_STEP);
+      adjustConversationPaneWidth(-RESIZE_KEY_STEP * paneInlineDirection(conversationFileLayoutRef.current));
     } else if (event.key === 'ArrowRight') {
       event.preventDefault();
-      adjustConversationPaneWidth(RESIZE_KEY_STEP);
+      adjustConversationPaneWidth(RESIZE_KEY_STEP * paneInlineDirection(conversationFileLayoutRef.current));
     }
   }
 

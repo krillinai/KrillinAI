@@ -104,6 +104,9 @@ export function createImageGenerationService(input: {
         model: generated.model,
         imageSize: request.size,
         quality: request.quality,
+        ...(request.aspectRatio ? { aspectRatio: request.aspectRatio } : {}),
+        ...(request.resolution ? { resolution: request.resolution } : {}),
+        ...(request.modelQuality ? { modelQuality: request.modelQuality } : {}),
         count: images.length,
         images,
         createdAt: now().toISOString()
@@ -191,6 +194,11 @@ function validateRequest(request: CreateImageGenerationRequest) {
   }
   if (!Number.isInteger(request.count) || request.count < 1 || request.count > 4) {
     throw new ImageGenerationError('VALIDATION_FAILED', 'image count must be between 1 and 4', 400);
+  }
+  for (const key of ['aspectRatio', 'resolution', 'modelQuality', 'officialQuality'] as const) {
+    if (request[key] !== undefined && (typeof request[key] !== 'string' || request[key].length > 64)) {
+      throw new ImageGenerationError('VALIDATION_FAILED', `image ${key} is invalid`, 400);
+    }
   }
 }
 

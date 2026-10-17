@@ -39,8 +39,8 @@ export const creatorProjectTypes: readonly CreatorProjectType[] = [
   },
   {
     workspace: 'smart-dubbing',
-    title: '智能配音',
-    englishTitle: 'AI Dubbing',
+    title: '文本转语音',
+    englishTitle: 'Text to Speech',
     description: '自然音色与情绪表达',
     englishDescription: 'Natural voices with expressive delivery'
   },

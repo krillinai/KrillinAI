@@ -1,0 +1,57 @@
+/* Content with its own reading direction must not inherit the UI direction. */
+:where(pre, code, .cm-editor, .xterm, input[type="url"], input[type="email"], input[type="number"], .settings-directory-input, .settings-custom-accent input) {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+:where(textarea, .message-content, .markdown-prose .md-p, .official-model-option-name, .official-model-option-id) {
+  unicode-bidi: plaintext;
+}
+
+.code-textarea {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+:is(.image-generation-prompt-tools, .video-generation-prompt-tools) > small {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Only navigation glyphs mirror; media, logos, and playback controls stay intact. */
+:root[dir="rtl"] :is(.lucide-arrow-left, .lucide-arrow-right, .lucide-chevron-left, .lucide-chevron-right, .lucide-panel-left-close, .lucide-panel-left-open) {
+  transform: scaleX(-1);
+}
+
+:root[dir="rtl"] .composer-connector-switch::after {
+  left: auto;
+  right: 2px;
+}
+
+:root[dir="rtl"] .composer-connector-switch[aria-checked="true"]::after {
+  transform: translateX(-12px);
+}
+
+:root[dir="rtl"] .video-translation-switch[aria-checked="true"] span {
+  transform: translateX(-14px);
+}
+
+:root[dir="rtl"] .wechat-image-toggle > span::after {
+  left: auto;
+  right: 2px;
+}
+
+:root[dir="rtl"] .wechat-image-toggle input:checked + span::after {
+  transform: translateX(-14px);
+}
+
+@media (max-width: 920px) {
+  :root[dir="rtl"] .opencreator-sidebar-pane {
+    inset: 0 0 0 auto;
+    transform: translateX(100%);
+  }
+
+  :root[dir="rtl"] .opencreator-sidebar-pane[data-mobile-open="true"] {
+    transform: translateX(0);
+  }
+}

@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { OpenCreatorUiSettingsResponse } from '@opencreator/protocol';
+import { openCreatorLanguagePreferences, type OpenCreatorUiSettingsResponse } from '@opencreator/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerSettingsRoutes } from '../../src/api/routes.settings.js';
 import type { OpenCreatorSettingsStore } from '../../src/settings/store.js';
@@ -96,7 +96,7 @@ describe('OpenCreator settings routes', () => {
     expect(store.updateUi).not.toHaveBeenCalled();
   });
 
-  it.each(['system', 'zh-CN', 'en-US', 'sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'])('accepts language preference %s', async language => {
+  it.each(openCreatorLanguagePreferences)('accepts language preference %s', async language => {
     const response = await server.inject({ method: 'PATCH', url: '/settings/ui', payload: { language } });
     expect(response.statusCode).toBe(200);
     expect(response.json().settings.language).toBe(language);
