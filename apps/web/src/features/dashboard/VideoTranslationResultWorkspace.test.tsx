@@ -59,12 +59,14 @@ function EditingHarness(props: { preview?: boolean; readOnly?: boolean; saving?:
 describe('VideoTranslationResultWorkspace', () => {
   it('opens shared editor settings without replacing the player and keeps explicit regeneration available', () => {
     const onOpen = vi.fn(), onRequest = vi.fn();
-    const settings = { style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>, disabled: false, onOpen };
+    const settings = { style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>,
+      output: <label>Shared format<select aria-label="Shared format"><option>16:9</option><option>9:16</option></select></label>, disabled: false, onOpen };
     const { rerender } = render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
       editorSettings={settings} hasPendingChanges onRequestRegenerate={onRequest}
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     const video = screen.getByLabelText('横屏字幕视频预览');
     expect(screen.getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
+    expect(screen.getByRole('button', { name: '输出画幅' }).closest('.video-result-subtitle-video')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
     expect(onOpen).toHaveBeenCalledOnce();
     const dialog = screen.getByRole('dialog', { name: '字幕样式' });
@@ -72,6 +74,9 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(within(dialog).getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
     expect(video.closest('.video-result-workspace')).toHaveAttribute('inert');
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeEnabled();
+    fireEvent.click(within(dialog).getByRole('tab', { name: '输出画幅' }));
+    expect(within(dialog).getByRole('combobox', { name: 'Shared format' })).toBeEnabled();
+    expect(onOpen).toHaveBeenCalledOnce();
     fireEvent.click(within(dialog).getByRole('tab', { name: '配音' }));
     expect(screen.getByText('Shared dubbing settings')).toBeVisible();
     expect(screen.getByLabelText('横屏字幕视频预览')).toBe(video);

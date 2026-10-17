@@ -4018,8 +4018,9 @@ export default function VideoTranslationWorkspace(props: {
               subtitleSavePending={submitting}
               immersive={subtitleImmersive}
               editorSettings={!selectedSubtitleOnly ? {
-                style: <>{subtitleStylePreview}{outputFormatControl}{subtitleLayoutControls}{subtitleStyleChoices}{verticalTitleControls}</>,
+                style: <>{subtitleStylePreview}{subtitleLayoutControls}{subtitleStyleChoices}</>,
                 voice: dubbingSettings,
+                output: <>{subtitleStylePreview}{outputFormatControl}{verticalTitleControls}</>,
                 disabled: submitting || activeStage !== undefined,
                 onOpen: () => prepareEditorSettings(true)
               } : undefined}

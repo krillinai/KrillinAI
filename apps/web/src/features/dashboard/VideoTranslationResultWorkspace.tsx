@@ -8,6 +8,7 @@ import {
 import { createPortal } from 'react-dom';
 import {
   Captions,
+  ChevronRight,
   ArrowLeft,
   Download,
   FileAudio,
@@ -15,6 +16,8 @@ import {
   Maximize2,
   MessageSquare,
   Mic2,
+  MonitorPlay,
+  Headphones,
   PackageOpen,
   RotateCcw,
   Save,
@@ -34,6 +37,7 @@ import './subtitle-editor.css';
 export type VideoTranslationResultTab = 'video' | 'subtitles' | 'voice' | 'settings';
 export type VideoResultVariant = 'horizontal' | 'vertical' | 'dubbed';
 export type SubtitleResultVariant = 'horizontal' | 'vertical';
+type EditorSettingsPanel = 'style' | 'voice' | 'output';
 
 export type VideoTranslationResultExecution = {
   status: 'queued' | 'running' | 'needs_input' | 'failed' | 'canceled' | 'interrupted';
@@ -122,7 +126,7 @@ export default function VideoTranslationResultWorkspace(props: {
   subtitleSavePending?: boolean;
   immersive?: boolean;
   assistantOpen?: boolean;
-  editorSettings?: { style: ReactNode; voice: ReactNode; disabled: boolean; onOpen(): void };
+  editorSettings?: { style: ReactNode; voice: ReactNode; output?: ReactNode; disabled: boolean; onOpen(): void };
   renderSubtitlePreview?(cues: SubtitleCue[], width: number, height: number): ReactNode;
   onImmersiveChange?(value: boolean): void;
   onToggleAssistant?(): void;
@@ -152,12 +156,16 @@ export default function VideoTranslationResultWorkspace(props: {
   const [subtitlePlaybackTime, setSubtitlePlaybackTime] = useState(0);
   const [subtitleDuration, setSubtitleDuration] = useState(0);
   const [subtitlePlaying, setSubtitlePlaying] = useState(false);
-  const [editorPanel, setEditorPanel] = useState<'style' | 'voice'>();
+  const [editorPanel, setEditorPanel] = useState<EditorSettingsPanel>();
+  const editorPanels: EditorSettingsPanel[] = props.editorSettings?.output === undefined ? ['style', 'voice'] : ['style', 'voice', 'output'];
+  const editorPanelLabel = (panel: EditorSettingsPanel) => panel === 'style' ? l('字幕样式', 'Subtitle style')
+    : panel === 'voice' ? l('配音', 'Dubbing') : l('输出画幅', 'Output format');
   const [subtitleVideoSize, setSubtitleVideoSize] = useState({ width: 16, height: 9 });
   const [auditionVoice, setAuditionVoice] = useState(false);
   const [voicePlaybackFailed, setVoicePlaybackFailed] = useState(false);
   const [selectedCueId, setSelectedCueId] = useState<number>();
-  const [editorWidth, setEditorWidth] = useState(60);
+  const [editorWidth, setEditorWidth] = useState(45);
+  const maxEditorWidth = props.editorSettings ? 60 : 75;
   const [, setHistoryRevision] = useState(0);
   const history = useRef(new Map<string, { past: SubtitleCue[][]; future: SubtitleCue[][] }>());
   const rootRef = useRef<HTMLElement>(null);
@@ -614,22 +622,9 @@ export default function VideoTranslationResultWorkspace(props: {
           </header>
           {activeSubtitleOutput !== undefined ? (
             <div className="video-result-subtitle-preview-layout" ref={previewLayoutRef} data-subtitle-only={props.subtitleOnly || undefined}
+              data-editor-settings={props.immersive && Boolean(props.editorSettings) && !props.subtitleOnly || undefined}
               style={props.immersive ? { '--subtitle-editor-width': `${editorWidth}%` } as CSSProperties : undefined}>
               {!props.subtitleOnly ? <section className="video-result-subtitle-video" aria-label={l('同步视频预览', 'Synchronized video preview')}>
-                {props.immersive && props.editorSettings ? <div className="subtitle-editor-settings-nav" role="group" aria-label={l('项目设置', 'Project settings')}>
-                  {(['style', 'voice'] as const).map(panel => <button key={panel} type="button" aria-expanded={editorPanel === panel} aria-haspopup="dialog"
-                    disabled={props.editorSettings?.disabled}
-                    aria-controls="subtitle-editor-settings-panel" onClick={() => {
-                      if (subtitleVideoRef.current && !subtitleVideoRef.current.paused) subtitleVideoRef.current.pause();
-                      props.editorSettings?.onOpen(); setEditorPanel(panel);
-                    }}>
-                    {panel === 'style' ? <Captions size={15} /> : <Mic2 size={15} />}
-                    {panel === 'style' ? l('字幕样式', 'Subtitle style') : l('配音', 'Dubbing')}
-                  </button>)}
-                  {props.voiceOutput?.src ? <button type="button" className="subtitle-editor-voice-toggle" aria-pressed={auditionVoice}
-                    title={l('目标语言配音试听', 'Target-language dubbing preview')} aria-label={l('目标语言配音试听', 'Target-language dubbing preview')}
-                    onClick={() => { setVoicePlaybackFailed(false); setAuditionVoice(value => !value); }}><Mic2 size={15} /></button> : null}
-                </div> : null}
                 {props.immersive && props.voiceOutput?.src ? <audio ref={subtitleAudioRef} src={props.voiceOutput.src} preload="metadata" hidden
                   onLoadedMetadata={() => syncVoiceTime(subtitlePlaybackTime, true)}
                   onError={() => { setVoicePlaybackFailed(true); setAuditionVoice(false); }} /> : null}
@@ -721,15 +716,36 @@ export default function VideoTranslationResultWorkspace(props: {
                 ) : null}
               </section> : null}
 
+              {props.immersive && props.editorSettings && !props.subtitleOnly ? <div className="subtitle-editor-settings-nav" role="group" aria-label={l('项目设置', 'Project settings')}>
+                {editorPanels.map(panel => {
+                  const Icon = panel === 'style' ? Captions : panel === 'voice' ? Mic2 : MonitorPlay;
+                  return <button key={panel} type="button" aria-expanded={editorPanel === panel} aria-haspopup="dialog"
+                    disabled={props.editorSettings?.disabled}
+                    aria-controls="subtitle-editor-settings-panel" onClick={() => {
+                      if (subtitleVideoRef.current && !subtitleVideoRef.current.paused) subtitleVideoRef.current.pause();
+                      props.editorSettings?.onOpen(); setEditorPanel(panel);
+                    }}>
+                    <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
+                    <span>{editorPanelLabel(panel)}</span>
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>;
+                })}
+                {props.voiceOutput?.src ? <button type="button" className="subtitle-editor-voice-toggle" aria-pressed={auditionVoice}
+                  title={l('目标语言配音试听', 'Target-language dubbing preview')} aria-label={l('目标语言配音试听', 'Target-language dubbing preview')}
+                  onClick={() => { setVoicePlaybackFailed(false); setAuditionVoice(value => !value); }}>
+                  <Headphones size={17} aria-hidden="true" /><span>{l('目标语言配音', 'Target-language dubbing')}</span>
+                </button> : null}
+              </div> : null}
+
               {props.immersive && !props.subtitleOnly ? <div className="subtitle-editor-divider" role="separator" aria-orientation="vertical" tabIndex={0}
-                aria-label={l('调整字幕和预览宽度', 'Resize subtitles and preview')} aria-valuemin={35} aria-valuemax={75} aria-valuenow={editorWidth}
+                aria-label={l('调整字幕和预览宽度', 'Resize subtitles and preview')} aria-valuemin={35} aria-valuemax={maxEditorWidth} aria-valuenow={editorWidth}
                 onKeyDown={event => {
                   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                    event.preventDefault(); setEditorWidth(value => Math.max(35, Math.min(75, value + (event.key === 'ArrowRight' ? 2 : -2) * paneInlineDirection(previewLayoutRef.current))));
+                    event.preventDefault(); setEditorWidth(value => Math.max(35, Math.min(maxEditorWidth, value + (event.key === 'ArrowRight' ? 2 : -2) * paneInlineDirection(previewLayoutRef.current))));
                   }
                 }} onMouseDown={event => beginPaneResize(event, clientX => {
                   const rect = previewLayoutRef.current?.getBoundingClientRect();
-                  if (rect) setEditorWidth(Math.max(35, Math.min(75, (paneInlineDirection(previewLayoutRef.current) === -1 ? rect.right - clientX : clientX - rect.left) / rect.width * 100)));
+                  if (rect) setEditorWidth(Math.max(35, Math.min(maxEditorWidth, (paneInlineDirection(previewLayoutRef.current) === -1 ? rect.right - clientX : clientX - rect.left) / rect.width * 100)));
                 })} /> : null}
 
               <section className="video-result-output-column" data-variant={activeSubtitleOutput.variant}>
@@ -949,25 +965,28 @@ export default function VideoTranslationResultWorkspace(props: {
       ) : null}
 
       {props.immersive && props.editorSettings && editorPanel ? <SubtitleEditorSettingsDrawer
-        title={editorPanel === 'style' ? l('字幕样式', 'Subtitle style') : l('配音', 'Dubbing')}
+        title={editorPanelLabel(editorPanel)}
         context={l(`正在基于 V${props.version} 调整`, `Adjusting from V${props.version}`)}
         workspace={rootRef.current?.closest<HTMLElement>('.video-translation-page') ?? rootRef.current} onClose={() => setEditorPanel(undefined)}
         actions={regenerationControls}
         footer={<button type="button" onClick={() => setEditorPanel(undefined)}>{l('完成', 'Done')}</button>}>
         <div className="subtitle-editor-settings-tabs" role="tablist" aria-label={l('项目设置', 'Project settings')}>
-          {(['style', 'voice'] as const).map(panel => <button key={panel} type="button" role="tab" aria-selected={editorPanel === panel}
+          {editorPanels.map(panel => <button key={panel} type="button" role="tab" aria-selected={editorPanel === panel}
             id={`subtitle-editor-settings-tab-${panel}`} aria-controls="subtitle-editor-settings-content" tabIndex={editorPanel === panel ? 0 : -1}
             onKeyDown={event => {
               if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
               event.preventDefault();
-              const next = event.key === 'Home' ? 'style' : event.key === 'End' ? 'voice' : panel === 'style' ? 'voice' : 'style';
+              const direction = paneInlineDirection(event.currentTarget);
+              const delta = (event.key === 'ArrowRight' ? 1 : -1) * direction;
+              const next = event.key === 'Home' ? editorPanels[0]! : event.key === 'End' ? editorPanels.at(-1)!
+                : editorPanels[(editorPanels.indexOf(panel) + delta + editorPanels.length) % editorPanels.length]!;
               setEditorPanel(next);
               document.getElementById(`subtitle-editor-settings-tab-${next}`)?.focus();
             }}
-            onClick={() => setEditorPanel(panel)}>{panel === 'style' ? l('字幕样式', 'Subtitle style') : l('配音', 'Dubbing')}</button>)}
+            onClick={() => setEditorPanel(panel)}>{editorPanelLabel(panel)}</button>)}
         </div>
         <fieldset disabled={props.editorSettings.disabled} id="subtitle-editor-settings-content" role="tabpanel" aria-labelledby={`subtitle-editor-settings-tab-${editorPanel}`}>
-          {editorPanel === 'style' ? props.editorSettings.style : props.editorSettings.voice}
+          {props.editorSettings[editorPanel]}
         </fieldset>
         {editorPanel === 'voice' && props.voiceOutput ? <div className="subtitle-editor-voice-status">
           <span>{props.voiceOutput.fileName ?? l('目标语言配音', 'Target-language dubbing')} · V{props.voiceOutput.artifactVersion}</span>

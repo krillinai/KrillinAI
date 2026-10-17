@@ -107,7 +107,7 @@
 
 .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout {
   display: grid;
-  grid-template-columns: minmax(0, var(--subtitle-editor-width, 60%)) 7px minmax(0, 1fr);
+  grid-template-columns: minmax(0, var(--subtitle-editor-width, 45%)) 7px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   align-items: stretch;
   gap: 0;
@@ -115,6 +115,9 @@
 }
 
 .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-subtitle-only="true"] { grid-template-columns: minmax(0, 1fr); }
+.video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-editor-settings="true"] {
+  grid-template-columns: minmax(0, var(--subtitle-editor-width, 45%)) 7px minmax(0, 1fr) clamp(180px, 17vw, 240px);
+}
 .video-result-workspace[data-immersive="true"] .video-result-output-column {
   grid-column: 1;
   grid-row: 1;
@@ -146,10 +149,16 @@
   width: min(100%, calc((100cqh - 100px) * .5625));
 }
 
-.subtitle-editor-settings-nav { display: flex; flex: 0 0 auto; align-items: center; flex-wrap: wrap; gap: 6px; }
-.subtitle-editor-settings-nav button, .subtitle-editor-settings > header button, .subtitle-editor-settings > footer button, .subtitle-editor-voice-status button, .subtitle-editor-settings-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.subtitle-editor-settings-nav { grid-column: 4; grid-row: 1; display: flex; min-width: 0; min-height: 0; flex-direction: column; align-items: stretch; gap: 12px; padding: 24px 16px; border-inline-start: 1px solid var(--border); background: var(--surface); overflow-y: auto; overscroll-behavior: contain; }
+.subtitle-editor-settings-nav > button { display: grid; grid-template-columns: 20px minmax(0, 1fr) 16px; align-items: center; gap: 12px; flex: 0 0 auto; min-height: 72px; padding: 16px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: start; white-space: normal; font: inherit; font-size: 13px; font-weight: 550; line-height: 1.5; cursor: pointer; }
+.subtitle-editor-settings-nav > button > svg { color: var(--muted); }
+.subtitle-editor-settings-nav > button > span { min-width: 0; overflow-wrap: anywhere; }
+.subtitle-editor-settings-nav > button > svg:last-child { justify-self: end; }
+[dir="rtl"] .subtitle-editor-settings-nav > button > svg:last-child { transform: rotate(180deg); }
+.subtitle-editor-settings-nav > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.subtitle-editor-settings > header button, .subtitle-editor-settings > footer button, .subtitle-editor-voice-status button, .subtitle-editor-settings-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
 .subtitle-editor-settings-nav button:hover, .subtitle-editor-settings-nav button[aria-expanded="true"], .subtitle-editor-settings-nav button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-.subtitle-editor-settings-nav .subtitle-editor-voice-toggle { margin-inline-start: auto; }
+.subtitle-editor-settings-nav .subtitle-editor-voice-toggle { grid-template-columns: 20px minmax(0, 1fr); margin-block-start: 8px; min-height: 44px; border-color: transparent; background: transparent; font-size: 12px; font-weight: 400; }
 .subtitle-editor-settings-backdrop { position: fixed; inset: 0; inset-block-start: var(--opencreator-titlebar-height, 0px); z-index: 1100; display: flex; justify-content: flex-end; background: color-mix(in srgb, #000 28%, transparent); }
 .subtitle-editor-settings { display: flex; flex-direction: column; width: min(520px, 100%); height: 100%; min-width: 0; background: var(--surface); box-shadow: -18px 0 60px color-mix(in srgb, #000 28%, transparent); color: var(--text); }
 .subtitle-editor-settings > header { display: grid; flex: 0 0 auto; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--border); }
@@ -277,12 +286,16 @@ body:has(.video-translation-page[data-subtitle-immersive="true"]) .tts-voice-lib
   .video-result-workspace[data-immersive="true"] .video-result-pane-actions > button { min-height: 32px; padding: 6px 8px; }
   .video-result-workspace[data-immersive="true"] .subtitle-editor-export > span { display: none; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-editor-settings="true"] { grid-template-columns: minmax(0, 1fr) minmax(140px, 40%); }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-subtitle-only="true"] { grid-template-rows: minmax(0, 1fr); }
-  .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout .video-result-output-column { grid-row: 2; height: auto; min-height: 0; }
+  .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout .video-result-output-column { grid-column: 1 / -1; grid-row: 2; height: auto; min-height: 0; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-subtitle-only="true"] .video-result-output-column { grid-row: 1; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-video { grid-column: 1; grid-row: 1; padding: 8px; container-type: normal; max-height: 36dvh; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-video .video-result-player-frame { width: min(230px, 100%); max-height: 130px; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-video .video-result-player-frame[data-ratio="9:16"] { width: 73px; }
+  .subtitle-editor-settings-nav { grid-column: 2; padding: 12px 10px; gap: 8px; max-height: 36dvh; box-sizing: border-box; }
+  .subtitle-editor-settings-nav > button { min-height: 56px; padding: 10px; gap: 8px; font-size: 12px; grid-template-columns: 18px minmax(0, 1fr) 12px; }
+  .subtitle-editor-settings-nav > button > svg { width: 16px; }
   .subtitle-editor-settings > header, .subtitle-editor-settings > footer { padding: 16px; }
   .subtitle-editor-settings-body { padding: 20px 16px; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-video > small { display: none; }

@@ -79,7 +79,8 @@ describe('VideoTranslationWorkspace task controls', () => {
 
   it.each([
     ['字幕样式', 'render-horizontal'],
-    ['配音', 'tts']
+    ['配音', 'tts'],
+    ['输出画幅', 'render-vertical']
   ])('adds %s to a subtitle result through the editor without changing its original version', async (panel, stageId) => {
     const target = subtitleArtifact(1, 'Hello world');
     let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
@@ -104,8 +105,10 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(within(dialog).queryByRole('switch', { name: '合成字幕视频' })).toBeNull();
     if (panel === '字幕样式') {
       expect(within(dialog).getByRole('radiogroup', { name: '推荐样式' })).toBeVisible();
-    } else {
+    } else if (panel === '配音') {
       fireEvent.click(within(dialog).getByRole('switch', { name: '生成目标语言配音' }));
+    } else {
+      fireEvent.change(within(dialog).getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
     }
     await waitFor(() => expect(current.state.composeVideo).toBe(true));
     expect(original.state.composeVideo).toBe(false);
