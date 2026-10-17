@@ -62,6 +62,7 @@ describe('VideoTranslationResultWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
     fireEvent.keyDown(screen.getByRole('button', { name: '返回项目' }), { key: 'h', ctrlKey: true });
     const find = screen.getByRole('search', { name: '查找与替换' });
+    expect(within(find).getByRole('combobox', { name: '搜索范围' })).toHaveValue('all');
     const input = within(find).getByRole('textbox', { name: '查找' });
     expect(input).toHaveFocus();
     fireEvent.change(input, { target: { value: 'world' } });
@@ -126,6 +127,7 @@ describe('VideoTranslationResultWorkspace', () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: '查找与替换' }));
     const find = screen.getByRole('search');
+    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'text' } });
     fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'hi' } });
     const replacement = within(find).getByRole('textbox', { name: '替换为' });
     fireEvent.change(replacement, { target: { value: 'hi!' } });

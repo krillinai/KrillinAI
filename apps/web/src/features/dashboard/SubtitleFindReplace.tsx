@@ -13,7 +13,7 @@ export default function SubtitleFindReplace(props: {
   const l = useLocalizedCopy();
   const [query, setQuery] = useState('');
   const [replacement, setReplacement] = useState('');
-  const [scope, setScope] = useState<SubtitleSearchScope>('text');
+  const [scope, setScope] = useState<SubtitleSearchScope>(() => props.cues.some(cue => cue.sourceText !== undefined) ? 'all' : 'text');
   const [matchCase, setMatchCase] = useState(false);
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
