@@ -183,8 +183,11 @@ describe('VideoTranslationResultWorkspace', () => {
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     const video = screen.getByLabelText('横屏字幕视频预览');
     expect(screen.getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
-    expect(screen.getByRole('button', { name: '输出画幅' }).closest('.video-result-subtitle-video')).toBeNull();
+    expect(screen.getByRole('button', { name: '输出格式' }).closest('.video-result-subtitle-video')).toBeNull();
     expect(screen.getByRole('button', { name: '翻译语言' }).querySelector('.lucide-languages')).not.toBeNull();
+    const rail = screen.getByRole('group', { name: '项目设置' });
+    expect(within(rail).getAllByRole('button').slice(1).map(button => button.getAttribute('aria-label')))
+      .toEqual(['翻译语言', '输出格式', '字幕样式', '配音']);
     expect(screen.queryByRole('radiogroup', { name: '字幕画幅' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '展开侧栏' }));
     expect(screen.getByRole('button', { name: '收起侧栏' })).toHaveAttribute('aria-expanded', 'true');
@@ -207,10 +210,10 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeEnabled();
     fireEvent.click(within(dialog).getByRole('tab', { name: '翻译语言' }));
     expect(within(dialog).getByRole('combobox', { name: 'Shared language' })).toBeEnabled();
-    expect(within(dialog).getAllByRole('tab')).toHaveLength(4);
-    fireEvent.keyDown(within(dialog).getByRole('tab', { name: '翻译语言' }), { key: 'End' });
-    expect(within(dialog).getByRole('tab', { name: '输出画幅' })).toHaveFocus();
-    fireEvent.click(within(dialog).getByRole('tab', { name: '输出画幅' }));
+    expect(within(dialog).getAllByRole('tab').map(tab => tab.textContent)).toEqual(['翻译语言', '输出格式', '字幕样式', '配音']);
+    fireEvent.keyDown(within(dialog).getByRole('tab', { name: '翻译语言' }), { key: 'ArrowRight' });
+    expect(within(dialog).getByRole('tab', { name: '输出格式' })).toHaveFocus();
+    fireEvent.click(within(dialog).getByRole('tab', { name: '输出格式' }));
     expect(within(dialog).getByRole('combobox', { name: 'Shared format' })).toBeEnabled();
     expect(onOpen).toHaveBeenCalledOnce();
     fireEvent.click(within(dialog).getByRole('tab', { name: '配音' }));

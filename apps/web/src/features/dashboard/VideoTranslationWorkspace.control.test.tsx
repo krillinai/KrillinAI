@@ -147,7 +147,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(within(screen.getByRole('dialog', { name: '自定义字幕样式' })).getByRole('button', { name: '完成' }));
     fireEvent.click(within(panel).getByRole('tab', { name: '配音' }));
     expect(within(panel).getByRole('switch', { name: '生成目标语言配音' })).not.toBeChecked();
-    fireEvent.click(within(panel).getByRole('tab', { name: '输出画幅' }));
+    fireEvent.click(within(panel).getByRole('tab', { name: '输出格式' }));
     expect(within(panel).getByRole('switch', { name: '合成字幕视频' })).not.toBeChecked();
     expect(within(panel).queryByRole('radiogroup', { name: '输出画幅' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '生成 V3' })).not.toBeInTheDocument();
@@ -327,7 +327,7 @@ describe('VideoTranslationWorkspace task controls', () => {
   it.each([
     ['字幕样式', 'render-horizontal'],
     ['配音', 'tts'],
-    ['输出画幅', 'render-vertical']
+    ['输出格式', 'render-vertical']
   ])('adds %s to a subtitle result through the editor without changing its original version', async (panel, stageId) => {
     const target = subtitleArtifact(1, 'Hello world');
     let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
@@ -351,7 +351,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(dialog.querySelector('video, .video-translation-subtitle-preview, .video-translation-subtitle-rendered-preview')).toBeNull();
     expect(current.state.composeVideo).toBe(false);
     if (panel !== '配音') {
-      fireEvent.click(within(dialog).getByRole('tab', { name: '输出画幅' }));
+      fireEvent.click(within(dialog).getByRole('tab', { name: '输出格式' }));
       expect(within(dialog).getByRole('switch', { name: '合成字幕视频' })).not.toBeChecked();
       fireEvent.click(within(dialog).getByRole('switch', { name: '合成字幕视频' }));
       fireEvent.click(within(dialog).getByRole('tab', { name: panel }));

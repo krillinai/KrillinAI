@@ -165,9 +165,9 @@ export default function VideoTranslationResultWorkspace(props: {
   const [subtitlePlaying, setSubtitlePlaying] = useState(false);
   const [editorPanel, setEditorPanel] = useState<EditorSettingsPanel>();
   const [settingsRailExpanded, setSettingsRailExpanded] = useState(false);
-  const editorPanels = (['language', 'style', 'voice', 'output'] as const).filter(panel => props.editorSettings?.[panel] !== undefined);
+  const editorPanels = (['language', 'output', 'style', 'voice'] as const).filter(panel => props.editorSettings?.[panel] !== undefined);
   const editorPanelLabel = (panel: EditorSettingsPanel) => panel === 'language' ? l('翻译语言', 'Languages') : panel === 'style' ? l('字幕样式', 'Subtitle style')
-    : panel === 'voice' ? l('配音', 'Dubbing') : l('输出画幅', 'Output format');
+    : panel === 'voice' ? l('配音', 'Dubbing') : l('输出格式', 'Output format');
   const [subtitleVideoSize, setSubtitleVideoSize] = useState({ width: 16, height: 9 });
   const [auditionVoice, setAuditionVoice] = useState(false);
   const [voicePlaybackFailed, setVoicePlaybackFailed] = useState(false);
