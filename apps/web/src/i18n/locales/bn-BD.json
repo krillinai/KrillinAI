@@ -3317,5 +3317,22 @@
   "Playback position": "প্লেব্যাক অবস্থান",
   "Subtitle timing only": "সাবটাইটেল টাইমিং শুধুমাত্র",
   "Generating audio waveform…": "অডিও ওয়েভফর্ম তৈরি করা হচ্ছে...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "এই মিডিয়ার জন্য ওয়েভফর্ম অনুপলব্ধ৷ সাবটাইটেল সময় এখনও সম্পাদনাযোগ্য."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "এই মিডিয়ার জন্য ওয়েভফর্ম অনুপলব্ধ৷ সাবটাইটেল সময় এখনও সম্পাদনাযোগ্য.",
+  "Find and replace": "খুঁজুন ও প্রতিস্থাপন করুন",
+  "Search scope": "অনুসন্ধানের পরিসর",
+  "Find": "খুঁজুন",
+  "Match case": "বড় ও ছোট হাতের অক্ষর মেলান",
+  "Previous match": "আগের মিল",
+  "Next match": "পরের মিল",
+  "Replace with": "যা দিয়ে প্রতিস্থাপন করবেন",
+  "Replace": "প্রতিস্থাপন",
+  "Replace all": "সব প্রতিস্থাপন",
+  "No matches": "কোনো মিল নেই",
+  "Presets": "প্রিসেট",
+  "My styles": "আমার স্টাইল",
+  "Customize": "কাস্টমাইজ",
+  "Save as template": "টেমপ্লেট হিসেবে সংরক্ষণ",
+  "Customize subtitle style": "সাবটাইটেলের স্টাইল কাস্টমাইজ করুন",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "এখনও কোনো স্টাইল সংরক্ষিত নেই। কাস্টমাইজ থেকে স্টাইল বদলে টেমপ্লেট হিসেবে সংরক্ষণ করুন।",
+  "Agent Mode": "Agent মোড"
 }

@@ -3317,5 +3317,22 @@
   "Playback position": "موقعیت پخش",
   "Subtitle timing only": "فقط زمان بندی زیرنویس",
   "Generating audio waveform…": "در حال تولید شکل موج صوتی…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "شکل موج برای این رسانه در دسترس نیست. زمان بندی زیرنویس هنوز قابل ویرایش است."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "شکل موج برای این رسانه در دسترس نیست. زمان بندی زیرنویس هنوز قابل ویرایش است.",
+  "Find and replace": "یافتن و جایگزینی",
+  "Search scope": "محدودهٔ جستجو",
+  "Find": "یافتن",
+  "Match case": "تطبیق بزرگی و کوچکی حروف",
+  "Previous match": "تطبیق قبلی",
+  "Next match": "تطبیق بعدی",
+  "Replace with": "جایگزینی با",
+  "Replace": "جایگزینی",
+  "Replace all": "جایگزینی همه",
+  "No matches": "تطبیقی یافت نشد",
+  "Presets": "سبک‌های آماده",
+  "My styles": "سبک‌های من",
+  "Customize": "سفارشی‌سازی",
+  "Save as template": "ذخیره به‌عنوان الگو",
+  "Customize subtitle style": "سفارشی‌سازی سبک زیرنویس",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "هنوز سبکی ذخیره نشده است. سبک را در «سفارشی‌سازی» تنظیم کنید، سپس «ذخیره به‌عنوان الگو» را انتخاب کنید.",
+  "Agent Mode": "حالت Agent"
 }

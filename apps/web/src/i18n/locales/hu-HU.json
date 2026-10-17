@@ -3317,5 +3317,22 @@
   "Playback position": "Lejátszási pozíció",
   "Subtitle timing only": "Csak a feliratok időzítése",
   "Generating audio waveform…": "Hanghullámforma generálása…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "A hullámforma nem érhető el ehhez a médiához. A feliratok időzítése továbbra is szerkeszthető."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "A hullámforma nem érhető el ehhez a médiához. A feliratok időzítése továbbra is szerkeszthető.",
+  "Find and replace": "Keresés és csere",
+  "Search scope": "Keresési tartomány",
+  "Find": "Keresés",
+  "Match case": "Kis- és nagybetűk megkülönböztetése",
+  "Previous match": "Előző találat",
+  "Next match": "Következő találat",
+  "Replace with": "Csere erre",
+  "Replace": "Csere",
+  "Replace all": "Összes cseréje",
+  "No matches": "Nincs találat",
+  "Presets": "Előbeállítások",
+  "My styles": "Saját stílusok",
+  "Customize": "Testreszabás",
+  "Save as template": "Mentés sablonként",
+  "Customize subtitle style": "Feliratstílus testreszabása",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Még nincsenek mentett stílusok. Módosíts egy stílust a Testreszabás alatt, majd válaszd a Mentés sablonként lehetőséget.",
+  "Agent Mode": "Agent mód"
 }

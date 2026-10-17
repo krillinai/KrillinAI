@@ -3317,5 +3317,22 @@
   "Playback position": "Pozice přehrávání",
   "Subtitle timing only": "Pouze časování titulků",
   "Generating audio waveform…": "Generování zvukové vlny…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Průběh není pro toto médium k dispozici. Časování titulků je stále upravitelné."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Průběh není pro toto médium k dispozici. Časování titulků je stále upravitelné.",
+  "Find and replace": "Najít a nahradit",
+  "Search scope": "Oblast hledání",
+  "Find": "Najít",
+  "Match case": "Rozlišovat velikost písmen",
+  "Previous match": "Předchozí shoda",
+  "Next match": "Další shoda",
+  "Replace with": "Nahradit za",
+  "Replace": "Nahradit",
+  "Replace all": "Nahradit vše",
+  "No matches": "Žádné shody",
+  "Presets": "Předvolby",
+  "My styles": "Moje styly",
+  "Customize": "Přizpůsobit",
+  "Save as template": "Uložit jako šablonu",
+  "Customize subtitle style": "Přizpůsobit styl titulků",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Zatím nemáte uložené styly. Upravte styl přes Přizpůsobit a pak zvolte Uložit jako šablonu.",
+  "Agent Mode": "Režim Agent"
 }

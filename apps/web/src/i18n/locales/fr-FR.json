@@ -3317,5 +3317,22 @@
   "Playback position": "Position de lecture",
   "Subtitle timing only": "Synchronisation des sous-titres uniquement",
   "Generating audio waveform…": "Génération d'une forme d'onde audio…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Forme d'onde indisponible pour ce média. La synchronisation des sous-titres est toujours modifiable."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Forme d'onde indisponible pour ce média. La synchronisation des sous-titres est toujours modifiable.",
+  "Find and replace": "Rechercher et remplacer",
+  "Search scope": "Portée de recherche",
+  "Find": "Rechercher",
+  "Match case": "Respecter la casse",
+  "Previous match": "Occurrence précédente",
+  "Next match": "Occurrence suivante",
+  "Replace with": "Remplacer par",
+  "Replace": "Remplacer",
+  "Replace all": "Tout remplacer",
+  "No matches": "Aucune occurrence",
+  "Presets": "Préréglages",
+  "My styles": "Mes styles",
+  "Customize": "Personnaliser",
+  "Save as template": "Enregistrer comme modèle",
+  "Customize subtitle style": "Personnaliser le style des sous-titres",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Aucun style enregistré. Modifiez un style dans Personnaliser, puis choisissez Enregistrer comme modèle.",
+  "Agent Mode": "Mode Agent"
 }

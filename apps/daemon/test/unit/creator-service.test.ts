@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -734,6 +734,54 @@ describe('creator service', () => {
     expect(updated.job.state.dubbing).toBe(false);
     expect(updated.job.state).not.toHaveProperty('needsInput');
     db.close();
+  });
+
+  it.each([
+    ['target_subtitle', '采访.片段.srt'],
+    ['vertical_subtitle', '采访.片段.srt'],
+    ['target_subtitle', '采访.片段.opencreator-bilingual-v1.opencreator-bilingual-v2.srt']
+  ] as const)('keeps subtitle names bounded and previous files intact across repeated edits of %s from %s', (kind, fileName) => {
+    const { db, repository, service } = setup();
+    try {
+      const job = service.createJob({ projectId: 'project_1', templateId: 'video-translation', state: {} });
+      const path = join(tempDir, fileName);
+      writeFileSync(path, '1\n00:00:00,000 --> 00:00:01,000\nOriginal\n');
+      let subtitle = repository.insertArtifact({ jobId: job.id, kind, status: 'completed', path,
+        sourceArtifactIds: [], metadata: { fileName, resultVersion: 1 } });
+      repository.updateJob({ id: job.id, status: 'completed', revision: 0, state: {
+        ...job.state, resultVersion: 1, latestResultVersion: 1,
+        resultSnapshots: [{ version: 1, createdAt: subtitle.createdAt, action: 'stage-succeeded', stageId: 'subtitle',
+          description: 'Initial subtitles', artifactRefs: { [kind]: [subtitle.id] },
+          changedArtifactIds: [subtitle.id], staleArtifactIds: [], state: {} }]
+      } });
+      let current = service.getJob(job.id)!;
+      const savedFiles = new Map([[path, readFileSync(path, 'utf8')]]);
+      const label = kind === 'target_subtitle' ? 'horizontal' : 'vertical';
+      for (const [index, preserveResultVersion] of [false, true, false].entries()) {
+        const response = service.applyAction(job.id, { actor: 'user', action: 'edit-subtitle', expectedRevision: current.revision,
+          input: { artifactId: subtitle.id, baseResultVersion: current.state.resultVersion!, preserveResultVersion,
+            cues: [{ id: 1, start: '00:00:00,000', end: '00:00:01,000', text: `Translation ${index}`,
+              ...(kind === 'target_subtitle' ? { sourceText: `Source ${index}` } : {}) }] }
+        });
+        current = response.job;
+        subtitle = current.artifacts.filter(artifact => artifact.kind === kind).at(-1)!;
+        const resultVersion = index === 2 ? 3 : 2;
+        const editSuffix = index === 1 ? '-edit2' : '';
+        expect(subtitle.metadata.fileName).toBe(`采访.片段.opencreator-${label}-v${resultVersion}${editSuffix}.srt`);
+        for (const [savedPath, content] of savedFiles) expect(readFileSync(savedPath, 'utf8')).toBe(content);
+        const editedArtifacts = current.artifacts.filter(artifact => !savedFiles.has(artifact.path!));
+        for (const artifact of editedArtifacts) {
+          const content = readFileSync(artifact.path!, 'utf8');
+          expect(content).toContain(artifact.kind === 'source_subtitle' ? `Source ${index}` : `Translation ${index}`);
+          if (artifact.kind === 'target_subtitle') expect(content).not.toContain(`Source ${index}`);
+          if (artifact.kind === 'source_subtitle') expect(content).not.toContain(`Translation ${index}`);
+          if (artifact.kind === 'bilingual_subtitle') expect(content).toContain(`Source ${index}`);
+          savedFiles.set(artifact.path!, content);
+        }
+      }
+    } finally {
+      db.close();
+    }
   });
 
   it('stales subtitle-dependent outputs without invalidating source video or other versions', () => {

@@ -3317,5 +3317,22 @@
   "Playback position": "Позиция на възпроизвеждане",
   "Subtitle timing only": "Само време на субтитрите",
   "Generating audio waveform…": "Генериране на формата на аудио вълната...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Формата на вълната не е налична за тази медия. Времето на субтитрите все още може да се редактира."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Формата на вълната не е налична за тази медия. Времето на субтитрите все още може да се редактира.",
+  "Find and replace": "Търсене и замяна",
+  "Search scope": "Обхват на търсене",
+  "Find": "Търсене",
+  "Match case": "Различаване на регистъра",
+  "Previous match": "Предишно съвпадение",
+  "Next match": "Следващо съвпадение",
+  "Replace with": "Замяна с",
+  "Replace": "Замяна",
+  "Replace all": "Замяна на всички",
+  "No matches": "Няма съвпадения",
+  "Presets": "Готови стилове",
+  "My styles": "Моите стилове",
+  "Customize": "Персонализиране",
+  "Save as template": "Запази като шаблон",
+  "Customize subtitle style": "Персонализиране на стила на субтитрите",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Все още няма запазени стилове. Направете промени в „Персонализиране“, след което изберете „Запази като шаблон“.",
+  "Agent Mode": "Режим Agent"
 }

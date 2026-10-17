@@ -6,9 +6,11 @@ import { openCreatorLanguages } from '@opencreator/protocol';
 describe('additional language catalogs', () => {
   it('covers immersive subtitle editing controls in every client language', () => {
     for (const [language, catalog] of Object.entries(additionalLanguageCatalogs)) {
-      for (const key of ['Back to project', 'Subtitle editor', 'Undo', 'Redo', 'AI assistant', 'Advanced editing',
+      for (const key of ['Back to project', 'Subtitle editor', 'Undo', 'Redo', 'Agent Mode', 'Advanced editing',
         'Export subtitles', 'Resize subtitles and preview', 'Time', 'Original text', 'Done',
-        'Current version', 'Adjusting from V{{0}}']) {
+        'Current version', 'Adjusting from V{{0}}', 'Presets', 'My styles', 'Customize',
+        'Save as template', 'Customize subtitle style',
+        'No saved styles yet. Adjust a style in Customize, then choose Save as template.']) {
         expect(Object.hasOwn(catalog!, key), `${language}: ${key}`).toBe(true);
         expect(catalog![key]?.trim().length, `${language}: ${key}`).toBeGreaterThan(0);
       }

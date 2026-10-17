@@ -3317,5 +3317,22 @@
   "Playback position": "Položaj reprodukcije",
   "Subtitle timing only": "Samo vremenski raspored titlova",
   "Generating audio waveform…": "Generiranje audio valnog oblika...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Valni oblik nije dostupan za ovaj medij. Vrijeme podnaslova i dalje je moguće uređivati."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Valni oblik nije dostupan za ovaj medij. Vrijeme podnaslova i dalje je moguće uređivati.",
+  "Find and replace": "Pronađi i zamijeni",
+  "Search scope": "Opseg pretraživanja",
+  "Find": "Pronađi",
+  "Match case": "Razlikuj velika i mala slova",
+  "Previous match": "Prethodno podudaranje",
+  "Next match": "Sljedeće podudaranje",
+  "Replace with": "Zamijeni s",
+  "Replace": "Zamijeni",
+  "Replace all": "Zamijeni sve",
+  "No matches": "Nema podudaranja",
+  "Presets": "Predlošci",
+  "My styles": "Moji stilovi",
+  "Customize": "Prilagodi",
+  "Save as template": "Spremi kao predložak",
+  "Customize subtitle style": "Prilagodi stil titlova",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Još nema spremljenih stilova. Uredite stil u Prilagodi pa odaberite Spremi kao predložak.",
+  "Agent Mode": "Način Agent"
 }

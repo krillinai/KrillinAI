@@ -1447,23 +1447,34 @@ function writeEditedSubtitleFile(
   cues: EditableSubtitleCue[]
 ): string {
   const extension = extname(sourcePath) || '.srt';
-  const stem = basename(sourcePath, extname(sourcePath));
+  const stem = basename(sourcePath, extname(sourcePath))
+    .replace(/(?:\.opencreator-(?:source|horizontal|vertical|bilingual)-v\d+(?:-edit\d+)?)+$/, '');
   const label = kind === 'target_subtitle'
     ? 'horizontal'
     : kind === 'vertical_subtitle'
       ? 'vertical'
-      : 'bilingual';
-  const outputPath = join(
-    dirname(sourcePath),
-    `${stem}.opencreator-${label}-v${resultVersion}${extension}`
-  );
+      : kind === 'source_subtitle'
+        ? 'source'
+        : 'bilingual';
   const content = cues.map((cue, index) => [
     String(index + 1),
     `${cue.start} --> ${cue.end}`,
     cue.text
   ].join('\n')).join('\n\n');
-  writeFileSync(outputPath, `${content}\n`, { encoding: 'utf8', mode: 0o600 });
-  return outputPath;
+  // Repeated saves within one result version must keep earlier artifact files intact.
+  for (let edit = 1; ; edit += 1) {
+    const editSuffix = edit === 1 ? '' : `-edit${edit}`;
+    const outputPath = join(
+      dirname(sourcePath),
+      `${stem}.opencreator-${label}-v${resultVersion}${editSuffix}${extension}`
+    );
+    try {
+      writeFileSync(outputPath, `${content}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+      return outputPath;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+  }
 }
 
 function validSrtTimestamp(value: string): boolean {

@@ -3317,5 +3317,22 @@
   "Playback position": "प्लेबॅक स्थिती",
   "Subtitle timing only": "फक्त उपशीर्षक वेळ",
   "Generating audio waveform…": "ऑडिओ वेव्हफॉर्म जनरेट करत आहे...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "या मीडियासाठी वेव्हफॉर्म अनुपलब्ध आहे. उपशीर्षक वेळ अद्याप संपादन करण्यायोग्य आहे."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "या मीडियासाठी वेव्हफॉर्म अनुपलब्ध आहे. उपशीर्षक वेळ अद्याप संपादन करण्यायोग्य आहे.",
+  "Find and replace": "शोधा आणि बदला",
+  "Search scope": "शोधाची व्याप्ती",
+  "Find": "शोधा",
+  "Match case": "मोठी व लहान अक्षरे जुळवा",
+  "Previous match": "मागील जुळणी",
+  "Next match": "पुढील जुळणी",
+  "Replace with": "याने बदला",
+  "Replace": "बदला",
+  "Replace all": "सर्व बदला",
+  "No matches": "जुळणी नाही",
+  "Presets": "प्रीसेट",
+  "My styles": "माझ्या शैली",
+  "Customize": "सानुकूलित करा",
+  "Save as template": "टेम्पलेट म्हणून जतन करा",
+  "Customize subtitle style": "उपशीर्षक शैली सानुकूलित करा",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "अद्याप कोणतीही शैली जतन केलेली नाही. सानुकूलित करामध्ये शैली बदला, नंतर टेम्पलेट म्हणून जतन करा निवडा.",
+  "Agent Mode": "Agent मोड"
 }

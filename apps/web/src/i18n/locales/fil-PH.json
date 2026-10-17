@@ -3317,5 +3317,22 @@
   "Playback position": "Posisyon ng pag-playback",
   "Subtitle timing only": "Timing ng subtitle lang",
   "Generating audio waveform…": "Bumubuo ng audio waveform...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Hindi available ang waveform para sa media na ito. Mae-edit pa rin ang timing ng subtitle."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Hindi available ang waveform para sa media na ito. Mae-edit pa rin ang timing ng subtitle.",
+  "Find and replace": "Hanapin at palitan",
+  "Search scope": "Saklaw ng paghahanap",
+  "Find": "Hanapin",
+  "Match case": "Tugma ang laki ng titik",
+  "Previous match": "Nakaraang tugma",
+  "Next match": "Susunod na tugma",
+  "Replace with": "Palitan ng",
+  "Replace": "Palitan",
+  "Replace all": "Palitan lahat",
+  "No matches": "Walang tugma",
+  "Presets": "Mga preset",
+  "My styles": "Mga estilo ko",
+  "Customize": "I-customize",
+  "Save as template": "I-save bilang template",
+  "Customize subtitle style": "I-customize ang estilo ng subtitle",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Wala pang naka-save na estilo. Ayusin ang estilo sa I-customize, pagkatapos ay piliin ang I-save bilang template.",
+  "Agent Mode": "Mode ng Agent"
 }

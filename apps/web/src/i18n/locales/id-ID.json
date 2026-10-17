@@ -3317,5 +3317,22 @@
   "Playback position": "Posisi pemutaran",
   "Subtitle timing only": "Waktu subtitle saja",
   "Generating audio waveform…": "Menghasilkan bentuk gelombang audio…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Bentuk gelombang tidak tersedia untuk media ini. Waktu subtitle masih dapat diedit."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Bentuk gelombang tidak tersedia untuk media ini. Waktu subtitle masih dapat diedit.",
+  "Find and replace": "Cari dan ganti",
+  "Search scope": "Cakupan pencarian",
+  "Find": "Cari",
+  "Match case": "Peka huruf besar/kecil",
+  "Previous match": "Kecocokan sebelumnya",
+  "Next match": "Kecocokan berikutnya",
+  "Replace with": "Ganti dengan",
+  "Replace": "Ganti",
+  "Replace all": "Ganti semua",
+  "No matches": "Tidak ada kecocokan",
+  "Presets": "Preset",
+  "My styles": "Gaya saya",
+  "Customize": "Sesuaikan",
+  "Save as template": "Simpan sebagai templat",
+  "Customize subtitle style": "Sesuaikan gaya subtitel",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Belum ada gaya tersimpan. Atur gaya di Sesuaikan, lalu pilih Simpan sebagai templat.",
+  "Agent Mode": "Mode Agent"
 }

@@ -3317,5 +3317,22 @@
   "Playback position": "پلے بیک پوزیشن",
   "Subtitle timing only": "صرف سب ٹائٹل ٹائمنگ",
   "Generating audio waveform…": "آڈیو ویوفارم تیار ہو رہا ہے…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "اس میڈیا کے لیے ویوفارم دستیاب نہیں ہے۔ سب ٹائٹل ٹائمنگ اب بھی قابل تدوین ہے۔"
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "اس میڈیا کے لیے ویوفارم دستیاب نہیں ہے۔ سب ٹائٹل ٹائمنگ اب بھی قابل تدوین ہے۔",
+  "Find and replace": "تلاش اور تبدیل کریں",
+  "Search scope": "تلاش کا دائرہ",
+  "Find": "تلاش کریں",
+  "Match case": "بڑے اور چھوٹے حروف ملائیں",
+  "Previous match": "پچھلا مماثل",
+  "Next match": "اگلا مماثل",
+  "Replace with": "اس سے تبدیل کریں",
+  "Replace": "تبدیل کریں",
+  "Replace all": "سب تبدیل کریں",
+  "No matches": "کوئی مماثلت نہیں",
+  "Presets": "پیش سیٹ",
+  "My styles": "میرے انداز",
+  "Customize": "حسب ضرورت بنائیں",
+  "Save as template": "ٹیمپلیٹ کے طور پر محفوظ کریں",
+  "Customize subtitle style": "سب ٹائٹل کا انداز حسب ضرورت بنائیں",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "ابھی کوئی انداز محفوظ نہیں ہے۔ حسب ضرورت بنائیں میں انداز بدلیں، پھر ٹیمپلیٹ کے طور پر محفوظ کریں منتخب کریں۔",
+  "Agent Mode": "Agent موڈ"
 }

@@ -57,9 +57,125 @@ function EditingHarness(props: { preview?: boolean; readOnly?: boolean; saving?:
 }
 
 describe('VideoTranslationResultWorkspace', () => {
+  it('finds and replaces across cues, navigates matches, and undoes or redoes a batch as one edit', () => {
+    render(<EditingHarness />);
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.keyDown(screen.getByRole('button', { name: '返回项目' }), { key: 'h', ctrlKey: true });
+    const find = screen.getByRole('search', { name: '查找与替换' });
+    expect(within(find).getByRole('combobox', { name: '搜索范围' })).toHaveValue('all');
+    const input = within(find).getByRole('textbox', { name: '查找' });
+    expect(input).toHaveFocus();
+    fireEvent.change(input, { target: { value: 'world' } });
+    expect(within(find).getByRole('status')).toHaveTextContent('1 / 2');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(within(find).getByRole('status')).toHaveTextContent('2 / 2');
+    expect(screen.getAllByRole('listitem')[1]).toHaveAttribute('data-focused', 'true');
+    fireEvent.click(within(find).getByRole('button', { name: '下一处' }));
+    expect(within(find).getByRole('status')).toHaveTextContent('1 / 2');
+    fireEvent.change(within(find).getByRole('textbox', { name: '替换为' }), { target: { value: '$&' } });
+    fireEvent.click(within(find).getByRole('button', { name: '全部替换' }));
+    expect(screen.getByDisplayValue('Hello $&')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Goodbye $&')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('你好世界')).toBeInTheDocument();
+    expect(within(find).getByRole('status')).toHaveTextContent('无匹配结果');
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }));
+    expect(screen.getByDisplayValue('Hello world')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Goodbye world')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重做' }));
+    expect(screen.getByDisplayValue('Hello $&')).toBeInTheDocument();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('search')).toBeNull();
+    expect(screen.getByRole('button', { name: '查找与替换' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: '返回项目' })).toBeInTheDocument();
+  });
+
+  it('replaces the current occurrence in source text and supports empty replacements and case matching', () => {
+    render(<EditingHarness />);
+    fireEvent.click(screen.getByRole('button', { name: '查找与替换' }));
+    const find = screen.getByRole('search');
+    fireEvent.change(within(find).getByRole('combobox', { name: '搜索范围' }), { target: { value: 'sourceText' } });
+    fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: '世界' } });
+    fireEvent.click(within(find).getByRole('button', { name: '替换' }));
+    expect(screen.getByDisplayValue('你好')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('再见世界')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Hello world')).toBeInTheDocument();
+    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'text' } });
+    fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'HELLO' } });
+    expect(within(find).getByRole('status')).toHaveTextContent('1 / 1');
+    fireEvent.click(within(find).getByRole('button', { name: '区分大小写' }));
+    expect(within(find).getByRole('status')).toHaveTextContent('无匹配结果');
+  });
+
+  it.each([{ readOnly: true }, { saving: true }])('allows search but prevents replacement when edits are unavailable: %j', state => {
+    render(<EditingHarness {...state} />);
+    fireEvent.click(screen.getByRole('button', { name: '查找与替换' }));
+    const find = screen.getByRole('search');
+    fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'world' } });
+    expect(within(find).getByRole('status')).toHaveTextContent('1 / 2');
+    expect(within(find).getByRole('button', { name: '下一处' })).toBeEnabled();
+    expect(within(find).getByRole('button', { name: '替换' })).toBeDisabled();
+    expect(within(find).getByRole('button', { name: '全部替换' })).toBeDisabled();
+  });
+
+  it('advances past replacement text containing the search term and keeps the batch within the chosen fields', () => {
+    function Harness() {
+      const [output, setOutput] = useState<SubtitleResultOutput>({ ...baseProps.subtitleOutputs[0]!,
+        cues: [{ id: 1, start: '00:00:00,000', end: '00:00:04,000', text: 'hi hi', sourceText: 'hi' }] });
+      return <VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" subtitleOutputs={[output]}
+        onSubtitleCuesChange={(_variant, cues) => setOutput({ ...output, cues })} />;
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '查找与替换' }));
+    const find = screen.getByRole('search');
+    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'text' } });
+    fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'hi' } });
+    const replacement = within(find).getByRole('textbox', { name: '替换为' });
+    fireEvent.change(replacement, { target: { value: 'hi!' } });
+    fireEvent.keyDown(replacement, { key: 'Enter' });
+    expect(screen.getByDisplayValue('hi! hi')).toBeInTheDocument();
+    expect(within(find).getByRole('status')).toHaveTextContent('2 / 2');
+    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'all' } });
+    fireEvent.change(replacement, { target: { value: 'bye' } });
+    fireEvent.click(within(find).getByRole('button', { name: '全部替换' }));
+    expect(screen.getByDisplayValue('bye! bye')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '横屏字幕原文 1' })).toHaveValue('bye');
+  });
+
+  it.each([false, true])('offers editing in the overview toolbar and reserves generation for the editor when confirming is %s', regenerationPending => {
+    const onImmersiveChange = vi.fn(), onRequestRegenerate = vi.fn(), onConfirmRegenerate = vi.fn();
+    const props = { ...baseProps, hasPendingChanges: true, regenerationPending,
+      onImmersiveChange, onRequestRegenerate, onConfirmRegenerate };
+    const { rerender } = render(<VideoTranslationResultWorkspace {...props} activeTab="video" />);
+    const expectEditingOnly = () => {
+      const edit = screen.getByRole('button', { name: '深度编辑' });
+      expect(edit.closest('.video-result-toolbar-actions')).not.toBeNull();
+      expect(screen.queryByRole('button', { name: /生成 V2|取消/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: '生成新版本' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: '确认生成新版本' })).not.toBeInTheDocument();
+    };
+    expectEditingOnly();
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="video"
+      videoOutputs={[{ artifactId: 'final-video', variant: 'horizontal', artifactVersion: 1, src: 'blob:final' }]} />);
+    expectEditingOnly();
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    expect(onImmersiveChange).toHaveBeenCalledWith(true);
+    expect(onRequestRegenerate).not.toHaveBeenCalled();
+    expect(onConfirmRegenerate).not.toHaveBeenCalled();
+
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="subtitles" immersive />);
+    expect(screen.getByRole('button', { name: regenerationPending ? '确认生成 V2' : '生成 V2' }).closest('header')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: '深度编辑' })).not.toBeInTheDocument();
+  });
+
+  it('keeps generation available in the subtitle-only workspace', () => {
+    render(<VideoTranslationResultWorkspace {...baseProps} subtitleOnly activeTab="subtitles" hasPendingChanges />);
+    expect(screen.getByRole('button', { name: '生成 V2' }).closest('.video-result-toolbar-actions')).not.toBeNull();
+  });
+
   it('opens shared editor settings without replacing the player and keeps explicit regeneration available', () => {
     const onOpen = vi.fn(), onRequest = vi.fn(), onImmersiveChange = vi.fn();
-    const settings = { style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>,
+    const settings = { language: <label>Shared language<select aria-label="Shared language"><option>English</option></select></label>,
+      style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>,
       output: <label>Shared format<select aria-label="Shared format"><option>16:9</option><option>9:16</option></select></label>, disabled: false, onOpen };
     const { rerender } = render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
       editorSettings={settings} hasPendingChanges onRequestRegenerate={onRequest} onImmersiveChange={onImmersiveChange}
@@ -67,7 +183,11 @@ describe('VideoTranslationResultWorkspace', () => {
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     const video = screen.getByLabelText('横屏字幕视频预览');
     expect(screen.getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
-    expect(screen.getByRole('button', { name: '输出画幅' }).closest('.video-result-subtitle-video')).toBeNull();
+    expect(screen.getByRole('button', { name: '输出格式' }).closest('.video-result-subtitle-video')).toBeNull();
+    expect(screen.getByRole('button', { name: '翻译语言' }).querySelector('.lucide-languages')).not.toBeNull();
+    const rail = screen.getByRole('group', { name: '项目设置' });
+    expect(within(rail).getAllByRole('button').slice(1).map(button => button.getAttribute('aria-label')))
+      .toEqual(['翻译语言', '输出格式', '字幕样式', '配音']);
     expect(screen.queryByRole('radiogroup', { name: '字幕画幅' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '展开侧栏' }));
     expect(screen.getByRole('button', { name: '收起侧栏' })).toHaveAttribute('aria-expanded', 'true');
@@ -88,7 +208,12 @@ describe('VideoTranslationResultWorkspace', () => {
     fireEvent.timeUpdate(video, { target: { currentTime: 0.5 } });
     expect(screen.getByRole('slider', { name: '播放位置' })).toHaveAttribute('aria-valuenow', '0.5');
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeEnabled();
-    fireEvent.click(within(dialog).getByRole('tab', { name: '输出画幅' }));
+    fireEvent.click(within(dialog).getByRole('tab', { name: '翻译语言' }));
+    expect(within(dialog).getByRole('combobox', { name: 'Shared language' })).toBeEnabled();
+    expect(within(dialog).getAllByRole('tab').map(tab => tab.textContent)).toEqual(['翻译语言', '输出格式', '字幕样式', '配音']);
+    fireEvent.keyDown(within(dialog).getByRole('tab', { name: '翻译语言' }), { key: 'ArrowRight' });
+    expect(within(dialog).getByRole('tab', { name: '输出格式' })).toHaveFocus();
+    fireEvent.click(within(dialog).getByRole('tab', { name: '输出格式' }));
     expect(within(dialog).getByRole('combobox', { name: 'Shared format' })).toBeEnabled();
     expect(onOpen).toHaveBeenCalledOnce();
     fireEvent.click(within(dialog).getByRole('tab', { name: '配音' }));
@@ -416,6 +541,9 @@ describe('VideoTranslationResultWorkspace', () => {
     );
 
     expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['作品']);
+    expect(screen.queryByRole('tab', { name: '字幕' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '配音' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '作品' })).not.toBeInTheDocument();
     expect(screen.queryByText('项目 V1 · 1 个文件')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '项目 V1' })).toBeInTheDocument();
@@ -896,8 +1024,9 @@ describe('VideoTranslationResultWorkspace', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
-    expect(onTabChange).toHaveBeenCalledWith('settings');
+    expect(screen.queryByRole('tab', { name: '任务设置' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: '作品' }));
+    expect(onTabChange).toHaveBeenCalledWith('video');
 
     fireEvent.click(screen.getByRole('button', { name: /项目 V1/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: /项目 V2/ }));

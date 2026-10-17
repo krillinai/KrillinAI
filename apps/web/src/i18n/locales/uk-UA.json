@@ -3317,5 +3317,22 @@
   "Playback position": "Позиція відтворення",
   "Subtitle timing only": "Лише час субтитрів",
   "Generating audio waveform…": "Генерація аудіосигналу…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Форма сигналу недоступна для цього носія. Час субтитрів усе ще можна редагувати."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Форма сигналу недоступна для цього носія. Час субтитрів усе ще можна редагувати.",
+  "Find and replace": "Знайти й замінити",
+  "Search scope": "Область пошуку",
+  "Find": "Знайти",
+  "Match case": "Враховувати регістр",
+  "Previous match": "Попередній збіг",
+  "Next match": "Наступний збіг",
+  "Replace with": "Замінити на",
+  "Replace": "Замінити",
+  "Replace all": "Замінити все",
+  "No matches": "Збігів немає",
+  "Presets": "Готові стилі",
+  "My styles": "Мої стилі",
+  "Customize": "Налаштувати",
+  "Save as template": "Зберегти як шаблон",
+  "Customize subtitle style": "Налаштувати стиль субтитрів",
+  "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Збережених стилів ще немає. Змініть стиль через «Налаштувати», а потім виберіть «Зберегти як шаблон».",
+  "Agent Mode": "Режим Agent"
 }

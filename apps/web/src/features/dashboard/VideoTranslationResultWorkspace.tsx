@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -15,6 +16,7 @@ import {
   Maximize2,
   MessageSquare,
   Mic2,
+  Languages,
   MonitorPlay,
   Headphones,
   PanelRightOpen,
@@ -22,7 +24,7 @@ import {
   PackageOpen,
   RotateCcw,
   Save,
-  Settings2,
+  Search,
   X,
   Redo2,
   Undo2
@@ -31,14 +33,15 @@ import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import { OriginalErrorDetails } from '../issues/OriginalErrorDetails.js';
 import SubtitleTimeline from './SubtitleTimeline.js';
+import SubtitleFindReplace from './SubtitleFindReplace.js';
 import { sameSubtitleCues, subtitleSeconds } from './subtitle-editing.js';
 import { beginPaneResize, paneInlineDirection } from '../../components/layout/pane-resize-2026-07-29.js';
 import './subtitle-editor.css';
 
-export type VideoTranslationResultTab = 'video' | 'subtitles' | 'voice' | 'settings';
+export type VideoTranslationResultTab = 'video' | 'subtitles' | 'voice';
 export type VideoResultVariant = 'horizontal' | 'vertical' | 'dubbed';
 export type SubtitleResultVariant = 'horizontal' | 'vertical';
-type EditorSettingsPanel = 'style' | 'voice' | 'output';
+type EditorSettingsPanel = 'language' | 'style' | 'voice' | 'output';
 
 export type VideoTranslationResultExecution = {
   status: 'queued' | 'running' | 'needs_input' | 'failed' | 'canceled' | 'interrupted';
@@ -102,8 +105,7 @@ const resultTabs: Array<{
 }> = [
   { value: 'video', label: '作品', icon: PackageOpen },
   { value: 'subtitles', label: '字幕', icon: Captions },
-  { value: 'voice', label: '配音', icon: Mic2 },
-  { value: 'settings', label: '任务设置', icon: Settings2 }
+  { value: 'voice', label: '配音', icon: Mic2 }
 ];
 
 export default function VideoTranslationResultWorkspace(props: {
@@ -128,7 +130,7 @@ export default function VideoTranslationResultWorkspace(props: {
   immersive?: boolean;
   assistantOpen?: boolean;
   editorSettings?: {
-    style: ReactNode; voice: ReactNode; output?: ReactNode;
+    language?: ReactNode; style: ReactNode; voice: ReactNode; output?: ReactNode;
     previewFormat?: SubtitleResultVariant; previewTitles?: ReactNode;
     disabled: boolean; onOpen(): void;
   };
@@ -163,13 +165,16 @@ export default function VideoTranslationResultWorkspace(props: {
   const [subtitlePlaying, setSubtitlePlaying] = useState(false);
   const [editorPanel, setEditorPanel] = useState<EditorSettingsPanel>();
   const [settingsRailExpanded, setSettingsRailExpanded] = useState(false);
-  const editorPanels: EditorSettingsPanel[] = props.editorSettings?.output === undefined ? ['style', 'voice'] : ['style', 'voice', 'output'];
-  const editorPanelLabel = (panel: EditorSettingsPanel) => panel === 'style' ? l('字幕样式', 'Subtitle style')
-    : panel === 'voice' ? l('配音', 'Dubbing') : l('输出画幅', 'Output format');
+  const editorPanels = (['language', 'output', 'style', 'voice'] as const).filter(panel => props.editorSettings?.[panel] !== undefined);
+  const editorPanelLabel = (panel: EditorSettingsPanel) => panel === 'language' ? l('翻译语言', 'Languages') : panel === 'style' ? l('字幕样式', 'Subtitle style')
+    : panel === 'voice' ? l('配音', 'Dubbing') : l('输出格式', 'Output format');
   const [subtitleVideoSize, setSubtitleVideoSize] = useState({ width: 16, height: 9 });
   const [auditionVoice, setAuditionVoice] = useState(false);
   const [voicePlaybackFailed, setVoicePlaybackFailed] = useState(false);
   const [selectedCueId, setSelectedCueId] = useState<number>();
+  const [findOpen, setFindOpen] = useState(false);
+  const findButtonRef = useRef<HTMLButtonElement>(null);
+  const findPanelRef = useRef<HTMLDivElement>(null);
   const [editorWidth, setEditorWidth] = useState(45);
   const maxEditorWidth = props.editorSettings ? 60 : 75;
   const [, setHistoryRevision] = useState(0);
@@ -230,7 +235,6 @@ export default function VideoTranslationResultWorkspace(props: {
   const subtitleCueGroups = activeSubtitleOutput === undefined
     ? []
     : groupSubtitleCues(activeSubtitleOutput.cues, activeSubtitleOutput.variant);
-  const subtitleCueCount = props.subtitleOutputs.reduce((total, output) => total + output.cues.length, 0);
   const generatedArtifactCount = props.videoOutputs.length
     + props.subtitleOutputs.length
     + (props.voiceOutput === undefined ? 0 : 1);
@@ -260,6 +264,7 @@ export default function VideoTranslationResultWorkspace(props: {
     setSubtitlePlaying(false);
     setSelectedCueId(undefined);
     setEditorPanel(undefined);
+    setFindOpen(false);
     playbackPositionRef.current = 0;
     if (pendingPlaybackPositionRef.current !== undefined) pendingPlaybackPositionRef.current = 0;
   }, [activeSubtitleVariant, props.version]);
@@ -269,6 +274,45 @@ export default function VideoTranslationResultWorkspace(props: {
   useEffect(() => { if (!props.immersive || props.activeTab !== 'subtitles') setEditorPanel(undefined); }, [props.immersive, props.activeTab]);
 
   useEffect(() => { setAuditionVoice(false); setVoicePlaybackFailed(false); }, [props.voiceOutput?.src, props.version]);
+
+  useLayoutEffect(() => {
+    if (!findOpen) return;
+    const place = () => {
+      const root = rootRef.current?.getBoundingClientRect();
+      const button = findButtonRef.current?.getBoundingClientRect();
+      const panel = findPanelRef.current;
+      if (!root || !button || !panel) return;
+      const viewport = window.visualViewport;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const left = Math.max(root.left, viewportLeft) + 12;
+      const right = Math.min(root.right, viewportLeft + (viewport?.width ?? window.innerWidth)) - 12;
+      const bottom = Math.min(root.bottom, viewportTop + (viewport?.height ?? window.innerHeight)) - 12;
+      const width = Math.max(0, Math.min(440, right - left));
+      const start = getComputedStyle(findButtonRef.current!).direction === 'rtl' ? button.right - width : button.left;
+      const top = button.bottom + 8;
+      Object.assign(panel.style, {
+        left: `${Math.max(left, Math.min(start, right - width)) - root.left}px`,
+        top: `${top - root.top}px`, width: `${width}px`, maxHeight: `${Math.max(0, bottom - top)}px`
+      });
+    };
+    place();
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(place);
+    for (const node of [rootRef.current, findButtonRef.current?.closest('.video-result-pane-heading'), findButtonRef.current?.parentElement]) {
+      if (node) observer?.observe(node);
+    }
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    window.visualViewport?.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('scroll', place);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      window.visualViewport?.removeEventListener('resize', place);
+      window.visualViewport?.removeEventListener('scroll', place);
+    };
+  }, [findOpen, props.activeTab, props.immersive, editorPanel, props.hasPendingChanges, props.regenerationPending, props.subtitleSavePending, props.subtitleDirty]);
 
   useEffect(() => {
     const video = subtitleVideoRef.current;
@@ -379,6 +423,11 @@ export default function VideoTranslationResultWorkspace(props: {
     props.onSubtitleCuesChange(activeSubtitleOutput.variant, next);
   }
 
+  function closeFind() {
+    setFindOpen(false);
+    findButtonRef.current?.focus();
+  }
+
   const regenerationControls = (props.hasPendingChanges || props.regenerationPending) ? (
     <div className="video-result-regenerate" data-confirming={props.regenerationPending}
       role={props.regenerationPending ? 'group' : 'region'}
@@ -395,6 +444,14 @@ export default function VideoTranslationResultWorkspace(props: {
       </> : <button type="button" disabled={props.subtitleSavePending || props.editorSettings?.disabled} onClick={props.onRequestRegenerate}>
         {props.subtitleDirty ? l(`保存并生成 V${props.nextVersion}`, `Save and generate V${props.nextVersion}`) : l(`生成 V${props.nextVersion}`, `Generate V${props.nextVersion}`)}
       </button>}
+    </div>
+  ) : null;
+
+  const editingAction = !props.immersive && activeSubtitleOutput && props.onImmersiveChange ? (
+    <div className="video-result-pane-actions">
+      <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
+        <Maximize2 size={15} aria-hidden="true" />{l('深度编辑', 'Advanced editing')}
+      </button>
     </div>
   ) : null;
 
@@ -500,9 +557,18 @@ export default function VideoTranslationResultWorkspace(props: {
       aria-label={l('视频翻译项目产出', 'Video translation project outputs')}
       onKeyDown={event => {
         if (!props.immersive || event.defaultPrevented) return;
+        const findShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f'
+          || event.ctrlKey && event.key.toLowerCase() === 'h';
+        if (props.activeTab === 'subtitles' && activeSubtitleOutput && findShortcut
+          && !(event.target as HTMLElement).closest('.subtitle-editor-settings')) {
+          event.preventDefault(); setFindOpen(true);
+          rootRef.current?.querySelector<HTMLInputElement>('.subtitle-editor-find input')?.focus();
+          return;
+        }
         if (event.key === 'Escape' && !document.querySelector('[role="dialog"], dialog[open]')) {
           event.preventDefault();
-          if (editorPanel) setEditorPanel(undefined);
+          if (findOpen) closeFind();
+          else if (editorPanel) setEditorPanel(undefined);
           else props.onImmersiveChange?.(false);
         }
         const target = event.target as HTMLElement;
@@ -511,9 +577,26 @@ export default function VideoTranslationResultWorkspace(props: {
           event.preventDefault(); travelHistory(event.shiftKey ? 'future' : 'past');
         }
       }}>
+      {findOpen && activeSubtitleOutput && props.activeTab === 'subtitles' ? <div ref={findPanelRef} id="subtitle-editor-find-panel" className="subtitle-editor-find-anchor">
+        <SubtitleFindReplace key={historyKey} cues={activeSubtitleOutput.cues} readOnly={editReadOnly || !props.onSubtitleCuesChange}
+          onChange={replaceCues} onClose={closeFind} onLocate={match => {
+            if (!match) return;
+            const cue = activeSubtitleOutput.cues[match.cueIndex];
+            if (!cue) return;
+            subtitleVideoRef.current?.pause();
+            seekToSubtitleCue(cue);
+            const row = subtitleCueRefs.current.get(cue.id);
+            row?.scrollIntoView?.({ block: 'nearest' });
+            const group = subtitleCueGroups.find(items => items.some(item => item.cue.id === cue.id));
+            const cueIndex = group?.findIndex(item => item.cue.id === cue.id) ?? 0;
+            const pair = row?.querySelectorAll('.video-subtitle-cue-pair')[cueIndex];
+            const field = pair?.querySelector<HTMLTextAreaElement>(`textarea[data-subtitle-field="${match.field}"]`);
+            field?.setSelectionRange(match.start, match.end);
+          }} />
+      </div> : null}
       <div className="video-result-toolbar">
         <div className="video-result-tabs" role="tablist" aria-label={l('产出物类型', 'Output types')}>
-          {resultTabs.filter(tab => !props.subtitleOnly || tab.value === 'subtitles' || tab.value === 'settings').map(tab => {
+          {resultTabs.filter(tab => tab.value === (props.subtitleOnly ? 'subtitles' : 'video')).map(tab => {
             const Icon = tab.icon;
             return (
               <button
@@ -525,7 +608,7 @@ export default function VideoTranslationResultWorkspace(props: {
               >
                 <Icon size={15} strokeWidth={1.8} aria-hidden="true" />
                 {localizeResultTab(tab.label, l)}
-                {tab.value === 'subtitles' && hasSubtitleDrafts ? (
+                {tab.value === (props.subtitleOnly ? 'subtitles' : 'video') && hasSubtitleDrafts ? (
                   <span className="video-result-unsaved" aria-label={l('有未保存的字幕修改', 'Unsaved subtitle changes')} />
                 ) : null}
               </button>
@@ -534,20 +617,13 @@ export default function VideoTranslationResultWorkspace(props: {
         </div>
 
         <div className="video-result-toolbar-actions">
-          {props.activeTab === 'video' && activeSubtitleOutput && props.onImmersiveChange ? (
-            <div className="video-result-pane-actions">
-              <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
-                <Maximize2 size={15} aria-hidden="true" />{l('深度编辑', 'Advanced editing')}
-              </button>
-            </div>
-          ) : null}
           <CreatorResultVersionMenu
             showCompletion={props.execution === undefined && generatedArtifactCount > 0}
             version={props.version}
             versions={props.versions}
             onVersionChange={props.onVersionChange}
           />
-          {!props.immersive ? regenerationControls : null}
+          {!props.immersive ? props.subtitleOnly ? regenerationControls : editingAction : null}
         </div>
       </div>
 
@@ -691,15 +767,19 @@ export default function VideoTranslationResultWorkspace(props: {
               </p>
             </div>
             <div className="video-result-pane-actions">
+              {activeSubtitleOutput ? <button ref={findButtonRef} type="button" aria-label={l('查找与替换', 'Find and replace')}
+                title={l('查找与替换', 'Find and replace')} aria-expanded={findOpen} aria-controls="subtitle-editor-find-panel"
+                aria-keyshortcuts={props.immersive ? 'Control+f Meta+f Control+h' : undefined}
+                onClick={() => findOpen ? closeFind() : setFindOpen(true)}><Search size={16} /></button> : null}
               {props.immersive ? <>
                 <div className="subtitle-editor-history">
                   <button type="button" aria-label={l('撤销', 'Undo')} title={l('撤销', 'Undo')} disabled={editReadOnly || !currentHistory?.past.length} onClick={() => travelHistory('past')}><Undo2 size={16} /></button>
                   <button type="button" aria-label={l('重做', 'Redo')} title={l('重做', 'Redo')} disabled={editReadOnly || !currentHistory?.future.length} onClick={() => travelHistory('future')}><Redo2 size={16} /></button>
                 </div>
                 {props.onToggleAssistant ? <button type="button" aria-pressed={props.assistantOpen} onClick={props.onToggleAssistant}>
-                  <MessageSquare size={15} />{l('AI 助手', 'AI assistant')}
+                  <MessageSquare size={15} />{l('Agent模式', 'Agent Mode')}
                 </button> : null}
-              </> : activeSubtitleOutput && props.onImmersiveChange ? <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
+              </> : props.subtitleOnly && activeSubtitleOutput && props.onImmersiveChange ? <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
                 <Maximize2 size={15} />{l('深度编辑', 'Advanced editing')}
               </button> : null}
               {props.immersive && !props.subtitleDownloads?.length && activeSubtitleOutput ? <button type="button" className="subtitle-editor-export"
@@ -759,7 +839,7 @@ export default function VideoTranslationResultWorkspace(props: {
                   <span>{l('收起侧栏', 'Collapse sidebar')}</span>
                 </button>
                 {editorPanels.map(panel => {
-                  const Icon = panel === 'style' ? Captions : panel === 'voice' ? Mic2 : MonitorPlay;
+                  const Icon = panel === 'language' ? Languages : panel === 'style' ? Captions : panel === 'voice' ? Mic2 : MonitorPlay;
                   return <button key={panel} type="button" aria-expanded={editorPanel === panel}
                     aria-label={editorPanelLabel(panel)} title={editorPanelLabel(panel)}
                     disabled={props.editorSettings?.disabled}
@@ -840,6 +920,7 @@ export default function VideoTranslationResultWorkspace(props: {
                               const sourceLine = cue.sourceText === undefined ? null : (
                                 <textarea
                                   className="video-subtitle-cue-source"
+                                  data-subtitle-field="sourceText"
                                   rows={1}
                                   value={cue.sourceText}
                                   dir="auto"
@@ -855,6 +936,7 @@ export default function VideoTranslationResultWorkspace(props: {
                               const translationLine = (
                                 <textarea
                                   className={lineIndex > 0 ? 'video-subtitle-cue-source' : 'video-subtitle-cue-translation'}
+                                  data-subtitle-field="text"
                                   rows={1}
                                   value={cue.text}
                                   dir="auto"
@@ -982,30 +1064,6 @@ export default function VideoTranslationResultWorkspace(props: {
         </div>
       ) : null}
 
-      {props.activeTab === 'settings' ? (
-        <div className="video-result-pane">
-          <header className="video-result-pane-heading">
-            <div>
-              <h2>{l('当前版本设置', 'Current version settings')}</h2>
-            </div>
-            <button type="button" onClick={props.onAdjustSettings}>
-              <Settings2 size={15} strokeWidth={1.8} aria-hidden="true" />
-              {l('调整设置', 'Adjust settings')}
-            </button>
-          </header>
-          <dl className="video-result-settings">
-            <div><dt>{l('目标语言', 'Target language')}</dt><dd>{props.targetLanguage}</dd></div>
-            {!props.subtitleOnly ? <div><dt>{l('字幕样式', 'Subtitle style')}</dt><dd>{props.subtitleStyleLabel}</dd></div> : null}
-            {!props.subtitleOnly ? <div><dt>{l('配音', 'Dubbing')}</dt><dd>{props.dubbing ? l('已开启', 'Enabled') : l('未开启', 'Disabled')}</dd></div> : null}
-            <div><dt>{l('输出内容', 'Output')}</dt><dd>{props.outputLabel}</dd></div>
-            <div>
-              <dt>{l('字幕文件', 'Subtitle files')}</dt>
-              <dd>{props.subtitleOutputs.length} {l('个文件', 'files')} · {subtitleCueCount} {l('条字幕', 'subtitles')}</dd>
-            </div>
-          </dl>
-        </div>
-      ) : null}
-
       {props.immersive && props.editorSettings && editorPanel ? <SubtitleEditorSettingsPanel
         title={editorPanelLabel(editorPanel)}
         context={l(`正在基于 V${props.version} 调整`, `Adjusting from V${props.version}`)}
@@ -1115,8 +1173,7 @@ function localizeResultTab(label: string, l: LocalizeCopy): string {
   const labels: Record<string, string> = {
     '作品': 'Outputs',
     '字幕': 'Subtitles',
-    '配音': 'Dubbing',
-    '任务设置': 'Task settings'
+    '配音': 'Dubbing'
   };
   return l(label, labels[label] ?? label);
 }
