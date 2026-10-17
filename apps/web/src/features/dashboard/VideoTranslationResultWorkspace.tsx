@@ -590,7 +590,7 @@ export default function VideoTranslationResultWorkspace(props: {
                 onClick={() => props.onExport('subtitles', download.artifactId)}>
                 <Download size={15} aria-hidden="true" /><span>{download.label}</span>
               </button>)}
-              {availableSubtitleVariants.length > 1 ? (
+              {availableSubtitleVariants.length > 1 && !(props.immersive && props.editorSettings?.output !== undefined) ? (
                 <div className="video-result-subtitle-variants" role="radiogroup" aria-label={l('字幕画幅', 'Subtitle format')}>
                   {availableSubtitleVariants.map(variant => (
                     <button

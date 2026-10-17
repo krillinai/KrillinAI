@@ -63,10 +63,12 @@ describe('VideoTranslationResultWorkspace', () => {
       output: <label>Shared format<select aria-label="Shared format"><option>16:9</option><option>9:16</option></select></label>, disabled: false, onOpen };
     const { rerender } = render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
       editorSettings={settings} hasPendingChanges onRequestRegenerate={onRequest} onImmersiveChange={onImmersiveChange}
+      subtitleOutputs={[...baseProps.subtitleOutputs, { ...baseProps.subtitleOutputs[0]!, artifactId: 'vertical-subtitle', variant: 'vertical' }]}
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     const video = screen.getByLabelText('横屏字幕视频预览');
     expect(screen.getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
     expect(screen.getByRole('button', { name: '输出画幅' }).closest('.video-result-subtitle-video')).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: '字幕画幅' })).toBeNull();
     const styleTrigger = screen.getByRole('button', { name: '字幕样式' });
     styleTrigger.focus();
     fireEvent.click(styleTrigger);
