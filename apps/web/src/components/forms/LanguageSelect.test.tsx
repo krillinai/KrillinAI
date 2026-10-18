@@ -20,8 +20,8 @@ describe('LanguageSelect', () => {
     fireEvent.focus(input);
     const options = screen.getAllByRole('option');
     expect(options.map(option => option.dataset.value)).toEqual(['system', ...appLanguageOptions.map(option => option.value)]);
-    expect(appLanguageOptions[0]!.englishName).toBe('Arabic');
-    expect(appLanguageOptions.at(-1)!.englishName).toBe('Vietnamese');
+    expect(appLanguageOptions[0]!.englishName).toBe('Afrikaans');
+    expect(appLanguageOptions.at(-1)!.englishName).toBe('Zulu');
     expect(screen.getByRole('option', { name: '日本語 Japanese' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'العربية Arabic' })).toBeInTheDocument();
   });
@@ -35,15 +35,34 @@ describe('LanguageSelect', () => {
     expect(change).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['မြန်မာ', 'my-MM'], ['Khmer', 'km-KH'], ['አማርኛ', 'am-ET'],
+    ['卡纳达语', 'kn-IN'], ['Kinyarwanda', 'rw-RW'], ['as-IN', 'as-IN'],
+    ['Odia', 'or-IN'], ['Uzbek', 'uz-UZ'],
+    ['Català', 'ca-ES'], ['Euskara', 'eu-ES'], ['Galician', 'gl-ES'], ['Íslenska', 'is-IS'],
+    ['Bosanski', 'bs-BA'], ['Македонски', 'mk-MK'], ['Беларуская', 'be-BY'],
+    ['Кыргызча', 'ky-KG'], ['Тоҷикӣ', 'tg-TJ'], ['Türkmençe', 'tk-TM'],
+    ['پښتو', 'ps-AF'], ['Kurdî', 'ku-TR'], ['库尔德语', 'ku-TR']
+  ])('finds an added language using %s and applies it on confirmation', (query, locale) => {
+    const { input, change } = setup();
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: query } });
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    expect(screen.getByRole('option').dataset.value).toBe(locale);
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(change).toHaveBeenCalledExactlyOnceWith(locale);
+  });
+
   it('uses a single letter to locate an English-name section and commits only with Enter', async () => {
     const { input, change } = setup();
     await userEvent.click(input);
     await userEvent.type(input, 'b');
-    expect(screen.getAllByRole('option').map(option => option.dataset.value)).toEqual(['bn-BD', 'bg-BG']);
+    expect(screen.getAllByRole('option').map(option => option.dataset.value)).toEqual(['eu-ES', 'be-BY', 'bn-BD', 'bs-BA', 'bg-BG', 'my-MM']);
     await userEvent.keyboard('{ArrowDown}');
     expect(change).not.toHaveBeenCalled();
     await userEvent.keyboard('{Enter}');
-    expect(change).toHaveBeenCalledExactlyOnceWith('bg-BG');
+    expect(change).toHaveBeenCalledExactlyOnceWith('be-BY');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     expect(input).toHaveFocus();
   });
@@ -88,6 +107,6 @@ describe('LanguageSelect', () => {
     await userEvent.click(input);
     await userEvent.type(input, 'j{Enter}b');
     expect(input).toHaveValue('b');
-    expect(screen.getAllByRole('option').map(option => option.dataset.value)).toEqual(['bn-BD', 'bg-BG']);
+    expect(screen.getAllByRole('option').map(option => option.dataset.value)).toEqual(['eu-ES', 'be-BY', 'bn-BD', 'bs-BA', 'bg-BG', 'my-MM']);
   });
 });

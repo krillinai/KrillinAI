@@ -258,7 +258,9 @@
 .video-result-pane-actions > .video-result-regenerate { flex-wrap: wrap; gap: 12px; max-width: 560px; margin-inline-start: auto; }
 .video-result-pane-actions .video-result-regenerate button { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .video-result-pane-actions .video-result-regenerate-actions button:first-child { background: var(--surface); border-color: var(--border); color: var(--text); }
+.video-result-pane-actions .subtitle-editor-language-action { background: var(--surface); border-color: var(--border); color: var(--text); }
 .subtitle-editor-regenerate-summary { flex: 1; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.video-result-retranslation-warning { flex-basis: 100%; margin: 0; font-size: 12px; line-height: 1.6; color: var(--text); }
 body:has(.video-translation-page[data-subtitle-immersive="true"]) .video-translation-style-drawer-backdrop { z-index: 1200; }
 body:has(.video-translation-page[data-subtitle-immersive="true"]) .video-translation-color-palette { z-index: 1201; }
 body:has(.video-translation-page[data-subtitle-immersive="true"]) .tts-voice-menu,

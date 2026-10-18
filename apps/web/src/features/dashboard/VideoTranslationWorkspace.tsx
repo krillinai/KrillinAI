@@ -1,3 +1,7 @@
+import { useAssetLibrary } from '../assets/asset-library-context.js';
+import { DictionaryAssetPicker } from '../assets/DictionaryAssetPicker.js';
+import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
+import type { DictionaryAsset } from '@opencreator/protocol';
 import {
   useCallback,
   useEffect,
@@ -63,6 +67,7 @@ import {
   useOptionalCreatorSession
 } from './creator-session-store.js';
 import {
+  defaultSubtitleStyleAsset,
   readCreatorResultSnapshots,
   parseBilibiliVideoSource,
   normalizeVideoSourceUrl,
@@ -91,6 +96,7 @@ type TranslationStageId = 'subtitle' | 'tts' | 'render-horizontal' | 'render-ver
 type TranslationSettingsSnapshot = {
   sourceLanguage: string;
   targetLanguage: string;
+  translationDictionaries?: DictionaryAsset[];
   bilingual: boolean;
   subtitlePosition: SubtitlePosition;
   preferPlatformCaptions: boolean;
@@ -170,23 +176,21 @@ type LanguageOption = {
 };
 
 const videoSteps = ['添加素材', '翻译设置', '视频与字幕'] as const;
-let componentNavigationDraft: { jobId: string | null; settings: TranslationSettingsSnapshot; source: TranslationSourceSnapshot; currentStep: WizardStep; furthestStep: WizardStep; workspacePhase: WorkspacePhase } | undefined;
+let componentNavigationDraft: {
+  jobId: string | null;
+  settings: TranslationSettingsSnapshot;
+  source: TranslationSourceSnapshot;
+  currentStep: WizardStep;
+  furthestStep: WizardStep;
+  workspacePhase: WorkspacePhase;
+  draftBaseVersion?: number;
+  resultVersion: number;
+  resultTab: VideoTranslationResultTab;
+  subtitleImmersive: boolean;
+  subtitleDrafts: Record<string, SubtitleCue[]>;
+} | undefined;
 const subtitleColors = ['#FFFFFF', '#FFE45C', '#7EE7FF', '#A7F3D0', '#000000'] as const;
-const defaultSubtitleStyle: SubtitleStyleSettings = {
-  subtitleFont: 'sans',
-  subtitleWeight: 'bold',
-  subtitleSize: 'medium',
-  subtitleColor: '#FFFFFF',
-  subtitleSecondaryColor: '#D1D5DB',
-  subtitleOutlineColor: '#000000',
-  subtitleOutlineWidth: 2.5,
-  subtitleShadowEnabled: true,
-  subtitleShadowColor: '#000000',
-  subtitleShadowOpacity: 0.6,
-  subtitleShadowOffsetX: 1.5,
-  subtitleShadowOffsetY: 1.5,
-  subtitleShadowBlur: 0.5
-};
+const defaultSubtitleStyle: SubtitleStyleSettings = defaultSubtitleStyleAsset;
 type SubtitleStylePreset = {
   id: string;
   name: [zh: string, en: string];
@@ -312,29 +316,12 @@ function subtitleStyleThumbnailCss(style: SubtitleStyleSettings): CSSProperties 
   } as CSSProperties;
 }
 
+function readDictionarySnapshots(value: unknown): DictionaryAsset[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((asset): asset is DictionaryAsset => asset?.kind === 'dictionary' && typeof asset.id === 'string' && typeof asset.name === 'string' && Number.isInteger(asset.revision) && Array.isArray(asset.data?.entries) && asset.data.entries.every((entry: Record<string, unknown>) => typeof entry.source === 'string' && typeof entry.targetLanguage === 'string' && typeof entry.translation === 'string' && typeof entry.preserveOriginal === 'boolean' && typeof entry.note === 'string'));
+}
+
 type SavedSubtitleStyle = { id: string; name: string; style: SubtitleStyleSettings };
-const savedSubtitleStylesKey = 'opencreator.videoTranslation.savedSubtitleStyles';
-const savedSubtitleStylesLimit = 12;
-
-function readSavedSubtitleStyles(): SavedSubtitleStyle[] {
-  const raw = readJsonFromStorage<unknown>(savedSubtitleStylesKey);
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap(entry => {
-    const record = readJsonRecord(entry as CreatorJson);
-    if (typeof record.id !== 'string' || typeof record.name !== 'string' || record.name.trim() === '') return [];
-    // Reuse the persisted-settings parser so corrupted or outdated entries fall back to safe values.
-    const style = readSubtitleStyleSettings(readJsonRecord(record.style), {}, undefined);
-    return [{ id: record.id, name: record.name.trim().slice(0, 24), style }];
-  }).slice(0, savedSubtitleStylesLimit);
-}
-
-function writeSavedSubtitleStyles(styles: SavedSubtitleStyle[]) {
-  try {
-    writeJsonToStorage(savedSubtitleStylesKey, styles);
-  } catch {
-    // Storage can be full or blocked; the in-memory list still works for this session.
-  }
-}
 const sourceLanguages: LanguageOption[] = [
   { value: 'zh_cn', label: '简体中文' },
   { value: 'en', label: 'English' },
@@ -525,6 +512,7 @@ function sameSource(left: TranslationSourceSnapshot, right: TranslationSourceSna
 function sameSettings(left: TranslationSettingsSnapshot, right: TranslationSettingsSnapshot) {
   return left.sourceLanguage === right.sourceLanguage
     && left.targetLanguage === right.targetLanguage
+    && JSON.stringify(left.translationDictionaries ?? []) === JSON.stringify(right.translationDictionaries ?? [])
     && left.bilingual === right.bilingual
     && left.subtitlePosition === right.subtitlePosition
     && left.preferPlatformCaptions === right.preferPlatformCaptions
@@ -567,6 +555,7 @@ function canReuseSubtitleCues(
   return sameSource(version.source, source)
     && version.settings.sourceLanguage === settings.sourceLanguage
     && version.settings.targetLanguage === settings.targetLanguage
+    && JSON.stringify(version.settings.translationDictionaries ?? []) === JSON.stringify(settings.translationDictionaries ?? [])
     && version.settings.preferPlatformCaptions === settings.preferPlatformCaptions;
 }
 
@@ -731,6 +720,7 @@ function deserializeResultVersions(value: CreatorJson | undefined): TranslationR
       settings: {
         sourceLanguage: settingsRecord.sourceLanguage,
         targetLanguage: settingsRecord.targetLanguage,
+        translationDictionaries: readDictionarySnapshots(settingsRecord.translationDictionaries),
         bilingual: settingsRecord.bilingual,
         subtitlePosition: settingsRecord.subtitlePosition,
         preferPlatformCaptions: settingsRecord.preferPlatformCaptions,
@@ -987,6 +977,7 @@ function legacyResultVersionsFromArtifacts(
           targetLanguage: typeof sourceState.targetLanguage === 'string'
             ? sourceState.targetLanguage
             : persisted?.settings.targetLanguage ?? 'zh_cn',
+          translationDictionaries: readDictionarySnapshots(sourceState.translationDictionaries ?? persisted?.settings.translationDictionaries),
           bilingual: typeof sourceState.bilingual === 'boolean'
             ? sourceState.bilingual
             : persisted?.settings.bilingual ?? true,
@@ -1103,6 +1094,7 @@ function resultVersionFromSnapshot(
     settings: {
       sourceLanguage: readStringSetting(sourceState, fallbackState, persisted, 'sourceLanguage', 'en'),
       targetLanguage: readStringSetting(sourceState, fallbackState, persisted, 'targetLanguage', 'zh_cn'),
+      translationDictionaries: readDictionarySnapshots(sourceState.translationDictionaries),
       bilingual: readBooleanSetting(sourceState, fallbackState, persisted, 'bilingual', true),
       subtitlePosition: sourceState.subtitlePosition === 'bottom'
         ? 'bottom'
@@ -1818,11 +1810,16 @@ export default function VideoTranslationWorkspace(props: {
   runtimeDependencies?: RuntimeDependenciesController;
 }) {
   const l = useLocalizedCopy();
+  const confirmDialog = useConfirmDialog();
   const translationStartedNotice = l(
     '翻译任务已开始，进度会实时同步到创作动态',
     'Translation started. Progress will appear in creation activity.'
   );
   const creatorSession = useOptionalCreatorSession();
+  const assetLibrary = useAssetLibrary();
+  const [translationDictionaries, setTranslationDictionaries] = useState<DictionaryAsset[]>([]);
+  const [assetSaveFailed, setAssetSaveFailed] = useState(false);
+  const [assetMutationPending, setAssetMutationPending] = useState(false);
   const officialSpeech = useOfficialServices('speech');
   const mediaPreviewContextRef = useRef({ session: creatorSession, localize: l });
   mediaPreviewContextRef.current = { session: creatorSession, localize: l };
@@ -1938,47 +1935,56 @@ export default function VideoTranslationWorkspace(props: {
     subtitleShadowBlur
   };
   const activeSubtitlePreset = subtitleStylePresets.find(preset => sameSubtitleStyle(preset.style, currentSubtitleStyle));
-  const [savedSubtitleStyles, setSavedSubtitleStyles] = useState<SavedSubtitleStyle[]>(() => readSavedSubtitleStyles());
+  const savedSubtitleAssets = assetLibrary?.assets.filter(asset => asset.kind === 'subtitle-style') ?? [];
+  const savedSubtitleStyles: SavedSubtitleStyle[] = savedSubtitleAssets.map(asset => ({id:asset.id,name:asset.name,style:asset.data}));
   const [saveStyleName, setSaveStyleName] = useState<string>();
   const [editingSavedStyle, setEditingSavedStyle] = useState<{ id: string; name: string }>();
   const [subtitleStyleTab, setSubtitleStyleTab] = useState<'recommended' | 'mine'>(
     () => savedSubtitleStyles.length > 0 ? 'mine' : 'recommended'
   );
+  const initialStylesLoaded = useRef(false);
+  useEffect(() => {
+    if (!assetLibrary || assetLibrary.loading || initialStylesLoaded.current) return;
+    initialStylesLoaded.current = true;
+    if (savedSubtitleAssets.length > 0) setSubtitleStyleTab('mine');
+  }, [assetLibrary?.loading, savedSubtitleAssets.length]);
   const activeSavedSubtitleStyle = activeSubtitlePreset === undefined
     ? savedSubtitleStyles.find(saved => sameSubtitleStyle(saved.style, currentSubtitleStyle))
     : undefined;
-  function saveCurrentSubtitleStyle(name: string) {
-    const trimmed = name.trim().slice(0, 24);
-    if (trimmed === '') return;
-    const next = [
-      ...savedSubtitleStyles,
-      { id: `saved-${Date.now().toString(36)}`, name: trimmed, style: currentSubtitleStyle }
-    ].slice(-savedSubtitleStylesLimit);
-    setSavedSubtitleStyles(next);
-    writeSavedSubtitleStyles(next);
-    setSaveStyleName(undefined);
-    setSubtitleStyleTab('mine');
+  async function saveCurrentSubtitleStyle(name: string) {
+    const trimmed = name.trim().slice(0, 160);
+    if (!trimmed || !assetLibrary || assetLibrary.loading || assetMutationPending) return;
+    setAssetMutationPending(true);
+    setAssetSaveFailed(false);
+    try {
+      await assetLibrary.create({kind:'subtitle-style',name:trimmed,data:{...currentSubtitleStyle}});
+      setSaveStyleName(undefined);
+      setSubtitleStyleTab('mine');
+    } catch { setAssetSaveFailed(true); } finally { setAssetMutationPending(false); }
   }
   function openSavedStyleEditor(saved: SavedSubtitleStyle) {
+    setAssetSaveFailed(false);
     // Snapshot the style in use before editing so Cancel restores it, not the template.
     setStyleDrawerSnapshot(currentSubtitleStyle);
     applySubtitleStyle(saved.style);
     setEditingSavedStyle({ id: saved.id, name: saved.name });
   }
-  function updateEditingSavedStyle() {
-    if (editingSavedStyle === undefined) return;
-    const name = editingSavedStyle.name.trim().slice(0, 24);
-    const next = savedSubtitleStyles.map(saved => saved.id === editingSavedStyle.id
-      ? { ...saved, name: name === '' ? saved.name : name, style: currentSubtitleStyle }
-      : saved);
-    setSavedSubtitleStyles(next);
-    writeSavedSubtitleStyles(next);
+  async function updateEditingSavedStyle() {
+    if (!editingSavedStyle) return true;
+    const asset = savedSubtitleAssets.find(asset => asset.id === editingSavedStyle.id);
+    if (!asset || !assetLibrary || assetMutationPending) return false;
+    setAssetMutationPending(true);
+    setAssetSaveFailed(false);
+    try {
+      await assetLibrary.update(asset,{kind:'subtitle-style',name:editingSavedStyle.name.trim() || asset.name,data:{...currentSubtitleStyle}});
+      return true;
+    } catch { setAssetSaveFailed(true); return false; } finally { setAssetMutationPending(false); }
   }
-  function deleteSavedSubtitleStyle(id: string) {
-    const next = savedSubtitleStyles.filter(saved => saved.id !== id);
-    setSavedSubtitleStyles(next);
-    writeSavedSubtitleStyles(next);
-    if (next.length === 0) setSubtitleStyleTab('recommended');
+  async function deleteSavedSubtitleStyle(id: string) {
+    const asset = savedSubtitleAssets.find(asset => asset.id === id);
+    if (!asset || !assetLibrary) return;
+    setAssetSaveFailed(false);
+    try { await assetLibrary.remove(asset); if (savedSubtitleAssets.length === 1) setSubtitleStyleTab('recommended'); } catch { setAssetSaveFailed(true); }
   }
   function applySubtitleStyle(style: SubtitleStyleSettings) {
     setSubtitleFont(style.subtitleFont);
@@ -2000,6 +2006,7 @@ export default function VideoTranslationWorkspace(props: {
     if (subtitleImmersive) setComposeVideo(true);
   }
   function closeStyleDrawer(revert: boolean) {
+    if (assetMutationPending) return;
     if (revert && styleDrawerSnapshot) applySubtitleStyle(styleDrawerSnapshot);
     if (!revert && subtitleImmersive) setComposeVideo(true);
     setStyleDrawerSnapshot(undefined);
@@ -2077,6 +2084,7 @@ export default function VideoTranslationWorkspace(props: {
     );
     if (typeof persisted.sourceLanguage === 'string') setSourceLanguage(persisted.sourceLanguage);
     if (typeof persisted.targetLanguage === 'string') setTargetLanguage(persisted.targetLanguage);
+    setTranslationDictionaries(readDictionarySnapshots(persisted.translationDictionaries));
     if (typeof persisted.bilingual === 'boolean') setBilingual(persisted.bilingual);
     if (persisted.subtitlePosition === 'top' || persisted.subtitlePosition === 'bottom') setSubtitlePosition(persisted.subtitlePosition);
     if (typeof persisted.preferPlatformCaptions === 'boolean') setPreferPlatformCaptions(persisted.preferPlatformCaptions);
@@ -2258,6 +2266,7 @@ export default function VideoTranslationWorkspace(props: {
         : {}),
       sourceLanguage,
       targetLanguage,
+      translationDictionaries,
       bilingual,
       subtitlePosition,
       preferPlatformCaptions,
@@ -2320,6 +2329,7 @@ export default function VideoTranslationWorkspace(props: {
     subtitleWeight,
     subtitlePosition,
     targetLanguage,
+    translationDictionaries,
     ttsModel,
     ttsProvider,
     verticalSubtitle,
@@ -2899,6 +2909,7 @@ export default function VideoTranslationWorkspace(props: {
     return {
       sourceLanguage,
       targetLanguage,
+      translationDictionaries,
       bilingual,
       subtitlePosition,
       preferPlatformCaptions,
@@ -2942,6 +2953,7 @@ export default function VideoTranslationWorkspace(props: {
   function applySettingsSnapshot(settings: TranslationSettingsSnapshot) {
     setSourceLanguage(settings.sourceLanguage);
     setTargetLanguage(settings.targetLanguage);
+    setTranslationDictionaries(structuredClone(settings.translationDictionaries ?? []));
     setBilingual(settings.bilingual);
     setSubtitlePosition(settings.subtitlePosition);
     setPreferPlatformCaptions(settings.preferPlatformCaptions);
@@ -3022,15 +3034,21 @@ export default function VideoTranslationWorkspace(props: {
     setCurrentStep(draft.currentStep);
     setFurthestStep(draft.furthestStep);
     setWorkspacePhase(draft.workspacePhase);
+    setDraftBaseVersion(draft.draftBaseVersion);
+    setResultVersion(draft.resultVersion);
+    setResultTab(draft.resultTab);
+    setSubtitleImmersive(draft.subtitleImmersive);
+    setSubtitleDrafts(draft.subtitleDrafts);
   }, [creatorSession?.job.id]);
   function preserveComponentNavigationDraft() {
-    componentNavigationDraft = { jobId: creatorSession?.job.id ?? null, settings: currentDraftSettings(), source: currentDraftSource(), currentStep, furthestStep, workspacePhase };
+    componentNavigationDraft = { jobId: creatorSession?.job.id ?? null, settings: currentDraftSettings(), source: currentDraftSource(), currentStep, furthestStep, workspacePhase, draftBaseVersion, resultVersion, resultTab, subtitleImmersive, subtitleDrafts: structuredClone(subtitleDrafts) };
   }
   const draftAppliesToSelectedResult = selectedResult !== undefined
     && draftBaseVersion === selectedResult.value;
   const settingsMatchSelectedResult = selectedResult === undefined || (selectedSubtitleOnly
     ? draftSettingsSnapshot.sourceLanguage === selectedResult.settings.sourceLanguage
       && draftSettingsSnapshot.targetLanguage === selectedResult.settings.targetLanguage
+      && JSON.stringify(draftSettingsSnapshot.translationDictionaries ?? []) === JSON.stringify(selectedResult.settings.translationDictionaries ?? [])
       && draftSettingsSnapshot.bilingual === selectedResult.settings.bilingual
       && draftSettingsSnapshot.subtitlePosition === selectedResult.settings.subtitlePosition
     : sameSettings(draftSettingsSnapshot, selectedResult.settings));
@@ -3056,6 +3074,17 @@ export default function VideoTranslationWorkspace(props: {
         l
       )
     : [];
+
+  const retranslationWarning = selectedResult && regenerationSettings && regenerationSource
+    && videoTranslationRegenerationStage(selectedResult, regenerationSettings, regenerationSource, subtitleNeedsRegeneration, staleArtifactKinds) === 'subtitle'
+    && (Object.values(subtitleDirtyByVariant).some(Boolean)
+      || typeof selectedTargetSubtitleArtifact?.metadata.editedFromArtifactId === 'string'
+      || typeof selectedVerticalSubtitleArtifact?.metadata.editedFromArtifactId === 'string')
+    ? l(
+        '字幕将重新翻译，手动修改的译文不会用于新版本。当前版本及其修改会保留。',
+        'Subtitles will be translated again. Manual edits will not carry over to the new version. The current version and its edits will be preserved.'
+      )
+    : undefined;
 
   function chooseVideo(file: File | null) {
     setVideoFile(file);
@@ -3190,8 +3219,12 @@ export default function VideoTranslationWorkspace(props: {
     const selectedBaseVersion = selectedResult.value;
     const sourceChanged = !sameSource(regenerationSource, selectedResult.source);
 
-    if (subtitleDirty && stageId !== 'subtitle') {
+    // Keep manual edits in the base version even when the next version retranslates.
+    if (subtitleDirty) {
       await persistSubtitleVariant('horizontal', selectedBaseVersion);
+    }
+    if (subtitleDirtyByVariant.vertical) {
+      await persistSubtitleVariant('vertical', selectedBaseVersion);
     }
 
     if (stageId === undefined) {
@@ -3255,6 +3288,12 @@ export default function VideoTranslationWorkspace(props: {
             subtitleNeedsRegeneration
           )
         : 'subtitle';
+      if (isRegeneration && retranslationWarning && !await confirmDialog({
+        title: l('字幕', 'Subtitles'),
+        description: retranslationWarning,
+        confirmLabel: `${l('生成', 'Generate')} V${nextVersion}`,
+        cancelLabel: l('取消', 'Cancel')
+      })) return;
       if (sourceType === 'file' && videoFile !== null && !selectedFileRegistered) {
         setResultNotice(l('正在上传本地视频...', 'Uploading the local video...'));
         await creatorSession.uploadSourceVideo(videoFile);
@@ -3712,6 +3751,7 @@ export default function VideoTranslationWorkspace(props: {
   );
 
   const languageControls = (
+    <div>
     <div className="video-translation-language-row">
       <label className="video-translation-field">
         <span>{l('源语言', 'Source language')}</span>
@@ -3732,6 +3772,10 @@ export default function VideoTranslationWorkspace(props: {
           <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
         </div>
       </label>
+    </div>
+    <DictionaryAssetPicker value={translationDictionaries} targetLanguage={targetLanguage}
+      onChange={setTranslationDictionaries} beforeManage={preserveComponentNavigationDraft}
+      disabled={submitting || subtitleImportPending || activeStage !== undefined} />
     </div>
   );
   const subtitleImportControl = !subtitleOnly ? <VideoTranslationSubtitleImport
@@ -3809,6 +3853,7 @@ export default function VideoTranslationWorkspace(props: {
 
   const subtitleStyleChoices = (
     <>
+      {assetSaveFailed && styleDrawerSnapshot === undefined ? <div className="asset-error" role="alert"><span>{l('资产操作失败，请重试。', 'Asset operation failed. Please retry.')}</span><button type="button" aria-label={l('关闭', 'Close')} onClick={() => setAssetSaveFailed(false)}><X size={14} /></button></div> : null}
       <h3 className="video-translation-subtitle-style-title">{l('字幕样式', 'Subtitle style')}</h3>
       <div className="video-translation-subtitle-style-tabs-row">
         <div className="video-translation-subtitle-style-tabs" role="tablist" aria-label={l('字幕样式分类', 'Subtitle style groups')}>
@@ -3953,7 +3998,7 @@ export default function VideoTranslationWorkspace(props: {
               setVoiceCode(voiceId);
               setVoiceName(voice?.name ?? voiceId);
             }}
-            onVoiceResolved={voice => setVoiceName(voice.name)}
+            onVoiceResolved={voice => setVoiceName(current => !current || current === voiceCode ? voice.name : current)}
           />
         </div>
       ) : null}
@@ -4057,7 +4102,11 @@ export default function VideoTranslationWorkspace(props: {
               subtitleDirtyByVariant={subtitleDirtyByVariant}
               subtitleSavePending={submitting}
               immersive={subtitleImmersive}
-              editorSettings={!selectedSubtitleOnly ? {
+              editorSettings={selectedSubtitleOnly ? {
+                language: languageControls,
+                disabled: submitting || subtitleImportPending || activeStage !== undefined,
+                onOpen: prepareEditorSettings
+              } : {
                 language: <>{languageControls}<div className="video-translation-toggle-list">{subtitleImportControl}{platformCaptionsControl}</div></>,
                 style: <>{subtitleLayoutControls}{subtitleStyleChoices}</>,
                 voice: dubbingSettings,
@@ -4066,7 +4115,7 @@ export default function VideoTranslationWorkspace(props: {
                 previewTitles: subtitlePreviewTitles,
                 disabled: submitting || subtitleImportPending || activeStage !== undefined,
                 onOpen: prepareEditorSettings
-              } : undefined}
+              }}
               renderSubtitlePreview={creatorSession?.openSubtitlePreview ? (cues, width, height) => <VideoTranslationStylePreview
                 render={creatorSession.openSubtitlePreview}
                 input={{
@@ -4098,6 +4147,7 @@ export default function VideoTranslationWorkspace(props: {
               affectedArtifacts={regenerationArtifacts}
               hasPendingChanges={hasPendingChanges}
               regenerationPending={resultProposal === 'regenerate'}
+              retranslationWarning={retranslationWarning}
               execution={resultExecution}
               notice={visibleResultNotice}
               onTabChange={tab => {
@@ -4384,7 +4434,7 @@ export default function VideoTranslationWorkspace(props: {
             {saveStyleName !== undefined ? (
               <form
                 className="video-translation-style-drawer-save"
-                onSubmit={event => { event.preventDefault(); saveCurrentSubtitleStyle(saveStyleName); }}
+                onSubmit={event => { event.preventDefault(); void saveCurrentSubtitleStyle(saveStyleName); }}
               >
                 <label className="video-translation-field">
                   <span>{l('模版名称', 'Template name')}</span>
@@ -4402,14 +4452,15 @@ export default function VideoTranslationWorkspace(props: {
                   />
                 </label>
                 <button type="button" onClick={() => setSaveStyleName(undefined)}>{l('取消', 'Cancel')}</button>
-                <button type="submit" data-intent="primary" disabled={saveStyleName.trim() === ''}>{l('保存', 'Save')}</button>
+                <button type="submit" data-intent="primary" disabled={saveStyleName.trim() === '' || assetMutationPending || assetLibrary?.loading}>{l('保存', 'Save')}</button>
               </form>
             ) : null}
+            {assetSaveFailed ? <p role="alert">{l('资产保存失败，请检查内容或重新加载后重试。', 'Could not save the asset. Check the content or reload and retry.')}</p> : null}
             <footer>
               <button
                 type="button"
                 data-intent="ghost"
-                disabled={saveStyleName !== undefined}
+                disabled={saveStyleName !== undefined || !assetLibrary?.available || assetLibrary.loading}
                 onClick={() => setSaveStyleName(l(`我的样式 ${savedSubtitleStyles.length + 1}`, `My style ${savedSubtitleStyles.length + 1}`))}
               >
                 <Plus size={14} aria-hidden="true" />
@@ -4420,8 +4471,8 @@ export default function VideoTranslationWorkspace(props: {
               <button
                 type="button"
                 data-intent="primary"
-                disabled={editingSavedStyle !== undefined && editingSavedStyle.name.trim() === ''}
-                onClick={() => { updateEditingSavedStyle(); closeStyleDrawer(false); }}
+                disabled={assetMutationPending || (editingSavedStyle !== undefined && editingSavedStyle.name.trim() === '')}
+                onClick={() => { if (!editingSavedStyle) closeStyleDrawer(false); else void updateEditingSavedStyle().then(saved => { if (saved) closeStyleDrawer(false); }); }}
               >
                 {editingSavedStyle !== undefined ? l('保存修改', 'Save changes') : l('完成', 'Done')}
               </button>

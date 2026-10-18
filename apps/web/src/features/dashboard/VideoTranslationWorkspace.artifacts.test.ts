@@ -11,6 +11,35 @@ import {
 } from './VideoTranslationWorkspace.js';
 
 describe('video translation result artifact selection', () => {
+  it('retranslates when dictionary content changes and keeps old versions without dictionaries independent of the draft', () => {
+    const version = resultVersion();
+    const dictionary = {kind:'dictionary' as const,id:'d1',name:'Terms',revision:1,createdAt:'',updatedAt:'',data:{entries:[{source:'API',targetLanguage:'*',translation:'API',preserveOriginal:true,note:''}]}};
+    expect(videoTranslationRegenerationStage(version,{...version.settings,translationDictionaries:[dictionary]},version.source,false)).toBe('subtitle');
+    const subtitle = artifact({id:'target',kind:'target_subtitle',version:1,metadata:{resultVersion:1,cues:[]}});
+    const old = {...snapshot(1,{target_subtitle:[subtitle.id]},[subtitle.id]),state:{}};
+    const results = resultVersionsFromArtifacts([subtitle],{resultSnapshots:[old],translationDictionaries:[dictionary]});
+    expect(results[0]?.settings.translationDictionaries).toEqual([]);
+    expect(old.state).toEqual({});
+  });
+  it('reuses translations when inherited glossaries are unchanged and only style or voice changes', () => {
+    const original = resultVersion();
+    const version = { ...original, settings: { ...original.settings, translationDictionaries: [{ kind: 'dictionary' as const, id: 'glossary', name: 'Terms', revision: 1,
+      createdAt: '', updatedAt: '', data: { entries: [{ source: 'workspace', targetLanguage: '*', translation: '工作区', preserveOriginal: false, note: '' }] } }] } };
+    expect(videoTranslationRegenerationStage(version, {
+      ...version.settings, composeVideo: true, subtitleColor: '#FF0000'
+    }, version.source, false)).toBe('render-horizontal');
+    expect(videoTranslationRegenerationStage(version, {
+      ...version.settings, dubbing: true, voiceCode: 'echo'
+    }, version.source, false)).toBe('tts');
+    const updated = structuredClone(version.settings.translationDictionaries);
+    updated[0]!.data.entries[0]!.translation = '创作空间';
+    expect(videoTranslationRegenerationStage(version, {
+      ...version.settings, translationDictionaries: updated
+    }, version.source, false)).toBe('subtitle');
+    expect(videoTranslationRegenerationStage(version, {
+      ...version.settings, translationDictionaries: []
+    }, version.source, false)).toBe('subtitle');
+  });
   it('fills missing version settings with the current setup defaults while retaining explicit choices', () => {
     const subtitle = artifact({ id: 'subtitles', kind: 'target_subtitle', version: 1, metadata: { resultVersion: 1, cues: [] } });
     const original = { ...snapshot(1, { target_subtitle: [subtitle.id] }, [subtitle.id]), state: {} };

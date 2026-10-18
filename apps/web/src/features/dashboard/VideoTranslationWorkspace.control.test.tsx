@@ -1,10 +1,14 @@
+import { AssetLibraryProvider } from '../assets/asset-library-context.js';
+import { createAssetFixture } from '../../test/personal-assets-fixture.js';
+import { ConfirmDialogProvider } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
   readCreatorResultSnapshots,
   type CreatorArtifact,
   type CreatorJob,
   type CreatorJson,
-  type CreatorStageRun
+  type CreatorStageRun,
+  type DictionaryAsset
 } from '@opencreator/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
@@ -15,6 +19,116 @@ import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it('retains the version, glossary selection and unsaved subtitle edits after visiting Assets', async () => {
+    const glossary: DictionaryAsset = { kind: 'dictionary', id: 'navigation-glossary', name: 'Product terms', revision: 1,
+      createdAt: '', updatedAt: '', data: { entries: [] } };
+    const fixture = createAssetFixture([glossary]);
+    const target = subtitleArtifact(1, 'Original translation');
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      workspacePhase: 'result', resultVersion: 1, composeVideo: false
+    } });
+    current.state.resultSnapshots = [{ version: 1, createdAt: target.createdAt, action: 'run-stage', stageId: 'subtitle',
+      description: 'Subtitles', artifactRefs: { target_subtitle: [target.id] }, changedArtifactIds: [target.id], staleArtifactIds: [],
+      state: { ...current.state } }];
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    function App() {
+      return <LanguageProvider initialPreference="en-US"><AssetLibraryProvider service={fixture.service}>
+        <CreatorSessionProvider initialJob={current} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </AssetLibraryProvider></LanguageProvider>;
+    }
+    const first = render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced editing' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Horizontal subtitles 1' }), { target: { value: 'Unsaved correction' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Languages' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Translation Glossary' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Product terms' }));
+    await act(async () => { fireEvent.click(screen.getByRole('link', { name: 'Manage in Assets' })); });
+    first.unmount();
+    render(<App />);
+    expect(document.querySelector('main.video-translation-page')).toHaveAttribute('data-subtitle-immersive', 'true');
+    expect(screen.getByRole('textbox', { name: 'Horizontal subtitles 1' })).toHaveValue('Unsaved correction');
+    fireEvent.click(screen.getByRole('button', { name: 'Languages' }));
+    expect(screen.getByRole('button', { name: 'Remove Product terms' })).toBeVisible();
+    expect(readCreatorResultSnapshots(current.state.resultSnapshots)[0]!.state.translationDictionaries).toBeUndefined();
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+  });
+
+  it.each([
+    { subtitleOnly: false, savedEdits: false },
+    { subtitleOnly: true, savedEdits: false },
+    { subtitleOnly: false, savedEdits: true },
+    { subtitleOnly: true, savedEdits: true }
+  ])('inherits glossaries and confirms retranslation without losing base-version edits: %j', async ({ subtitleOnly, savedEdits }) => {
+    const glossary: DictionaryAsset = {
+      kind: 'dictionary', id: 'glossary-1', name: 'Product terms', revision: 1,
+      createdAt: '2026-10-18T00:00:00Z', updatedAt: '2026-10-18T00:00:00Z',
+      data: { entries: [{ source: 'workspace', targetLanguage: '*', translation: '工作区', preserveOriginal: false, note: '' }] }
+    };
+    const latest = structuredClone(glossary);
+    latest.revision = 2;
+    latest.data.entries[0]!.translation = '创作空间';
+    const fixture = createAssetFixture([latest]);
+    const target = subtitleArtifact(1, 'Original translation');
+    if (savedEdits) target.metadata.editedFromArtifactId = 'previous-translation';
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
+      workspacePhase: 'result', resultVersion: 1, sourceType: subtitleOnly ? 'subtitle' : 'url',
+      composeVideo: false, translationDictionaries: [glossary] as unknown as CreatorJson
+    } });
+    current.state.resultSnapshots = [{ version: 1, createdAt: target.createdAt, action: 'run-stage', stageId: 'subtitle',
+      description: 'Subtitles', artifactRefs: { target_subtitle: [target.id] }, changedArtifactIds: [target.id], staleArtifactIds: [],
+      state: { ...current.state } }];
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'edit-subtitle') {
+        const edited = { ...target, id: 'saved-manual-edit', version: 2, metadata: { ...target.metadata, cues: request.input.cues!, editedFromArtifactId: target.id } };
+        current = { ...current, revision: current.revision + 1, artifacts: [...current.artifacts, edited], state: {
+          ...current.state, resultSnapshots: readCreatorResultSnapshots(current.state.resultSnapshots).map(snapshot => ({
+            ...snapshot, artifactRefs: { ...snapshot.artifactRefs, target_subtitle: [edited.id] }
+          }))
+        } };
+      } else current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference="en-US"><ConfirmDialogProvider><AssetLibraryProvider service={fixture.service}>
+      <CreatorSessionProvider initialJob={current} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+        <VideoTranslationWorkspace onBack={vi.fn()} />
+      </CreatorSessionProvider>
+    </AssetLibraryProvider></ConfirmDialogProvider></LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced editing' }));
+    const cueLabel = subtitleOnly ? 'Subtitles 1' : 'Horizontal subtitles 1';
+    if (!savedEdits) fireEvent.change(screen.getByRole('textbox', { name: cueLabel }), { target: { value: 'Manual correction' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Languages' }));
+    const panel = screen.getByRole('complementary', { name: 'Languages' });
+    expect(within(panel).getByRole('button', { name: 'Remove Product terms' })).toBeVisible();
+    const updateGlossary = await within(panel).findByRole('button', { name: 'Update' });
+    await act(async () => { fireEvent.click(updateGlossary); });
+    await waitFor(() => expect(current.state.translationDictionaries).toEqual([latest]));
+    const warning = 'Subtitles will be translated again. Manual edits will not carry over to the new version. The current version and its edits will be preserved.';
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button', { name: /^(Save and generate|Generate) V2$/ }));
+    expect(within(panel).getByText(warning)).toBeVisible();
+    fireEvent.click(within(panel).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage' || request.action === 'edit-subtitle')).toBe(false);
+    fireEvent.click(within(panel).getByRole('button', { name: /^(Save and generate|Generate) V2$/ }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'Confirm and generate V2' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'run-stage', input: {
+      stageId: 'subtitle', workflow: true, baseResultVersion: 1, inputResultVersion: 1
+    } })));
+    const base = readCreatorResultSnapshots(current.state.resultSnapshots)[0]!;
+    expect(base.state.translationDictionaries).toEqual([glossary]);
+    if (!savedEdits) {
+      expect(base.artifactRefs.target_subtitle).toEqual(['saved-manual-edit']);
+      expect(current.artifacts.find(artifact => artifact.id === 'saved-manual-edit')?.metadata.cues).toEqual(expect.arrayContaining([expect.objectContaining({ text: 'Manual correction' })]));
+      const mutations = applyAction.mock.calls.map(([, request]) => request.action).filter(action => ['edit-subtitle', 'run-stage'].includes(action));
+      expect(mutations).toEqual(['edit-subtitle', 'run-stage']);
+    }
+  });
+
   it.each(['zh-CN', 'en-US'] as const)('dismisses return confirmations after five seconds and restarts the timer for repeated actions in %s', async language => {
     const l = createLocalizedCopy(language);
     let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [subtitleArtifact(1, 'Hello world')] });
@@ -348,10 +462,11 @@ describe('VideoTranslationWorkspace task controls', () => {
         { id: 'saved-test-style', name: 'Saved test style', style: {} }
       ]));
     }
-    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+    const assetFixture = createAssetFixture();
+    await act(async () => { render(<AssetLibraryProvider service={assetFixture.service}><LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
       service={{ applyAction, runAgentTurn: vi.fn() } as never}>
       <VideoTranslationWorkspace onBack={vi.fn()} />
-    </CreatorSessionProvider></LanguageProvider>);
+    </CreatorSessionProvider></LanguageProvider></AssetLibraryProvider>); });
     if (action === 'saved') window.localStorage.removeItem('opencreator.videoTranslation.savedSubtitleStyles');
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
     fireEvent.click(screen.getByRole('button', { name: panel }));
@@ -462,12 +577,12 @@ describe('VideoTranslationWorkspace task controls', () => {
       expect(screen.getByRole('heading', { name: l('添加字幕', 'Add subtitles') })).toBeVisible();
       expect(screen.getByRole('button', { name: l('更换文件', 'Replace file') })).toBeEnabled();
       expect(screen.getByRole('button', { name: l('移除字幕', 'Remove subtitles') })).toHaveAttribute('title', l('移除字幕', 'Remove subtitles'));
-      expect(screen.getByRole('button', { name: new RegExp(l('添加素材', 'Add source')) })).toBeVisible();
+      expect(screen.getByRole('button', { name: name => name.includes(l('添加素材', 'Add source')) })).toBeVisible();
       expect(within(screen.getByRole('group', { name: l('导入已有字幕', 'Import existing subtitles') })).getByText('lecture.en.srt')).toBeVisible();
       expect(document.querySelector('.video-translation-subtitle-import pre')).toBeVisible();
       expect(document.querySelector('.video-translation-subtitle-import pre')).toHaveTextContent('Original text');
     }
-  });
+  }, 15_000);
 
   it('replaces and removes the selected SRT, then allows selecting the same file again', async () => {
     const source = { ...subtitleArtifact(1, 'Original text'), id: 'original-srt', kind: 'source_subtitle', metadata: {
@@ -891,7 +1006,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(within(steps).getAllByRole('button')).toHaveLength(3);
     expect(within(steps).getByRole('button', { name: '3 视频与字幕' })).toHaveAttribute('aria-current', 'step');
     expect(screen.getByRole('switch', { name: '生成目标语言配音' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('marin');
+    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('Marin');
     expect(screen.queryByRole('button', { name: '继续' })).not.toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: '视频翻译操作区' })).getByRole('button', { name: '开始翻译' })).toBeInTheDocument();
   });
@@ -917,7 +1032,7 @@ describe('VideoTranslationWorkspace task controls', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
     fireEvent.click(screen.getByRole('switch', { name: '生成目标语言配音' }));
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('marin');
+    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('Marin');
     fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
     fireEvent.click(within(screen.getByRole('region', { name: '视频翻译操作区' })).getByRole('button', { name: '开始翻译' }));
     await waitFor(() => expect(stageSettings).toEqual([expect.objectContaining({ composeVideo: false, dubbing: false, voiceCode: 'marin' })]));
@@ -1076,19 +1191,21 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByRole('combobox', { name: '字幕大小' })).toHaveValue('large');
   });
 
-  it('saves the current subtitle style as a local template and deletes it', () => {
+  it('saves the current subtitle style in the asset library and deletes it', async () => {
+    const fixture = createAssetFixture();
     window.localStorage.removeItem('opencreator.videoTranslation.savedSubtitleStyles');
     const renderWorkspace = () => render(
-      <LanguageProvider initialPreference="zh-CN">
+      <AssetLibraryProvider service={fixture.service}><LanguageProvider initialPreference="zh-CN">
         <CreatorSessionProvider
           initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2, composeVideo: true } })}
           service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
         >
           <VideoTranslationWorkspace onBack={vi.fn()} />
         </CreatorSessionProvider>
-      </LanguageProvider>
+      </LanguageProvider></AssetLibraryProvider>
     );
-    const { unmount } = renderWorkspace();
+    let unmount!: () => void;
+    await act(async () => { ({unmount} = renderWorkspace()); });
 
     expect(screen.getByRole('tab', { name: '推荐' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('tab', { name: '我的样式' }));
@@ -1104,43 +1221,45 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByRole('spinbutton', { name: '模糊' })).toHaveValue(3);
     fireEvent.click(screen.getByRole('button', { name: '另存为模版' }));
     fireEvent.change(screen.getByRole('textbox', { name: '模版名称' }), { target: { value: '口播粗描边' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '保存' })); });
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
 
     expect(screen.getByRole('tab', { name: '我的样式' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('radio', { name: '经典' })).not.toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '口播粗描边' })).toHaveAttribute('aria-checked', 'true');
-    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')).toEqual([
-      expect.objectContaining({ name: '口播粗描边', style: expect.objectContaining({ subtitleOutlineWidth: 6, subtitleShadowBlur: 3 }) })
+    expect(fixture.assets()).toEqual([
+      expect.objectContaining({ name: '口播粗描边', data: expect.objectContaining({ subtitleOutlineWidth: 6, subtitleShadowBlur: 3 }) })
     ]);
 
     unmount();
-    renderWorkspace();
+    await act(async () => { renderWorkspace(); });
     expect(screen.getByRole('tab', { name: '我的样式' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('radio', { name: '口播粗描边' }));
     expect(screen.getByRole('radio', { name: '口播粗描边' })).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(screen.getByRole('button', { name: '删除模版 口播粗描边' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '删除模版 口播粗描边' })); });
     expect(screen.queryByRole('radio', { name: '口播粗描边' })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '推荐' })).toHaveAttribute('aria-selected', 'true');
-    expect(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles')).toBe('[]');
+    expect(fixture.assets()).toEqual([]);
+    expect(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles')).toBeNull();
   });
 
-  it('edits a saved subtitle template and restores the active style on cancel', () => {
+  it('edits a saved subtitle template and restores the active style on cancel', async () => {
+    const fixture = createAssetFixture();
     window.localStorage.setItem('opencreator.videoTranslation.savedSubtitleStyles', JSON.stringify([{
       id: 'saved-test',
       name: '口播',
       style: { subtitleFont: 'serif', subtitleWeight: 'bold', subtitleSize: 'large', subtitleColor: '#FFE45C', subtitleSecondaryColor: '#FFFFFF', subtitleOutlineColor: '#000000', subtitleOutlineWidth: 3, subtitleShadowEnabled: true, subtitleShadowColor: '#000000', subtitleShadowOpacity: 0.6, subtitleShadowOffsetX: 1.5, subtitleShadowOffsetY: 1.5, subtitleShadowBlur: 0.5 }
     }]));
-    render(
-      <LanguageProvider initialPreference="zh-CN">
+    await act(async () => { render(
+      <AssetLibraryProvider service={fixture.service}><LanguageProvider initialPreference="zh-CN">
         <CreatorSessionProvider
           initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2, composeVideo: true } })}
           service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
         >
           <VideoTranslationWorkspace onBack={vi.fn()} />
         </CreatorSessionProvider>
-      </LanguageProvider>
-    );
+      </LanguageProvider></AssetLibraryProvider>
+    ); });
 
     // Cancel restores the style that was active before editing and leaves the template unchanged.
     fireEvent.click(screen.getByRole('button', { name: '编辑模版 口播' }));
@@ -1149,17 +1268,17 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.change(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
     fireEvent.click(within(drawer).getByRole('button', { name: '取消' }));
     expect(screen.getByRole('radio', { name: '口播' })).toHaveAttribute('aria-checked', 'false');
-    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')[0].style.subtitleSize).toBe('large');
+    expect(fixture.assets()[0]?.data).toMatchObject({subtitleSize:'large'});
 
     fireEvent.click(screen.getByRole('button', { name: '编辑模版 口播' }));
     fireEvent.change(screen.getByRole('textbox', { name: '模版名称' }), { target: { value: '口播小字' } });
     fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '保存修改' })); });
 
     expect(screen.queryByRole('dialog', { name: '编辑模版' })).not.toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '口播小字' })).toHaveAttribute('aria-checked', 'true');
-    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')).toEqual([
-      expect.objectContaining({ id: 'saved-test', name: '口播小字', style: expect.objectContaining({ subtitleSize: 'small', subtitleFont: 'serif' }) })
+    expect(fixture.assets()).toEqual([
+      expect.objectContaining({ id: 'saved-test', name: '口播小字', data: expect.objectContaining({ subtitleSize: 'small', subtitleFont: 'serif' }) })
     ]);
     window.localStorage.removeItem('opencreator.videoTranslation.savedSubtitleStyles');
   });

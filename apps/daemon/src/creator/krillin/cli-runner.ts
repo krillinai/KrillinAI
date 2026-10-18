@@ -143,12 +143,15 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
     await writeInitialManifest(input.stage, input.options);
   }
 
+  const glossaryPath = Array.isArray(input.options.translationGlossary) && input.options.translationGlossary.length ? join(configDir, 'translation-glossary.json') : undefined;
+  if (glossaryPath) await writeFile(glossaryPath, JSON.stringify(input.options.translationGlossary), {mode:0o600});
   const args = buildKrillinCliCommandArguments(
     input.stage,
     input.artifacts,
     input.options,
     stylePath,
-    input.source
+    input.source,
+    glossaryPath
   );
   input.stage.reportProgress({
     krillinMode: 'cli',
@@ -237,7 +240,8 @@ export function buildKrillinCliCommandArguments(
   artifacts: MaterializedKrillinArtifact[],
   options: Record<string, unknown>,
   stylePath: string | undefined,
-  sourceOverride?: string
+  sourceOverride?: string,
+  glossaryPath?: string
 ): string[] {
   const command = krillinCliStageId(stage.stageRun.stageId);
   const common = ['--workdir', stage.workdir, '--task-id', stage.stageRun.id];
@@ -259,6 +263,7 @@ export function buildKrillinCliCommandArguments(
       ...(!subtitleOnly && source && !sourceOnly && booleanOption(options, 'prepareVideo', true) ? ['--prepare-video'] : []),
       '--origin-lang', requiredOption(options, 'originLanguage'),
       '--target-lang', requiredOption(options, 'targetLanguage'),
+      ...(glossaryPath ? ['--glossary-file', glossaryPath] : []),
       '--caption-source', stringOption(options, 'captionSource') ?? 'any',
       ...(sourceOnly ? ['--source-only'] : []),
       ...(imported ? ['--input-srt', imported, `--srt-translated=${importedTarget !== undefined}`] : []),

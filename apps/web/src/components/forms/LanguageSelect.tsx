@@ -44,6 +44,8 @@ export default function LanguageSelect(props: {
     if (/^[a-z]$/.test(term)) return options.filter(option => option.value !== 'system' && normalize(option.englishName).startsWith(term));
     const codeMatches = options.filter(option => option.value.toLowerCase() === term || option.value.split('-')[0] === term);
     if (codeMatches.length) return codeMatches;
+    const nameMatches = options.filter(option => normalize(option.label) === term || normalize(option.englishName) === term);
+    if (nameMatches.length) return nameMatches;
     return options.filter(option => term.split(/\s+/).every(word => option.search.includes(word)));
   }, [options, query]);
   const selected = options.find(option => option.value === props.value)!;

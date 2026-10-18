@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Archive,
+  Library,
   CircleAlert,
   Clock3,
   Folder,
@@ -152,6 +153,12 @@ export function OpenCreatorSidebar(props: {
       icon: FolderKanban,
       current: props.activeView === 'projects',
       onClick: () => props.onOpenView('projects')
+    },
+    {
+      label: l('资产', 'Assets'),
+      icon: Library,
+      current: props.activeView === 'assets',
+      onClick: () => props.onOpenView('assets')
     },
     {
       label: t('nav.settings'),

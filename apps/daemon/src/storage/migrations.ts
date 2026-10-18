@@ -6,6 +6,14 @@ export function migrate(db: Database.Database): void {
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
 
+    CREATE TABLE IF NOT EXISTS personal_assets (
+      id TEXT PRIMARY KEY,
+      record_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      migration_key TEXT UNIQUE,
+      deleted INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS runs (
       id TEXT PRIMARY KEY,
       thread_id TEXT,

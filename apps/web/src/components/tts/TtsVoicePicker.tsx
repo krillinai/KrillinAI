@@ -1,3 +1,5 @@
+import { useAssetLibrary } from '../../features/assets/asset-library-context.js';
+import { AssetEditor } from '../../features/assets/AssetEditor.js';
 import type {
   CreatorTtsProvider,
   CreatorTtsVoice
@@ -34,6 +36,8 @@ export function TtsVoicePicker(props: {
   onVoiceResolved?(voice: CreatorTtsVoice): void;
 }) {
   const l = useLocalizedCopy();
+  const assetLibrary = useAssetLibrary();
+  const [savingAsset, setSavingAsset] = useState(false);
   const { language: appLanguage } = useAppLanguage();
   const allowCustomVoice = props.allowCustomVoice ?? props.provider === 'volcengine';
   const pageIssues = usePageIssueState('tts-voice');
@@ -107,15 +111,15 @@ export function TtsVoicePicker(props: {
     setCustomId(props.value);
   }, [props.value]);
 
-  const options = useMemo(() => {
-    if (!props.value || voices.some(voice => voice.id === props.value)) return voices;
-    return [{
-      id: props.value,
-      name: props.value,
-      provider: props.provider,
-      kind: 'custom' as const
-    }, ...voices];
-  }, [props.provider, props.value, voices]);
+  const options = useMemo<CreatorTtsVoice[]>(() => {
+    const saved: CreatorTtsVoice[] = assetLibrary?.assets.flatMap(asset => {
+      if (asset.kind !== 'voice' || asset.data.provider !== props.provider || (asset.data.model && asset.data.model !== props.model)) return [];
+      return [{id:asset.data.voiceId,name:asset.name,provider:asset.data.provider,language:asset.data.language,kind:'custom' as const}];
+    }) ?? [];
+    const merged = [...saved, ...voices.filter(voice => !saved.some(asset => asset.id === voice.id))];
+    if (!props.value || merged.some(voice => voice.id === props.value)) return merged;
+    return [{ id:props.value,name:props.value,provider:props.provider,kind:'custom' as const }, ...merged];
+  }, [assetLibrary?.assets, props.model, props.provider, props.value, voices]);
   const selectGroups = useMemo<TtsVoiceSelectGroup[]>(() => groupVoices(options).map(group => ({
     label: group.label ? voiceScenarioLabel(group.label, l) : '',
     options: group.voices.map(voice => ({
@@ -273,6 +277,9 @@ export function TtsVoicePicker(props: {
 
   return (
     <div className={`tts-voice-picker${props.presentation === 'library' ? ' is-library' : ''}`}>
+      {assetLibrary?.available && props.provider !== 'edge-tts' ? <button className="asset-context-button" type="button" disabled={props.disabled || assetLibrary.loading || !props.model.trim()} onClick={() => setSavingAsset(true)}>{l('保存音色到资产','Save voice to assets')}</button> : null}
+      {savingAsset ? <AssetEditor voiceContext={{provider:props.provider,model:props.model}} initial={{kind:'voice',name:selected?.name ?? '',data:{provider:props.provider,model:props.model,voiceId:props.value,language:selected?.language ?? ''}}} onClose={() => setSavingAsset(false)} onSaved={asset => { if(asset.kind === 'voice') props.onChange(asset.data.voiceId,{id:asset.data.voiceId,name:asset.name,provider:asset.data.provider,language:asset.data.language,kind:'custom'}); }} /> : null}
+
       {props.presentation === 'library' ? <TtsVoiceLibraryPopover
         label={props.label ?? l('默认音色', 'Default voice')}
         name={loading ? l('正在加载音色', 'Loading voices') : selected?.name ?? props.value}

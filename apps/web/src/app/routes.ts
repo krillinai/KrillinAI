@@ -6,6 +6,7 @@ import {
 export type AppRoute =
   | { view: 'home' }
   | { view: 'chat' }
+  | { view: 'assets' }
   | { view: 'projects' }
   | {
       view: 'workbench';
@@ -56,6 +57,7 @@ export function parseRoute(hash: string): AppRoute {
         };
   }
   if (path === '#/search') return { view: 'search' };
+  if (path === '#/assets') return { view: 'assets' };
   if (path === '#/projects') return { view: 'projects' };
   if (path === '#/workbench') {
     const params = new URLSearchParams(query);
@@ -135,6 +137,8 @@ export function formatRoute(route: AppRoute): string {
       return '#/new';
     case 'chat':
       return '#/chat';
+    case 'assets':
+      return '#/assets';
     case 'projects':
       return '#/projects';
     case 'workbench': {

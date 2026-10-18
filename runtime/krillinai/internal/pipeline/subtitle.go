@@ -16,6 +16,8 @@ import (
 const defaultSubtitleMaxWordOneLine = 12
 
 type SubtitleRequest struct {
+	Glossary []service.TranslationGlossaryEntry
+
 	Input          string
 	Workdir        string
 	TaskID         string
@@ -34,6 +36,7 @@ type SubtitleRequest struct {
 }
 
 func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleRequest) (Response, error) {
+	ctx = service.WithTranslationGlossary(ctx, req.Glossary)
 	if req.CaptionSource == "" {
 		req.CaptionSource = CaptionSourceAny
 	}

@@ -3,6 +3,7 @@ import type { PublicRunStatus } from '@opencreator/protocol';
 export type RightPanelMode = 'closed' | 'file' | 'change' | 'run_detail';
 export type ActiveView =
   | 'conversation'
+  | 'assets'
   | 'projects'
   | 'search'
   | 'schedules'

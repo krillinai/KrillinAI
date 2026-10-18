@@ -537,6 +537,7 @@ func buildTranslationBatchPrompt(
 }
 
 func chatCompletionWithContext(ctx context.Context, completer types.ChatCompleter, prompt string) (string, error) {
+	prompt = translationGlossaryPrompt(ctx, prompt)
 	if contextual, ok := completer.(contextChatCompleter); ok {
 		return contextual.ChatCompletionContext(ctx, prompt)
 	}

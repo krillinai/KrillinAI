@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { additionalLanguageCatalogs } from './translated-copy.js';
 
 const auditedSurfaces = [
+  'features/assets/AssetEditor.tsx', 'features/assets/AssetLibraryPage.tsx', 'features/assets/DictionaryAssetPicker.tsx',
   'features/dashboard/SubtitleTimeline.tsx',
   'features/shell/OpenCreatorSidebar.tsx', 'components/layout/AppLayout.tsx',
   'components/editor/FileTree.tsx', 'components/editor/FileEditor.tsx',

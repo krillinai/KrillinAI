@@ -1,3 +1,5 @@
+import { AssetLibraryProvider } from '../features/assets/asset-library-context.js';
+import { createPersonalAssetsService } from '../services/personal-assets-service.js';
 import { createLocalizedCopy } from '../i18n/localized-copy.js';
 import type {
   AttachmentResponse,
@@ -255,6 +257,7 @@ const DEFAULT_PERMISSION_STORAGE_KEY = 'opencreator.preferences.defaultPermissio
 const NAVIGATION_STORAGE_KEY = 'opencreator.navigation.v3';
 const CapabilitiesPage = lazy(() => import('../features/capabilities/CapabilitiesPage.js'));
 const FilesPage = lazy(() => import('../features/files/FilesPage.js'));
+const AssetLibraryPage = lazy(() => import('../features/assets/AssetLibraryPage.js'));
 const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage.js'));
 const PluginsPage = lazy(() => import('../features/plugins/PluginsPage.js'));
 const DashboardPage = lazy(() => import('../features/dashboard/DashboardPage.js'));
@@ -622,6 +625,7 @@ export function AppController(props: AppControllerProps) {
     () => runtimeClient === null ? null : createCreatorServicesService(runtimeClient),
     [runtimeClient]
   );
+  const personalAssetsService = useMemo(() => runtimeClient ? createPersonalAssetsService(runtimeClient) : null, [runtimeClient]);
   const gatewayAccountService = useMemo(() => runtimeClient === null ? null : createGatewayAccountService(runtimeClient, { authorizationReturnUrl: hostBridge.authorizationReturnUrl, billingReturnUrl: hostBridge.billingReturnUrl }), [runtimeClient, hostBridge]);
   useEffect(() => hostBridge.subscribeBillingReturn?.(billingOrderId => {
     props.onNavigate({ view: 'account', ...(billingOrderId ? { billingOrderId } : {}) });
@@ -2980,6 +2984,7 @@ export function AppController(props: AppControllerProps) {
         });
         return;
       case 'search':
+      case 'assets':
       case 'projects':
       case 'schedules':
       case 'tasks':
@@ -4612,6 +4617,8 @@ export function AppController(props: AppControllerProps) {
   const configurationPageActive = accountPageActive || (state.activeView === 'settings' && !agentSetupRequested);
   const main = props.capabilitiesView !== undefined ? (
     <CapabilitiesPage {...props.capabilitiesView} />
+  ) : state.activeView === 'assets' ? (
+    <AssetLibraryPage voiceService={creatorServicesService} />
   ) : state.activeView === 'projects' ? (
     <ProjectsPage
       jobs={creatorJobs}
@@ -4876,7 +4883,7 @@ export function AppController(props: AppControllerProps) {
   );
 
   return (
-    <RuntimeRecoveryContext.Provider value={runtimeRecovery}><PageIssueRoutingProvider><RuntimeConnectionProvider value={{
+    <AssetLibraryProvider service={personalAssetsService}><RuntimeRecoveryContext.Provider value={runtimeRecovery}><PageIssueRoutingProvider><RuntimeConnectionProvider value={{
       status: connectionState.status,
       waitingForConfig: connectionConfig === null,
       restarting: runtimeRecovery.phase === 'restarting',
@@ -5068,7 +5075,7 @@ export function AppController(props: AppControllerProps) {
           onAskIssue={askAgentAboutIssue}
         />
       </Suspense>
-    </div></RuntimeConnectionProvider></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
+    </div></RuntimeConnectionProvider></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider></AssetLibraryProvider>
   );
 
   function createDetailPanel() {
@@ -5253,6 +5260,7 @@ function createInitialState(
         rightPanelMode: 'closed'
       };
     case 'search':
+    case 'assets':
     case 'projects':
     case 'schedules':
     case 'tasks':
@@ -5284,6 +5292,8 @@ function routeForActiveView(activeView: ActiveView, selectedThreadId?: string): 
   switch (activeView) {
     case 'conversation':
       return routeForConversation(selectedThreadId);
+    case 'assets':
+      return { view: 'assets' };
     case 'projects':
       return { view: 'projects' };
     case 'search':

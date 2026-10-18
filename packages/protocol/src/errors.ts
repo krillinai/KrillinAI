@@ -1,6 +1,8 @@
 import type { OpenCreatorIssue, PublicErrorFacts } from './issues.js';
 
 export type RuntimeErrorCode =
+  | 'ASSET_NOT_FOUND'
+  | 'ASSET_REVISION_CONFLICT'
   | 'GATEWAY_AUTH_REQUIRED'
   | 'GATEWAY_ACCOUNT_DISABLED'
   | 'GATEWAY_CREDITS_INSUFFICIENT'

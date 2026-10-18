@@ -93,6 +93,39 @@ describe('additional language catalogs', () => {
     }
   });
 
+  it('keeps product names intact in the thirty previously added client catalogs', () => {
+    const addedLanguages = openCreatorLanguages.slice(43, 73);
+    expect(addedLanguages).toHaveLength(30);
+    for (const language of addedLanguages) {
+      const l = (source: string) => translateEnglishCopy(language, source);
+      expect(l('OpenCreator version'), language).toContain('OpenCreator');
+      expect(l('Maintain reusable Codex configuration for sessions and scheduled tasks.'), language).toContain('Codex');
+      const services = l('Configure Seedance, Kling, or Veo video generation and the default model for new tasks.');
+      for (const name of ['Seedance', 'Kling', 'Veo']) expect(services, language).toContain(name);
+      expect(l('Save'), language).not.toBe('Save');
+      expect(l('Assets'), language).not.toBe('Assets');
+      expect(l('Jimeng'), language).toBe('Jimeng');
+    }
+  });
+
+  it('keeps the new twelve catalogs complete with protected product names and localized assets', () => {
+    const addedLanguages = openCreatorLanguages.slice(73);
+    expect(addedLanguages).toHaveLength(12);
+    for (const language of addedLanguages) {
+      const l = (source: string) => translateEnglishCopy(language, source);
+      expect(l('OpenCreator version'), language).toContain('OpenCreator');
+      expect(l('Maintain reusable Codex configuration for sessions and scheduled tasks.'), language).toContain('Codex');
+      const services = l('Configure Seedance, Kling, or Veo video generation and the default model for new tasks.');
+      for (const name of ['Seedance', 'Kling', 'Veo']) expect(services, language).toContain(name);
+      expect(l('Jimeng'), language).toBe('Jimeng');
+      for (const message of ['Save', 'Assets', 'New glossary', 'New voice', 'New subtitle style', 'Translation Glossary',
+        'Display language', 'Required', 'Settings', 'Projects', 'Tasks', 'Subtitle Translation',
+        'Undo', 'Redo', 'Export subtitles', 'Search languages', 'No matching languages']) {
+        expect(l(message), `${language}: ${message}`).not.toBe(message);
+      }
+    }
+  });
+
   it('preserves literal values and chooses the specific template', () => {
     for (const language of Object.keys(additionalLanguageCatalogs) as AppLanguage[]) {
       const catalog = additionalLanguageCatalogs[language]!;

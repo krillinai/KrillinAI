@@ -1,3 +1,4 @@
+import { translationDictionariesSchema } from '../../assets/schema.js';
 import { z } from 'zod';
 import type { CreatorTemplateDefinition } from './types.js';
 import { creatorSubtitleStyleSchema } from '../presets/module-schemas.js';
@@ -26,6 +27,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
       importedTargetSubtitleId: z.string().nullable().optional(),
       sourceLanguage: z.string().default('zh_cn'),
       targetLanguage: z.string().default('en'),
+      translationDictionaries: translationDictionariesSchema.optional(),
       preferPlatformCaptions: z.boolean().default(true),
       bilingual: z.boolean().default(true),
       subtitlePosition: z.enum(['top', 'bottom']).default('top'),

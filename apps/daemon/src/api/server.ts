@@ -1,3 +1,4 @@
+import { registerPersonalAssetRoutes } from './routes.personal-assets.js';
 import { isDirectTransport } from '../gateway/supplier.js';
 import type Database from 'better-sqlite3';
 import type { CodexAvailabilityProbe, CodexRuntimeComponentReadiness } from '@opencreator/protocol';
@@ -1601,6 +1602,7 @@ export async function buildServer(input: BuildServerInput) {
       : localCodexTextModelDefaults.readStatus(),
     storedCreatorServicesConfigStore
   );
+  await registerPersonalAssetRoutes(server, db);
   await registerGatewayAccountRoutes(server, gatewayAccount);
   await gatewayCreatorSource.register(server);
   await registerSmartDubbingRoutes(server, smartDubbingService);

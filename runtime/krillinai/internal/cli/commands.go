@@ -2,12 +2,14 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"krillin-ai/config"
 	"krillin-ai/internal/pipeline"
+	"krillin-ai/internal/service"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/ttsprovider"
 	"krillin-ai/internal/types"
@@ -125,6 +127,7 @@ Flags:
   --source-only              generate source-language subtitles without translation
   --input-srt <file>         use existing UTF-8 SRT instead of transcription
   --srt-translated           input SRT is already translated; skip translation
+  --glossary-file <file>     JSON translation terminology snapshot
   --bilingual-top            Put target subtitle on top (default true)
   --max-word-one-line <n>    Max words per subtitle line
   --subtitle-style-file <file>  JSON subtitle style override file
@@ -503,6 +506,7 @@ func parseSubtitle(name string, args []string) (Command, error) {
 	captionSource := fs.String("caption-source", string(pipeline.CaptionSourceAny), "caption source")
 	prepareVideo := fs.Bool("prepare-video", false, "prepare original video for later rendering")
 	sourceOnly := fs.Bool("source-only", false, "generate source-language subtitles without translation")
+	glossaryFile := fs.String("glossary-file", "", "translation glossary JSON file")
 	inputSRT := fs.String("input-srt", "", "existing UTF-8 SRT")
 	srtTranslated := fs.Bool("srt-translated", false, "SRT is already translated")
 	bilingualTop := fs.Bool("bilingual-top", true, "put target subtitle on top")
@@ -524,11 +528,30 @@ func parseSubtitle(name string, args []string) (Command, error) {
 	if (input == "" && (*inputSRT == "" || *prepareVideo)) || fs.NArg() > 1 {
 		return Command{}, errors.New("subtitle requires input or --input-srt (video preparation requires input)")
 	}
+	var glossary []service.TranslationGlossaryEntry
+	if *glossaryFile != "" {
+		file, err := os.Open(*glossaryFile)
+		if err != nil {
+			return Command{}, err
+		}
+		defer file.Close()
+		data, err := io.ReadAll(io.LimitReader(file, 8*1024*1024+1))
+		if err != nil || len(data) > 8*1024*1024 {
+			return Command{}, errors.New("invalid translation glossary")
+		}
+		if err := json.Unmarshal(data, &glossary); err != nil {
+			return Command{}, err
+		}
+		if len(glossary) > 20000 {
+			return Command{}, errors.New("translation glossary has too many terms")
+		}
+	}
 	return Command{
 		Name:              name,
 		DryRun:            *dryRun,
 		SubtitleStyleFile: *subtitleStyleFile,
 		Subtitle: pipeline.SubtitleRequest{
+			Glossary:       glossary,
 			Input:          input,
 			Workdir:        *workdir,
 			TaskID:         *taskID,

@@ -63,6 +63,34 @@ describe('display language preference', () => {
     expect(resolveSystemLanguage(['sr-Cyrl-RS'])).toBe('sr-RS');
   });
 
+  it('includes the thirty added languages and matches their regional variants', () => {
+    expect(openCreatorLanguages).toHaveLength(85);
+    for (const [system, expected] of [
+      ['uz-Latn-UZ', 'uz-UZ'], ['kk-Cyrl-KZ', 'kk-KZ'], ['az-Latn-AZ', 'az-AZ'],
+      ['sw-TZ', 'sw-KE'], ['my', 'my-MM'], ['km', 'km-KH'], ['ne-IN', 'ne-NP'],
+      ['si', 'si-LK'], ['ka', 'ka-GE'], ['hy', 'hy-AM'], ['mn-Cyrl-MN', 'mn-MN'],
+      ['am', 'am-ET'], ['ha-Latn-NG', 'ha-NG'], ['yo-BJ', 'yo-NG'], ['ig', 'ig-NG'],
+      ['kn', 'kn-IN'], ['ml', 'ml-IN'], ['or', 'or-IN'], ['as', 'as-IN']
+    ]) expect(resolveSystemLanguage([system!])).toBe(expected);
+  });
+
+  it('matches the twelve added system languages and their supported scripts', () => {
+    for (const [system, expected] of [
+      ['ca-AD', 'ca-ES'], ['eu', 'eu-ES'], ['gl', 'gl-ES'], ['is', 'is-IS'],
+      ['bs-Latn-BA', 'bs-BA'], ['mk', 'mk-MK'], ['be-Cyrl-BY', 'be-BY'],
+      ['ky-Cyrl-KG', 'ky-KG'], ['tg-Cyrl-TJ', 'tg-TJ'], ['tk-Latn-TM', 'tk-TM'],
+      ['ps-PK', 'ps-AF'], ['ku-Latn-TR', 'ku-TR'], ['ku-Latn-IQ', 'ku-TR']
+    ]) expect(resolveSystemLanguage([system!])).toBe(expected);
+  });
+
+  it('skips unsupported script variants instead of selecting a different alphabet', () => {
+    for (const system of ['uz-Cyrl-UZ', 'uz-Arab-AF', 'az-Arab-IR', 'az-Cyrl-AZ', 'kk-Latn-KZ', 'kk-Arab-CN', 'mn-Mong-CN', 'ha-Arab-NG',
+      'be-Latn-BY', 'bs-Cyrl-BA', 'mk-Latn-MK', 'ky-Arab-CN', 'tg-Arab-AF',
+      'tk-Cyrl-TM', 'ku-Arab-IQ', 'ku-IQ', 'ku-IR', 'ckb-IQ', 'ps-Latn-AF']) {
+      expect(resolveSystemLanguage([system, 'fr-FR'])).toBe('fr-FR');
+    }
+  });
+
   it('respects browser language preference order', () => {
     expect(resolveSystemLanguage(['en-US', 'sv-SE'])).toBe('en-US');
     expect(resolveSystemLanguage(['sv-SE', 'zh-CN'])).toBe('sv-SE');
@@ -77,11 +105,11 @@ describe('display language preference', () => {
   });
 
   it('switches direction with the display language and resets it when leaving RTL', () => {
-    for (const language of ['ar-SA', 'fa-IR', 'ur-PK', 'he-IL'] as const) {
+    for (const language of ['ar-SA', 'fa-IR', 'ur-PK', 'he-IL', 'ps-AF'] as const) {
       applyAppLanguage(language);
       expect(document.documentElement).toHaveAttribute('dir', 'rtl');
     }
-    for (const language of ['en-US', 'zh-CN', 'mr-IN', 'gu-IN', 'pa-IN'] as const) {
+    for (const language of ['en-US', 'zh-CN', 'mr-IN', 'gu-IN', 'pa-IN', 'ku-TR', 'ky-KG'] as const) {
       applyAppLanguage(language);
       expect(document.documentElement).toHaveAttribute('dir', 'ltr');
     }

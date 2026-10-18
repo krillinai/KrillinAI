@@ -1,3 +1,5 @@
+import { resolveTranslationDictionaries } from '@opencreator/protocol';
+import { translationDictionariesSchema } from '../../assets/schema.js';
 import { copyFile, link, lstat, mkdir, realpath, rename, writeFile } from 'node:fs/promises';
 import { normalizeVideoSourceUrl, publicErrorCodeFromFailure, videoSourceIdentity } from '@opencreator/protocol';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -268,6 +270,7 @@ export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<st
     targetLanguage: normalizeKrillinLanguage(
       typeof state.targetLanguage === 'string' ? state.targetLanguage : undefined
     ),
+    translationGlossary: state.translationDictionaries ? resolveTranslationDictionaries(translationDictionariesSchema.parse(state.translationDictionaries), typeof state.targetLanguage === 'string' ? state.targetLanguage : '').entries.map(entry => ({source:entry.source,translation:entry.preserveOriginal ? entry.source : entry.translation,note:entry.note})) : undefined,
     captionSource: state.preferPlatformCaptions === false ? 'whisper' : 'any',
     sourceOnly: input.job.templateId === 'stickman-video'
       && input.stageRun.stageId === 'source-transcript',

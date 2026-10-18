@@ -483,3 +483,23 @@ func TestStyleLoadFailureClassifiesUserStyleErrorsAsUsage(t *testing.T) {
 		t.Fatalf("Code = %q, want subtitle_style_load_failed", resp.Error.Code)
 	}
 }
+
+func TestParseSubtitleGlossary(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "glossary.json")
+	if err := os.WriteFile(path, []byte(`[{"source":"OpenCreator","translation":"开放创作"}]`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := Parse([]string{"subtitle", "--input-srt", "input.srt", "--glossary-file", path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cmd.Subtitle.Glossary) != 1 || cmd.Subtitle.Glossary[0].Translation != "开放创作" {
+		t.Fatalf("missing glossary: %#v", cmd.Subtitle.Glossary)
+	}
+	if err := os.WriteFile(path, []byte(`{"invalid":true}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Parse([]string{"subtitle", "--input-srt", "input.srt", "--glossary-file", path}); err == nil {
+		t.Fatal("malformed glossary accepted")
+	}
+}

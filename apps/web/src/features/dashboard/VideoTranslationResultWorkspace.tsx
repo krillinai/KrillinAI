@@ -130,7 +130,7 @@ export default function VideoTranslationResultWorkspace(props: {
   immersive?: boolean;
   assistantOpen?: boolean;
   editorSettings?: {
-    language?: ReactNode; style: ReactNode; voice: ReactNode; output?: ReactNode;
+    language?: ReactNode; style?: ReactNode; voice?: ReactNode; output?: ReactNode;
     previewFormat?: SubtitleResultVariant; previewTitles?: ReactNode;
     disabled: boolean; onOpen(): void;
   };
@@ -142,6 +142,7 @@ export default function VideoTranslationResultWorkspace(props: {
   affectedArtifacts: string[];
   hasPendingChanges: boolean;
   regenerationPending: boolean;
+  retranslationWarning?: string;
   execution?: VideoTranslationResultExecution;
   notice?: string;
   onTabChange(tab: VideoTranslationResultTab): void;
@@ -437,6 +438,7 @@ export default function VideoTranslationResultWorkspace(props: {
           {l(`将更新${props.affectedArtifacts.join('、')}，V${props.version} 的全部产出会保留`,
             `Will update ${props.affectedArtifacts.join(', ')}. All V${props.version} outputs will be preserved`)}
         </span>
+        {props.retranslationWarning ? <p className="video-result-retranslation-warning" role="alert">{props.retranslationWarning}</p> : null}
         <div className="video-result-regenerate-actions">
           <button type="button" onClick={props.onCancelRegenerate}>{l('取消', 'Cancel')}</button>
           <button type="button" disabled={props.subtitleSavePending || props.editorSettings?.disabled} onClick={props.onConfirmRegenerate}>{l(`确认生成 V${props.nextVersion}`, `Confirm and generate V${props.nextVersion}`)}</button>
@@ -820,6 +822,11 @@ export default function VideoTranslationResultWorkspace(props: {
                       )}
                 </button>
               ) : null}
+              {props.immersive && props.subtitleOnly && props.editorSettings?.language ? <button
+                type="button" className="subtitle-editor-language-action" disabled={props.editorSettings.disabled}
+                onClick={() => { props.editorSettings?.onOpen(); setEditorPanel('language'); }}>
+                <Languages size={15} aria-hidden="true" />{l('翻译语言', 'Languages')}
+              </button> : null}
               {props.immersive && !editorPanel ? regenerationControls : null}
             </div>
           </header>

@@ -110,7 +110,8 @@ describe('app routes', () => {
       section: 'text'
     });
     expect(parseRoute('#/capabilities')).toEqual({ view: 'capabilities' });
-    expect(parseRoute('#/assets')).toEqual({ view: 'dashboard' });
+    expect(parseRoute('#/assets')).toEqual({ view: 'assets' });
+    expect(formatRoute({view:'assets'})).toBe('#/assets');
     expect(parseRoute('#/knowledge')).toEqual({ view: 'dashboard' });
     expect(parseRoute('#/drive')).toEqual({ view: 'dashboard' });
     expect(parseRoute('#/account')).toEqual({ view: 'account' });

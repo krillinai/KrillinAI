@@ -230,7 +230,10 @@ describe('OpenCreatorSettingsView', () => {
     ['ta-IN', 'பொது'], ['te-IN', 'సాధారణం'], ['bg-BG', 'Общи'],
     ['sk-SK', 'Všeobecné'], ['hr-HR', 'Općenito'], ['sr-RS', 'Опште'],
     ['ar-SA', 'عام'], ['fa-IR', 'عمومی'], ['ur-PK', 'عمومی'], ['he-IL', 'כללי'],
-    ['mr-IN', 'सामान्य'], ['gu-IN', 'સામાન્ય'], ['pa-IN', 'ਆਮ']
+    ['mr-IN', 'सामान्य'], ['gu-IN', 'સામાન્ય'], ['pa-IN', 'ਆਮ'],
+    ['ca-ES', 'General'], ['eu-ES', 'Orokorra'], ['gl-ES', 'Xeral'], ['is-IS', 'Almennt'],
+    ['bs-BA', 'Općenito'], ['mk-MK', 'Општо'], ['be-BY', 'Агульныя'], ['ky-KG', 'Жалпы'],
+    ['tg-TJ', 'Умумӣ'], ['tk-TM', 'Umumy'], ['ps-AF', 'عمومي'], ['ku-TR', 'Giştî']
   ] as const)('offers and immediately switches to %s', (language, heading) => {
     render(<LanguageProvider initialPreference="en-US"><OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} /></LanguageProvider>);
     const select = screen.getByRole('combobox', { name: 'Display language' });

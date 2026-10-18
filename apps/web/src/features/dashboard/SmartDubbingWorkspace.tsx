@@ -440,7 +440,7 @@ export default function SmartDubbingWorkspace(props: {
                     });
                     setError('');
                   }}
-                  onVoiceResolved={selectedVoice => setVoiceName(selectedVoice.name)}
+                  onVoiceResolved={selectedVoice => setVoiceName(current => !current || current === voice ? selectedVoice.name : current)}
                 />
               </div>
               <div className="smart-dubbing-settings">
