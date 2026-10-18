@@ -65,17 +65,27 @@ Web es la única implementación del frontend. Desktop carga la misma compilaci�
 
 - 🔐 **Seguridad local**: conserva los datos, los archivos adjuntos y los registros localmente de forma predeterminada, con aprobaciones y diagnósticos que ocultan información confidencial.
 
+- 🌐 **Interfaz multilingüe**: Web y Desktop ofrecen 43 idiomas, detección del idioma del sistema, selección manual y diseño de derecha a izquierda para árabe, persa, urdu y hebreo.
+
 ## Herramientas de creación
 
 La versión actual incluye seis herramientas de creación. Los modelos y servicios disponibles dependen del entorno local de Codex y de la configuración de los servicios de IA.
 
-Abre el Dashboard para traducir o descargar vídeos, generar miniaturas o imágenes, crear voces en off con Doblaje inteligente o generar vídeos con Seedance.
+Abre el Dashboard para traducir o descargar vídeos, generar miniaturas o imágenes, crear voces en off con Text to Speech o generar vídeos con Seedance.
 
 ![Dashboard de creación de OpenCreator](../images/product/opencreator-dashboard-en.png)
 
 > Continuamente se añaden nuevas herramientas de creación.
 
-**La traducción de vídeos admite 101 idiomas de destino.**
+**La traducción de vídeos ofrece 123 idiomas de origen y 124 opciones de destino, incluida la salida en pinyin.** Busca por nombre nativo, inglés, chino o código de idioma. La cobertura del reconocimiento y la síntesis de voz depende del servicio y modelo elegidos.
+
+- **Traducción solo de subtítulos**: Importa y previsualiza un SRT y tradúcelo sin vídeo de origen, doblaje ni renderizado de vídeo.
+
+- **Edición avanzada de subtítulos**: Abre un editor inmersivo con forma de onda y línea de tiempo sincronizadas con la reproducción. Ajusta tiempos, divide o une subtítulos y busca y reemplaza texto. Previsualiza estilos sobre el vídeo, cambia idioma, voz y salida, y genera otra versión conservando las anteriores.
+
+- **Creación en una sola página**: Configura la generación de imágenes, vídeos y Text to Speech en una página, con selección de modelos, vista previa de referencias, opciones de imagen según el modelo y una biblioteca de voces con búsqueda.
+
+- **Salida multilingüe y progreso**: Las fuentes de respaldo incluidas mejoran los alfabetos complejos y los subtítulos de derecha a izquierda. Sigue el progreso de transcripción, traducción, doblaje y renderizado, con cantidades completadas y totales cuando estén disponibles.
 
 <table width="100%">
 <thead>
@@ -87,16 +97,16 @@ Abre el Dashboard para traducir o descargar vídeos, generar miniaturas o imáge
 </thead>
 <tbody>
 <tr><td valign="top">Traducción de vídeos</td><td valign="top">✅ Disponible</td><td>Importa vídeos locales o públicos; transcribe con servicios Whisper locales o en la nube; utiliza el contexto de un LLM para segmentar y alinear subtítulos, gestionar terminología y traducir; configura subtítulos bilingües, doblaje o una muestra de voz personalizada, estilos de subtítulos y composición horizontal o vertical, y exporta SRT, audio o vídeo</td></tr>
-<tr><td valign="top">Descarga de vídeos</td><td valign="top">✅ Disponible</td><td>Analiza vídeos públicos individuales de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest y Reddit; compara los formatos disponibles y descarga vídeo o audio. Algunas plataformas pueden requerir cookies</td></tr>
+<tr><td valign="top">Descarga de vídeos</td><td valign="top">✅ Disponible</td><td>Analiza vídeos públicos individuales de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest y Reddit; compara los formatos disponibles y descarga vídeo o audio. Algunas plataformas pueden requerir cookies. Si la plataforma ofrece subtítulos, consulta la lista y descarga SRT; se prioriza el inglés y después el idioma de la interfaz, si está disponible.</td></tr>
 <tr><td valign="top">Generación de miniaturas</td><td valign="top">✅ Disponible</td><td>Combina un tema, un enlace de vídeo y una imagen de referencia opcional para generar y comparar varias propuestas de miniaturas de contenido</td></tr>
-<tr><td valign="top">Generación de imágenes</td><td valign="top">✅ Disponible</td><td>Genera imágenes con GPT Image a partir de un prompt y una imagen de referencia opcional, configura la relación de aspecto y la cantidad de resultados y, después, previsualiza y descarga cada imagen</td></tr>
+<tr><td valign="top">Generación de imágenes</td><td valign="top">✅ Disponible</td><td>Genera imágenes con GPT Image / Seedream / Kling Image / Gemini a partir de un prompt y una imagen de referencia opcional, configura la relación de aspecto y la cantidad de resultados y, después, previsualiza y descarga cada imagen</td></tr>
 <tr><td valign="top">Redacción de artículos</td><td valign="top">✅ Disponible</td><td>Convierte temas, enlaces, vídeos o documentos en opciones de tema, esquema y artículo editables; añade imágenes y exporta a Markdown, HTML o PDF.</td></tr>
 <tr><td valign="top">Publicaciones de Xiaohongshu</td><td valign="top">✅ Disponible</td><td>Genera una publicación a partir de un tema o material fuente, ajusta audiencia, tipo y longitud y copia o descarga el resultado.</td></tr>
 <tr><td valign="top">Guion para vídeo corto</td><td valign="top">✅ Disponible</td><td>Crea un guion segmentado listo para grabar a partir de un tema o material fuente, adaptado a audiencia, plataforma, duración y tono; edítalo o expórtalo.</td></tr>
 <tr><td valign="top">Animación de figuras de palitos</td><td valign="top">✅ Disponible</td><td>Convierte texto o contenido de YouTube en narración, voz, imágenes de storyboard con personajes coherentes, subtítulos y una animación descargable.</td></tr>
 <tr><td valign="top">Clips automáticos</td><td valign="top">En desarrollo</td><td>Analiza vídeos largos, identifica los momentos destacados y convierte las escenas elegidas en clips cortos reutilizables</td></tr>
-<tr><td valign="top">Doblaje inteligente</td><td valign="top">✅ Disponible</td><td>Convierte guiones en voces en off con opciones de voz, ritmo y emoción</td></tr>
-<tr><td valign="top">Generación de vídeo</td><td valign="top">✅ Disponible</td><td>Genera vídeos con Seedance a partir de prompts e imágenes de referencia y, después, previsualiza, vuelve a generar o descarga cada versión</td></tr>
+<tr><td valign="top">Text to Speech</td><td valign="top">✅ Disponible</td><td>Convierte guiones en voces en off con opciones de voz, ritmo y emoción</td></tr>
+<tr><td valign="top">Generación de vídeo</td><td valign="top">✅ Disponible</td><td>Genera vídeos con Seedance / Kling / Veo a partir de prompts e imágenes de referencia y, después, previsualiza, vuelve a generar o descarga cada versión</td></tr>
 <tr><td valign="top">Avatar digital</td><td valign="top">En desarrollo</td><td>Combina guiones, voz y presentación de avatar para producir vídeos con una persona hablando</td></tr>
 </tbody>
 </table>

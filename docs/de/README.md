@@ -65,17 +65,27 @@ Web ist die einzige Frontend-Implementierung. Desktop lädt denselben Web-Build 
 
 - 🔐 **Lokale Sicherheit**: Daten, Anhänge und Protokolle bleiben standardmäßig lokal und werden durch Genehmigungen und bereinigte Diagnosen geschützt.
 
+- 🌐 **Mehrsprachige Oberfläche**: Web und Desktop bieten 43 Sprachen, automatische Erkennung der Systemsprache, manuelle Auswahl und Rechts-nach-links-Layouts für Arabisch, Persisch, Urdu und Hebräisch.
+
 ## Kreativwerkzeuge
 
 Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Dienste hängen von deiner lokalen Codex-Umgebung und den Einstellungen der KI-Dienste ab.
 
-Öffne das Dashboard, um Videos zu übersetzen oder herunterzuladen, Thumbnails oder Bilder zu generieren, Voiceover mit intelligenter Synchronisation zu erstellen oder Videos mit Seedance zu generieren.
+Öffne das Dashboard, um Videos zu übersetzen oder herunterzuladen, Thumbnails oder Bilder zu generieren, Voiceover mit Text to Speech zu erstellen oder Videos mit Seedance zu generieren.
 
 ![OpenCreator Kreativ-Dashboard](../images/product/opencreator-dashboard-en.png)
 
 > Weitere Kreativwerkzeuge werden fortlaufend ergänzt.
 
-**Die Videoübersetzung unterstützt 101 Zielsprachen.**
+**Die Videoübersetzung bietet 123 Ausgangssprachen und 124 Zieloptionen einschließlich Pinyin-Ausgabe.** Suche nach muttersprachlichem, englischem oder chinesischem Namen oder Sprachcode. Die Sprachabdeckung von Spracherkennung und Sprachausgabe hängt vom gewählten Dienst und Modell ab.
+
+- **Nur Untertitel übersetzen**: Importiere eine SRT-Datei, prüfe die Vorschau und übersetze sie ohne Quellvideo, Synchronisation oder Video-Rendering.
+
+- **Erweiterte Untertitelbearbeitung**: Bearbeite Zeiten, teile oder verbinde Untertitel und suche und ersetze Text in einem immersiven Editor mit Wellenform und wiedergabesynchroner Zeitleiste. Prüfe Stile direkt im Video, passe Sprache, Stimme und Ausgabe an und erstelle eine neue Version, ohne frühere Ergebnisse zu verlieren.
+
+- **Erstellung auf einer Seite**: Konfiguriere Bildgenerierung, Videogenerierung und Text to Speech auf einer Seite, mit Modellauswahl, Referenzvorschau, modellspezifischen Bildoptionen und durchsuchbarer Stimmenbibliothek.
+
+- **Mehrsprachige Ausgabe und Fortschritt**: Integrierte Ersatzschriften verbessern komplexe Schriftsysteme und Rechts-nach-links-Untertitel. Verfolge Transkription, Übersetzung, Sprachausgabe und Rendering, soweit verfügbar mit Anzahl erledigter und gesamter Elemente.
 
 <table width="100%">
 <thead>
@@ -87,16 +97,16 @@ Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Di
 </thead>
 <tbody>
 <tr><td valign="top">Videoübersetzung</td><td valign="top">✅ Verfügbar</td><td>Importiere lokale oder öffentliche Videos; transkribiere sie mit lokalen oder cloudbasierten Whisper-Diensten; nutze den LLM-Kontext für Segmentierung und Ausrichtung von Untertiteln, Terminologie und Übersetzung; konfiguriere zweisprachige Untertitel, Synchronisation oder ein eigenes Sprachbeispiel, Untertitelstile sowie Quer- oder Hochformat und exportiere SRT, Audio oder Video</td></tr>
-<tr><td valign="top">Video-Downloader</td><td valign="top">✅ Verfügbar</td><td>Analysiere einzelne öffentliche Videos von YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest und Reddit, vergleiche verfügbare Formate und lade Video oder Audio herunter. Manche Plattformen benötigen Cookies</td></tr>
+<tr><td valign="top">Video-Downloader</td><td valign="top">✅ Verfügbar</td><td>Analysiere einzelne öffentliche Videos von YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest und Reddit, vergleiche verfügbare Formate und lade Video oder Audio herunter. Manche Plattformen benötigen Cookies. Wenn die Plattform Untertitel anbietet, kannst du die Liste ansehen und SRT herunterladen. Englisch steht zuerst, danach die Oberflächensprache, sofern verfügbar.</td></tr>
 <tr><td valign="top">Thumbnail-Generierung</td><td valign="top">✅ Verfügbar</td><td>Kombiniere ein Thema, einen Videolink und optional ein Referenzbild, um mehrere Varianten von Content-Thumbnails zu generieren und zu vergleichen</td></tr>
-<tr><td valign="top">Bildgenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit GPT Image Bilder aus einem Prompt und einem optionalen Referenzbild, lege Seitenverhältnis und Anzahl der Ergebnisse fest und zeige einzelne Bilder in der Vorschau an oder lade sie herunter</td></tr>
+<tr><td valign="top">Bildgenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit GPT Image / Seedream / Kling Image / Gemini Bilder aus einem Prompt und einem optionalen Referenzbild, lege Seitenverhältnis und Anzahl der Ergebnisse fest und zeige einzelne Bilder in der Vorschau an oder lade sie herunter</td></tr>
 <tr><td valign="top">Artikel verfassen</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Themen, Links, Videos oder Dokumenten editierbare Themenvorschläge, Gliederungen und Artikel; ergänze Bilder und exportiere Markdown, HTML oder PDF.</td></tr>
 <tr><td valign="top">Xiaohongshu-Beiträge</td><td valign="top">✅ Verfügbar</td><td>Erstelle Beiträge aus einem Thema oder Ausgangsmaterial mit Auswahl von Zielgruppe, Beitragstyp und Länge; kopiere oder lade das Ergebnis herunter.</td></tr>
 <tr><td valign="top">Kurzvideo-Drehbuch</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Thema oder Material ein drehfertiges Szenenskript für Zielgruppe, Plattform, Dauer und Ton; bearbeite oder exportiere es.</td></tr>
 <tr><td valign="top">Strichmännchen-Animation</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Text oder YouTube-Inhalten Erzählung, Stimme, Storyboard-Bilder mit konsistenten Figuren, Untertitel und eine herunterladbare Animation.</td></tr>
 <tr><td valign="top">Automatische Clips</td><td valign="top">In Entwicklung</td><td>Analysiere lange Videos, finde Höhepunkte und verwandle ausgewählte Momente in wiederverwendbare kurze Clips</td></tr>
-<tr><td valign="top">Intelligente Synchronisation</td><td valign="top">✅ Verfügbar</td><td>Verwandle Skripte in Voiceover und wähle Stimme, Tempo und Emotion</td></tr>
-<tr><td valign="top">Videogenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit Seedance Videos aus Prompts und Referenzbildern und zeige jede Version in der Vorschau an, generiere sie erneut oder lade sie herunter</td></tr>
+<tr><td valign="top">Text to Speech</td><td valign="top">✅ Verfügbar</td><td>Verwandle Skripte in Voiceover und wähle Stimme, Tempo und Emotion</td></tr>
+<tr><td valign="top">Videogenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit Seedance / Kling / Veo Videos aus Prompts und Referenzbildern und zeige jede Version in der Vorschau an, generiere sie erneut oder lade sie herunter</td></tr>
 <tr><td valign="top">Digitaler Avatar</td><td valign="top">In Entwicklung</td><td>Kombiniere Skripte, Stimme und Avatar-Darstellung zu Talking-Head-Videos</td></tr>
 </tbody>
 </table>

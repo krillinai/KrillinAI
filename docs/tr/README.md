@@ -54,33 +54,41 @@ Web, tek frontend uygulamasıdır. Desktop aynı Web derlemesini yükler ve yaln
 - 🧩 **Yeniden kullanılabilir Skills:** Video iş akışı Skills'lerini kullanın, kendi Skills'inizi ekleyin ve MCP'yi Codex yerel yapılandırmasıyla yönetin.
 - 🧠 **Bellek:** Genel, proje ve konu belleğini özetler ve tekrar üretilebilir Run giriş anlık görüntüleriyle saklayın.
 - 🔐 **Yerel güvenlik:** Verileri, ekleri ve günlükleri varsayılan olarak yerel tutun; onaylar ve hassas bilgileri ayıklanmış tanılama günlükleri kullanın.
-- 🌐 **Yerelleştirilmiş arayüz:** Web veya Desktop istemcisini Basitleştirilmiş Çince, İngilizce veya İsveççe olarak, sistem dilini otomatik algılayarak ya da elle seçerek kullanın.
+- 🌐 **Çok dilli arayüz**: Web ve Desktop 43 dil, sistem dilini algılama, elle seçim ve Arapça, Farsça, Urduca ile İbranice için sağdan sola düzen sunar.
 
 ## İçerik Üretim Araçları
 
 Mevcut sürüm on içerik üretim aracı içerir. Kullanılabilir modeller ve servisler yerel Codex ortamınıza ve AI servisi ayarlarınıza bağlıdır.
 
-Dashboard'u açarak makale, Xiaohongshu gönderisi ve kısa video senaryosu yazın; çöp adam animasyonu oluşturun; video çevirin veya indirin; küçük resim, görsel ve video üretin; Smart Dubbing ile seslendirme yapın.
+Dashboard'u açarak makale, Xiaohongshu gönderisi ve kısa video senaryosu yazın; çöp adam animasyonu oluşturun; video çevirin veya indirin; küçük resim, görsel ve video üretin; Text to Speech ile seslendirme yapın.
 
 ![OpenCreator içerik üretim paneli](../images/product/opencreator-dashboard-en.png)
 
 > Yeni içerik üretim araçları sürekli eklenmektedir.
 
-**Video Translation 14 kaynak dili ve 101 hedef dili destekler.** Kaynak diller arasında Basitleştirilmiş Çince, İngilizce, İspanyolca, Fransızca, İtalyanca, Brezilya Portekizcesi, Endonezce, Tayca, Japonca, Korece, Almanca, Türkçe, Rusça ve Malayca bulunur.
+**Video çevirisi 123 kaynak dili ve Pinyin çıktısı dahil 124 hedef seçeneği sunar.** Yerel ad, İngilizce ad, Çince ad veya dil koduyla arayın. Konuşma tanıma ve ses sentezi kapsamı seçilen hizmet ve modele bağlıdır.
+
+- **Yalnızca altyazı çevirisi**: SRT dosyasını içe aktarın, önizleyin ve kaynak video, dublaj veya video oluşturma olmadan çevirin.
+
+- **Gelişmiş altyazı düzenleme**: Oynatmayla eşleşen dalga biçimi ve zaman çizelgesine sahip tam ekran düzenleyicide zamanlamayı ayarlayın, altyazıları bölün veya birleştirin ve metin bulup değiştirin. Stilleri videoda önizleyin, dil, ses ve çıktı ayarlarını değiştirip önceki sonuçları koruyarak yeni sürüm oluşturun.
+
+- **Tek sayfada oluşturma**: Görsel, video ve Text to Speech ayarlarını tek sayfada tamamlayın; model seçimi, referans önizlemesi, modele özgü görsel seçenekleri ve aranabilir ses kitaplığını kullanın.
+
+- **Çok dilli çıktı ve ilerleme**: Dahili yedek yazı tipleri karmaşık yazıları ve sağdan sola altyazıları iyileştirir. Mevcut olduğunda tamamlanan ve toplam öğe sayılarıyla yazıya dökme, çeviri, dublaj ve işleme ilerlemesini izleyin.
 
 | Çalışma alanı | Durum | Yetenekler |
 | --- | --- | --- |
 | Video Translation | ✅ Kullanılabilir | Yerel veya herkese açık videoları içe aktarma; bulut ya da yerel Whisper ile transkripsiyon; altyazı bölümlendirme, hizalama, terminoloji ve çeviri için LLM bağlamı; çift dilli altyazı, dublaj, özel ses örneği, altyazı stili ve yatay/dikey kompozisyon; SRT, ses veya video dışa aktarma |
-| Video Downloader | ✅ Kullanılabilir | YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest ve Reddit'teki tekil herkese açık videoları analiz etme; formatları karşılaştırma; video veya ses indirme. Bazı kaynaklar platform çerezleri gerektirebilir |
+| Video Downloader | ✅ Kullanılabilir | YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest ve Reddit'teki tekil herkese açık videoları analiz etme; formatları karşılaştırma; video veya ses indirme. Bazı kaynaklar platform çerezleri gerektirebilir. Platform altyazı sağlıyorsa listeyi görüntüleyip SRT indirebilirsiniz; önce İngilizce, ardından mevcutsa arayüz dili gösterilir. |
 | Thumbnail Generator | ✅ Kullanılabilir | Konu, video bağlantısı ve isteğe bağlı referans görselden küçük resim varyasyonları üretme |
-| Image Generation | ✅ Kullanılabilir | İstem ve isteğe bağlı referans görselle GPT Image kullanarak görsel üretme; oran ve çıktı sayısını ayarlama; görselleri tek tek önizleme ve indirme |
+| Image Generation | ✅ Kullanılabilir | İstem ve isteğe bağlı referans görselle GPT Image / Seedream / Kling Image / Gemini kullanarak görsel üretme; oran ve çıktı sayısını ayarlama; görselleri tek tek önizleme ve indirme |
 | Article Writer | ✅ Kullanılabilir | Konu, bağlantı, video veya belgelerden konu seçenekleri, taslak ve makale üretme; görseller ekleyip Markdown, HTML veya PDF dışa aktarma |
 | Xiaohongshu Posts | ✅ Kullanılabilir | Konu veya kaynak materyalden hedef kitle, gönderi türü ve uzunluk kontrolleriyle eksiksiz Xiaohongshu gönderisi üretme; sonucu kopyalama veya indirme |
 | Short Video Script | ✅ Kullanılabilir | Konu veya kaynak materyalden kitle, platform, süre ve tona göre çekime hazır bölümlendirilmiş kısa video senaryosu oluşturma; düzenleme, kopyalama veya indirme |
 | Stick Figure Animation | ✅ Kullanılabilir | Metin veya YouTube içeriğini anlatım, ses, storyboard görselleri, altyazı ve indirilebilir animasyona dönüştürme |
 | Auto Clips | Geliştiriliyor | Uzun videoları analiz ederek öne çıkan bölümleri yeniden kullanılabilir kısa kliplere dönüştürme |
-| Smart Dubbing | ✅ Kullanılabilir | Seçilebilir ses, tempo ve duygu kontrolleriyle senaryoları seslendirme |
-| Video Generation | ✅ Kullanılabilir | İstem ve referans görsellerden Seedance ile video üretme; her sürümü önizleme, yeniden üretme ve indirme |
+| Text to Speech | ✅ Kullanılabilir | Seçilebilir ses, tempo ve duygu kontrolleriyle senaryoları seslendirme |
+| Video Generation | ✅ Kullanılabilir | İstem ve referans görsellerden Seedance / Kling / Veo ile video üretme; her sürümü önizleme, yeniden üretme ve indirme |
 | Digital Avatar | Geliştiriliyor | Senaryo, ses ve avatar sunumunu birleştirerek konuşan kişi videoları üretme |
 
 ## Üretim Şablonları

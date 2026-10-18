@@ -69,7 +69,7 @@ Web ang nag-iisang implementasyon ng frontend. Parehong Web build ang nilo-load 
 
 - 🔐 **Lokal na seguridad**: lokal ang datos, attachment, at log bilang default, na may pag-apruba at diagnostic na tinanggalan ng sensitibong detalye.
 
-- 🌐 **Wika ng interface**: gamitin ang Web o Desktop sa Simplified Chinese, English, o Swedish; awtomatikong tuklasin ang wika ng system o manu-manong pumili.
+- 🌐 **Multilingual na interface**: May 43 wika ang Web at Desktop, na may pagtukoy sa wika ng system, manu-manong pagpili, at kanan-pakaliwang layout para sa Arabic, Persian, Urdu, at Hebrew.
 
 <a id="creator-tools"></a>
 
@@ -77,13 +77,21 @@ Web ang nag-iisang implementasyon ng frontend. Parehong Web build ang nilo-load 
 
 May sampung tool para sa creator ang kasalukuyang release. Nakadepende ang mga magagamit na modelo at serbisyo sa lokal na Codex environment at AI service setting.
 
-Buksan ang Dashboard para magsulat ng artikulo, Xiaohongshu post, o script ng maikling video; gumawa ng stick figure animation; magsalin o mag-download ng video; bumuo ng thumbnail, larawan, o video; at lumikha ng voiceover sa Smart Dubbing.
+Buksan ang Dashboard para magsulat ng artikulo, Xiaohongshu post, o script ng maikling video; gumawa ng stick figure animation; magsalin o mag-download ng video; bumuo ng thumbnail, larawan, o video; at lumikha ng voiceover sa Text to Speech.
 
 ![Creator Dashboard ng OpenCreator](../images/product/opencreator-dashboard-en.png)
 
 > Patuloy na nadaragdagan ang mga tool para sa creator.
 
-**Sinusuportahan ng Video Translation ang 14 na pinagmulang wika at 101 na target na wika.** Ang mga pinagmulang wika ay Simplified Chinese, English, Spanish, French, Italian, Brazilian Portuguese, Indonesian, Thai, Japanese, Korean, German, Turkish, Russian, at Malay.
+**May 123 pinagmulang wika at 124 target na opsyon ang pagsasalin ng video, kasama ang Pinyin na output.** Maghanap gamit ang katutubong pangalan, Ingles, Tsino, o code ng wika. Nakadepende sa napiling serbisyo at modelo ang saklaw ng pagkilala at pagbuo ng boses.
+
+- **Subtitle lang ang isasalin**: Mag-import at mag-preview ng SRT, saka isalin ito nang walang source video, dubbing, o pag-render ng video.
+
+- **Advanced na pag-edit ng subtitle**: Gumamit ng immersive editor na may waveform at timeline na kasabay ng playback upang ayusin ang oras, hatiin o pagsamahin ang subtitle, at maghanap at magpalit ng teksto. I-preview ang estilo sa video, baguhin ang wika, boses, at output, saka gumawa ng bagong bersyon habang pinapanatili ang mga naunang resulta.
+
+- **Paglikha sa isang pahina**: Itakda ang image generation, video generation, at Text to Speech sa isang pahina, na may pagpili ng modelo, reference preview, mga opsyon ng larawan ayon sa modelo, at voice library na may paghahanap.
+
+- **Multilingual na output at progreso**: Pinapahusay ng kasamang fallback font ang komplikadong script at kanan-pakaliwang subtitle. Subaybayan ang transcription, pagsasalin, dubbing, at pag-render, kasama ang bilang ng natapos at kabuuan kapag available.
 
 <table width="100%">
 <thead>
@@ -95,16 +103,16 @@ Buksan ang Dashboard para magsulat ng artikulo, Xiaohongshu post, o script ng ma
 </thead>
 <tbody>
 <tr><td valign="top">Pagsasalin ng video</td><td valign="top">✅ Magagamit</td><td>Mag-import ng lokal o pampublikong video; mag-transcribe sa cloud o lokal na Whisper; gamitin ang konteksto ng LLM para sa paghahati, pag-align, termino, at pagsasalin ng subtitle; itakda ang bilingguwal na subtitle, dubbing o sariling voice sample, estilo, pahalang/patayong komposisyon; mag-export ng SRT, audio, o video</td></tr>
-<tr><td valign="top">Pag-download ng video</td><td valign="top">✅ Magagamit</td><td>Suriin ang indibidwal na pampublikong video mula sa YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, at Reddit; ihambing ang format at mag-download ng video o audio. Maaaring kailanganin ang platform cookie</td></tr>
+<tr><td valign="top">Pag-download ng video</td><td valign="top">✅ Magagamit</td><td>Suriin ang indibidwal na pampublikong video mula sa YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, at Reddit; ihambing ang format at mag-download ng video o audio. Maaaring kailanganin ang platform cookie. Kung may subtitle ang platform, tingnan ang listahan at mag-download ng SRT; inuuna ang Ingles, saka ang wika ng interface kung available.</td></tr>
 <tr><td valign="top">Pagbuo ng thumbnail</td><td valign="top">✅ Magagamit</td><td>Pagsamahin ang paksa, video link, at opsyonal na reference image para bumuo at maghambing ng mga bersyon ng thumbnail</td></tr>
-<tr><td valign="top">Pagbuo ng larawan</td><td valign="top">✅ Magagamit</td><td>Gamitin ang GPT Image mula sa prompt at opsyonal na reference image; itakda ang aspect ratio at dami, saka i-preview at i-download ang bawat larawan</td></tr>
+<tr><td valign="top">Pagbuo ng larawan</td><td valign="top">✅ Magagamit</td><td>Gamitin ang GPT Image / Seedream / Kling Image / Gemini mula sa prompt at opsyonal na reference image; itakda ang aspect ratio at dami, saka i-preview at i-download ang bawat larawan</td></tr>
 <tr><td valign="top">Pagsulat ng artikulo</td><td valign="top">✅ Magagamit</td><td>Gawing mae-edit na mga paksa, outline, at buong artikulo ang paksa, link, video, o source document; magdagdag ng nabuong larawan at mag-export ng Markdown, HTML, o PDF</td></tr>
 <tr><td valign="top">Mga post sa Xiaohongshu</td><td valign="top">✅ Magagamit</td><td>Gumawa ng buong post mula sa paksa o sanggunian, itakda ang audience, uri, at haba, saka kopyahin o i-download</td></tr>
 <tr><td valign="top">Script ng maikling video</td><td valign="top">✅ Magagamit</td><td>Gumawa ng nahating script na handang kunan mula sa paksa o sanggunian, ayon sa audience, platform, tagal, at tono; i-edit, kopyahin, o i-download</td></tr>
 <tr><td valign="top">Stick figure animation</td><td valign="top">✅ Magagamit</td><td>Gawing salaysay, boses, storyboard na pare-pareho ang karakter, subtitle, at nada-download na animation ang teksto o YouTube content</td></tr>
 <tr><td valign="top">Awtomatikong clip</td><td valign="top">Ginagawa pa</td><td>Suriin ang mahabang video, hanapin ang highlight, at gawing muling magagamit na maikling clip ang mga napiling sandali</td></tr>
-<tr><td valign="top">Matalinong dubbing</td><td valign="top">✅ Magagamit</td><td>Gawing voiceover ang script na may pagpili ng boses, bilis, at emosyon</td></tr>
-<tr><td valign="top">Pagbuo ng video</td><td valign="top">✅ Magagamit</td><td>Gumawa ng video gamit ang Seedance mula sa prompt at reference image; i-preview, buuing muli, at i-download ang bawat bersyon</td></tr>
+<tr><td valign="top">Text to Speech</td><td valign="top">✅ Magagamit</td><td>Gawing voiceover ang script na may pagpili ng boses, bilis, at emosyon</td></tr>
+<tr><td valign="top">Pagbuo ng video</td><td valign="top">✅ Magagamit</td><td>Gumawa ng video gamit ang Seedance / Kling / Veo mula sa prompt at reference image; i-preview, buuing muli, at i-download ang bawat bersyon</td></tr>
 <tr><td valign="top">Digital na avatar</td><td valign="top">Ginagawa pa</td><td>Pagsamahin ang script, boses, at avatar upang gumawa ng video ng nagsasalitang tauhan</td></tr>
 </tbody>
 </table>

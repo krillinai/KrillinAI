@@ -65,17 +65,27 @@ Web adalah satu-satunya implementasi frontend. Desktop memuat build Web yang sam
 
 - 🔐 **Keamanan Lokal**: simpan data, lampiran, dan log secara lokal secara default, dengan persetujuan dan diagnostik yang telah menyamarkan informasi sensitif.
 
+- 🌐 **Antarmuka multibahasa**: Web dan Desktop mendukung 43 bahasa, deteksi bahasa sistem, pilihan manual, serta tata letak kanan ke kiri untuk bahasa Arab, Persia, Urdu, dan Ibrani.
+
 ## Alat Kreasi
 
 Rilis saat ini mencakup enam alat kreasi. Model dan layanan yang tersedia bergantung pada lingkungan Codex lokal dan pengaturan layanan AI Anda.
 
-Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau gambar, menghasilkan sulih suara dengan Sulih Suara Cerdas, atau membuat video dengan Seedance.
+Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau gambar, menghasilkan sulih suara dengan Text to Speech, atau membuat video dengan Seedance.
 
 ![Dashboard Kreasi OpenCreator](../images/product/opencreator-dashboard-en.png)
 
 > Alat kreasi baru terus ditambahkan.
 
-**Terjemahan video mendukung 101 bahasa sasaran.**
+**Terjemahan video menyediakan 123 bahasa sumber dan 124 opsi target, termasuk keluaran Pinyin.** Cari dengan nama asli, nama Inggris, nama Mandarin, atau kode bahasa. Cakupan pengenalan dan sintesis suara bergantung pada layanan dan model yang dipilih.
+
+- **Terjemahan subtitle saja**: Impor dan pratinjau SRT, lalu terjemahkan tanpa video sumber, sulih suara, atau rendering video.
+
+- **Penyuntingan subtitle lanjutan**: Gunakan editor imersif dengan gelombang audio dan lini masa yang mengikuti pemutaran untuk mengatur waktu, memisahkan atau menggabungkan subtitle, serta mencari dan mengganti teks. Pratinjau gaya pada video, ubah bahasa, suara, dan keluaran, lalu buat versi baru tanpa menghapus hasil sebelumnya.
+
+- **Pembuatan satu halaman**: Atur pembuatan gambar, video, dan Text to Speech dalam satu halaman, dengan pemilihan model, pratinjau referensi, opsi gambar sesuai model, dan pustaka suara yang dapat dicari.
+
+- **Keluaran multibahasa dan progres**: Font cadangan bawaan meningkatkan rendering aksara kompleks dan subtitle kanan ke kiri. Pantau progres transkripsi, terjemahan, sulih suara, dan rendering beserta jumlah selesai dan total jika tersedia.
 
 <table width="100%">
 <thead>
@@ -87,16 +97,16 @@ Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau 
 </thead>
 <tbody>
 <tr><td valign="top">Penerjemahan Video</td><td valign="top">✅ Tersedia</td><td>Impor video lokal atau publik; transkripsikan dengan layanan Whisper cloud atau lokal; gunakan konteks LLM untuk segmentasi dan penyelarasan subtitel, pengelolaan istilah, dan penerjemahan; atur subtitel dwibahasa, sulih suara atau sampel suara khusus, gaya subtitel, komposisi lanskap atau potret, lalu ekspor SRT, audio, atau video</td></tr>
-<tr><td valign="top">Pengunduh Video</td><td valign="top">✅ Tersedia</td><td>Analisis video publik individual dari YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, dan Reddit; bandingkan format yang tersedia dan unduh video atau audio. Beberapa platform mungkin memerlukan cookie</td></tr>
+<tr><td valign="top">Pengunduh Video</td><td valign="top">✅ Tersedia</td><td>Analisis video publik individual dari YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, dan Reddit; bandingkan format yang tersedia dan unduh video atau audio. Beberapa platform mungkin memerlukan cookie. Jika platform menyediakan subtitle, lihat daftarnya dan unduh SRT; bahasa Inggris ditampilkan lebih dahulu, lalu bahasa antarmuka jika tersedia.</td></tr>
 <tr><td valign="top">Pembuatan Thumbnail</td><td valign="top">✅ Tersedia</td><td>Gabungkan topik, tautan video, dan gambar referensi opsional untuk membuat dan membandingkan beberapa variasi thumbnail konten</td></tr>
-<tr><td valign="top">Pembuatan Gambar</td><td valign="top">✅ Tersedia</td><td>Buat gambar dengan GPT Image dari prompt dan gambar referensi opsional, atur rasio aspek dan jumlah hasil, lalu pratinjau dan unduh setiap gambar</td></tr>
+<tr><td valign="top">Pembuatan Gambar</td><td valign="top">✅ Tersedia</td><td>Buat gambar dengan GPT Image / Seedream / Kling Image / Gemini dari prompt dan gambar referensi opsional, atur rasio aspek dan jumlah hasil, lalu pratinjau dan unduh setiap gambar</td></tr>
 <tr><td valign="top">Penulis Artikel</td><td valign="top">✅ Tersedia</td><td>Ubah topik, tautan, video, atau dokumen menjadi pilihan tema, kerangka, dan artikel yang dapat diedit; tambahkan gambar dan ekspor Markdown, HTML, atau PDF.</td></tr>
 <tr><td valign="top">Posting Xiaohongshu</td><td valign="top">✅ Tersedia</td><td>Buat posting dari topik atau bahan sumber dengan pilihan audiens, jenis posting, dan panjang, lalu salin atau unduh hasilnya.</td></tr>
 <tr><td valign="top">Naskah Video Pendek</td><td valign="top">✅ Tersedia</td><td>Buat naskah per segmen siap produksi dari topik atau bahan sumber sesuai audiens, platform, durasi, dan gaya; edit atau ekspor hasilnya.</td></tr>
 <tr><td valign="top">Animasi Figur Stik</td><td valign="top">✅ Tersedia</td><td>Ubah teks atau konten YouTube menjadi narasi, suara, visual storyboard dengan karakter konsisten, subtitle, dan animasi figur stik yang dapat diunduh.</td></tr>
 <tr><td valign="top">Klip Otomatis</td><td valign="top">Dalam pengembangan</td><td>Analisis video panjang, temukan sorotan, dan ubah bagian terpilih menjadi klip pendek yang dapat digunakan kembali</td></tr>
-<tr><td valign="top">Sulih Suara Cerdas</td><td valign="top">✅ Tersedia</td><td>Ubah naskah menjadi sulih suara dengan pilihan suara, tempo, dan kontrol emosi</td></tr>
-<tr><td valign="top">Pembuatan Video</td><td valign="top">✅ Tersedia</td><td>Buat video dengan Seedance dari prompt dan gambar referensi, lalu pratinjau, buat ulang, atau unduh setiap versi</td></tr>
+<tr><td valign="top">Text to Speech</td><td valign="top">✅ Tersedia</td><td>Ubah naskah menjadi sulih suara dengan pilihan suara, tempo, dan kontrol emosi</td></tr>
+<tr><td valign="top">Pembuatan Video</td><td valign="top">✅ Tersedia</td><td>Buat video dengan Seedance / Kling / Veo dari prompt dan gambar referensi, lalu pratinjau, buat ulang, atau unduh setiap versi</td></tr>
 <tr><td valign="top">Avatar Digital</td><td valign="top">Dalam pengembangan</td><td>Gabungkan naskah, suara, dan presentasi avatar untuk membuat video berbicara</td></tr>
 </tbody>
 </table>

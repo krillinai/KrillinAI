@@ -65,19 +65,27 @@ Web is the single frontend implementation. Desktop loads the same Web build and 
 
 - 🔐 **Local Security**: Keep data, attachments, and logs local by default, with approvals and redacted diagnostics.
 
-- 🌐 **Localized Interface**: Use the Web or Desktop client in Simplified Chinese, English, or Swedish, with automatic system-language detection or manual selection.
+- 🌐 **Localized Interface**: Use Web and Desktop in 43 interface languages, with automatic system-language detection, manual selection, and right-to-left layouts for Arabic, Persian, Urdu, and Hebrew.
 
 ## Creator Tools
 
 The current release includes ten creator tools. Available models and services depend on your local Codex environment and AI service settings.
 
-Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts; create stick figure animations; translate or download videos; generate thumbnails, images, or videos; and create voiceovers with Smart Dubbing.
+Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts; create stick figure animations; translate or download videos; generate thumbnails, images, or videos; and create voiceovers with Text to Speech.
 
 ![OpenCreator Creator Dashboard](./docs/images/product/opencreator-dashboard-en.png)
 
 > More creator tools are continuously being added.
 
-**Video Translation supports 14 source languages and 101 target languages.** The source languages are Simplified Chinese, English, Spanish, French, Italian, Brazilian Portuguese, Indonesian, Thai, Japanese, Korean, German, Turkish, Russian, and Malay.
+**Video Translation offers 123 source languages and 124 target options, including Pinyin output.** Search by native name, English name, Chinese name, or language code. Speech recognition and dubbing coverage depend on the selected service and model; the language catalog does not mean every model supports every language.
+
+- **Subtitle-only translation**: Import and preview an SRT file, then translate it without a source video, dubbing, or video rendering.
+
+- **Advanced subtitle editing**: Open an immersive editor with a playback-linked waveform and timeline, adjust subtitle timing, split or merge cues, and find and replace text. Preview subtitle styles on the video, adjust language, dubbing, and output settings, then generate a new version while retaining earlier results.
+
+- **One-step creation**: Configure image generation, video generation, and Text to Speech on one page. Browse models, preview reference images, use model-specific image options, and find voices in a searchable voice library.
+
+- **Multilingual output and progress**: Bundled fallback fonts improve complex-script and right-to-left subtitle rendering. Follow transcription, translation, dubbing, and rendering progress with completed and total item counts where available.
 
 <table width="100%">
 <thead>
@@ -89,16 +97,16 @@ Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts;
 </thead>
 <tbody>
 <tr><td valign="top">Video Translation</td><td valign="top">✅ Available</td><td>Import local or public videos; transcribe with cloud or local Whisper services; use LLM context for subtitle segmentation, alignment, terminology, and translation; configure bilingual subtitles, dubbing or a custom voice sample, subtitle styles, landscape or portrait composition, and export SRT, audio, or video</td></tr>
-<tr><td valign="top">Video Downloader</td><td valign="top">✅ Available</td><td>Analyze individual public videos from YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, and Reddit; compare available formats and download video or audio. Some sources may require platform cookies</td></tr>
+<tr><td valign="top">Video Downloader</td><td valign="top">✅ Available</td><td>Analyze individual public videos from YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, and Reddit; compare available formats and download video or audio. Some sources may require platform cookies. When platform captions are available, preview the subtitle list and download SRT; English appears first, followed by the interface language when available.</td></tr>
 <tr><td valign="top">Thumbnail Generator</td><td valign="top">✅ Available</td><td>Combine a topic, video link, and optional reference image to generate and compare multiple content-thumbnail variations</td></tr>
-<tr><td valign="top">Image Generation</td><td valign="top">✅ Available</td><td>Generate with GPT Image from a prompt and optional reference image, configure the aspect ratio and output count, then preview and download individual images</td></tr>
+<tr><td valign="top">Image Generation</td><td valign="top">✅ Available</td><td>Generate with GPT Image / Seedream / Kling Image / Gemini from a prompt and optional reference image, configure the aspect ratio and output count, then preview and download individual images</td></tr>
 <tr><td valign="top">Article Writer</td><td valign="top">✅ Available</td><td>Turn a topic, links, videos, or source documents into editable topic options, an outline, and a complete article; add generated images and export Markdown, HTML, or PDF</td></tr>
 <tr><td valign="top">Xiaohongshu Posts</td><td valign="top">✅ Available</td><td>Generate a complete Xiaohongshu post from a topic or source material, with controls for the target audience, post type, and length, then copy or download the result</td></tr>
 <tr><td valign="top">Short Video Script</td><td valign="top">✅ Available</td><td>Create a shoot-ready segmented script from a topic or source material, tailored to the audience, platform, duration, and tone, then edit, copy, or download it</td></tr>
 <tr><td valign="top">Stick Figure Animation</td><td valign="top">✅ Available</td><td>Turn text or YouTube content into narration, voice, consistent-character storyboard visuals, subtitles, and a downloadable stick figure animation</td></tr>
 <tr><td valign="top">Auto Clips</td><td valign="top">In development</td><td>Analyze long videos, identify highlights, and turn selected moments into reusable short clips</td></tr>
-<tr><td valign="top">Smart Dubbing</td><td valign="top">✅ Available</td><td>Turn scripts into voiceovers with selectable voices, pacing, and emotion controls</td></tr>
-<tr><td valign="top">Video Generation</td><td valign="top">✅ Available</td><td>Generate videos with Seedance from prompts and reference images, then preview, regenerate, and download each version</td></tr>
+<tr><td valign="top">Text to Speech</td><td valign="top">✅ Available</td><td>Turn scripts into voiceovers with selectable voices, pacing, and emotion controls</td></tr>
+<tr><td valign="top">Video Generation</td><td valign="top">✅ Available</td><td>Generate videos with Seedance / Kling / Veo from prompts and reference images, then preview, regenerate, and download each version</td></tr>
 <tr><td valign="top">Digital Avatar</td><td valign="top">In development</td><td>Combine scripts, voice, and avatar presentation to produce talking-head videos</td></tr>
 </tbody>
 </table>
