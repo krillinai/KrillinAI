@@ -29,7 +29,7 @@ describe('local Codex provider', () => {
     root = await codexHome(['openai_base_url = "https://api.example.test/v1"']);
     await writeFile(join(root, 'auth.json'), JSON.stringify({ auth_mode: 'apikey', OPENAI_API_KEY: 'api-secret' }));
     await expect(readLocalCodexImageConfiguration({ codexHome: root })).resolves.toMatchObject({
-      authentication: 'api_key', provider: { apiKey: 'api-secret', model: 'gpt-image-1' }
+      authentication: 'api_key', provider: { apiKey: 'api-secret', model: 'gpt-image-2' }
     });
   });
 
@@ -72,7 +72,7 @@ describe('local Codex provider', () => {
     await expect(readLocalCodexProvider({ codexHome: root })).resolves.toEqual({
       baseUrl: 'https://forward.example.test/v1',
       apiKey: 'gateway-secret',
-      model: 'gpt-image-1'
+      model: 'gpt-image-2'
     });
   });
 
@@ -109,7 +109,7 @@ describe('local Codex provider', () => {
     await expect(readLocalCodexProvider({ codexHome: root })).resolves.toEqual({
       baseUrl: 'https://api.example.test/v1',
       apiKey: 'stored-secret',
-      model: 'gpt-image-1'
+      model: 'gpt-image-2'
     });
   });
 

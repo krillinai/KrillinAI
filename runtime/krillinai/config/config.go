@@ -224,7 +224,7 @@ var Conf = Config{
 	Image: Image{
 		Provider: "openai-compatible",
 		Openai: OpenaiCompatibleConfig{
-			Model: "gpt-image-1",
+			Model: "gpt-image-2",
 		},
 	},
 }

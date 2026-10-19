@@ -6,8 +6,8 @@ func TestDefaultImageConfig(t *testing.T) {
 	if Conf.Image.Provider != "openai-compatible" {
 		t.Fatalf("Image.Provider = %q, want openai-compatible", Conf.Image.Provider)
 	}
-	if Conf.Image.Openai.Model == "" {
-		t.Fatalf("Image.Openai.Model is empty")
+	if Conf.Image.Openai.Model != "gpt-image-2" {
+		t.Fatalf("Image.Openai.Model = %q, want gpt-image-2", Conf.Image.Openai.Model)
 	}
 }
 

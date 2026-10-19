@@ -133,7 +133,7 @@ describe('image generation API', () => {
     expect(generated.statusCode).toBe(201);
     expect(generated.json().result).toMatchObject({
       id: 'image_result_1234',
-      model: 'gpt-image-1',
+      model: 'gpt-image-2',
       imageSize: '1024x1024',
       quality: 'high',
       count: 1,
@@ -141,7 +141,7 @@ describe('image generation API', () => {
     });
     expect(String(fetchImpl.mock.calls[0]?.[0])).toBe('https://images.example.test/v1/images/generations');
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({
-      model: 'gpt-image-1',
+      model: 'gpt-image-2',
       prompt: 'A quiet studio portrait',
       size: '1024x1024',
       quality: 'high',

@@ -58,7 +58,7 @@ describe('ImageGenerationWorkspace', () => {
     fireEvent.click(screen.getByRole('combobox', { name: '模型' }));
     fireEvent.click(screen.getByRole('option', { name: 'GPT Image' }));
     expect(screen.getByRole('combobox', { name: '图片画幅' })).toHaveValue('1:1');
-    expect(screen.queryByRole('combobox', { name: '分辨率' })).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '分辨率' })).toHaveValue('1K');
     expect(screen.getByRole('combobox', { name: '图片质量' })).toHaveValue('medium');
   });
 

@@ -5,7 +5,7 @@
 ## API Key 模式
 
 - 保留现有配置的 Base URL、API Key 和图片模型，调用 `/images/generations` 或带参考图的 `/images/edits`。
-- 文本模型不是图片模型时，保持原有 `gpt-image-1` 默认值。
+- 文本模型不是图片模型时，使用默认值 `gpt-image-2`。
 - 接口必须支持图片生成。设置状态检查只检查本地配置，不会发送收费的生成请求。
 
 ## ChatGPT 登录模式

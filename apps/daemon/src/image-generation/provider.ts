@@ -223,7 +223,7 @@ async function generateOpenAiImages(
     ?? (request.provider === 'jimeng' ? config.image.jimeng : config.image.openai);
   if (!provider.apiKey.trim()) missingConfig(request.provider);
   const model = provider.model.trim()
-    || (request.provider === 'jimeng' ? 'doubao-seedream-4-0-250828' : 'gpt-image-1');
+    || (request.provider === 'jimeng' ? 'doubao-seedream-4-0-250828' : 'gpt-image-2');
   const parameters = official ? undefined : manualImageParameters(request, request.provider === 'codex-native' ? 'openai' : request.provider, model);
   const endpoint = openAiImageEndpoint(
     provider.baseUrl,
