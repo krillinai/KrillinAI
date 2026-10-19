@@ -21,7 +21,7 @@ type App struct {
 	TranslateParallelNum  int      `toml:"translate_parallel_num"`
 	TranscribeMaxAttempts int      `toml:"transcribe_max_attempts"`
 	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
-	MaxSentenceLength     int      `toml:"max_sentence_length"` // 原文和译文单行上限：宽字素簇计2，其余基础字素簇计1
+	MaxSentenceLength     int      `toml:"max_sentence_length"` // 原译单行排版目标，允许少量超长；宽字素簇计2，其余基础字素簇计1
 	EnableBlockVttBatch   bool     `toml:"enable_block_vtt_batch"`
 	VttBatchSize          int      `toml:"vtt_batch_size"`
 	TargetLanguageFirst   bool     `toml:"target_language_first"`    // 双语字幕中目标语言是否在上

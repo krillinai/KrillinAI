@@ -19,6 +19,10 @@ import (
 type Translator struct {
 	chatCompleter            types.ChatCompleter
 	filterNonSemanticFillers bool
+	checkpointDir            string
+	onRecovery               func(string)
+	recoveryDelay            time.Duration
+	onRateLimit              func()
 }
 
 func NewTranslator() *Translator {

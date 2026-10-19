@@ -20,7 +20,7 @@ func (s Service) TranslateSubtitleBlocks(ctx context.Context, blocks []*util.Srt
 	if s.YouTubeSubtitleSrv == nil || s.YouTubeSubtitleSrv.translator == nil {
 		return nil, ErrYouTubeSubtitleServiceNotInitialized
 	}
-	return s.YouTubeSubtitleSrv.translator.BatchTranslateSrtBlocks(ctx, blocks, string(p.OriginLanguage), string(p.TargetLanguage), p.TaskPtr)
+	return s.YouTubeSubtitleSrv.translator.withTranslationRecovery(p.TaskBasePath, p.TaskPtr).BatchTranslateSrtBlocks(ctx, blocks, string(p.OriginLanguage), string(p.TargetLanguage), p.TaskPtr)
 }
 
 type DownloadMediaResult struct {

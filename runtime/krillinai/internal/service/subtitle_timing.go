@@ -81,7 +81,8 @@ func splitShortSubtitleBlocks(blocks []*util.SrtBlock, spans []subtitleTimingSpa
 			return subtitleTargetLength(text) <= maxChars && fitsLine(text)
 		})
 		if err != nil {
-			return nil, err
+			// 极小排版目标不能破坏字素簇或阻止产出完整字幕。
+			parts = []string{block.OriginLanguageSentence}
 		}
 		// 保留短尾词回并，但不突破单行硬上限或音频短字幕词数限制。
 		if len(parts) > 1 {
@@ -97,14 +98,23 @@ func splitShortSubtitleBlocks(blocks []*util.SrtBlock, spans []subtitleTimingSpa
 				}
 			}
 		}
+		blockStart := position
+		invalidTiming := false
 		for _, part := range parts {
 			start := subtitlePositionTime(spans, position, false)
 			position += utf8.RuneCountInString(compactSubtitleText(part))
 			end := subtitlePositionTime(spans, position, true)
 			if end <= start {
-				return nil, fmt.Errorf("短字幕%d分段后时间不足", block.Index)
+				invalidTiming = true
 			}
 			result[block.Index] = append(result[block.Index], util.SrtBlock{Timestamp: formatSRTTimeline(start, end), OriginLanguageSentence: part})
+		}
+		if invalidTiming {
+			start, end := subtitlePositionTime(spans, blockStart, false), subtitlePositionTime(spans, position, true)
+			if end <= start {
+				return nil, fmt.Errorf("短字幕%d没有可用的时间区间", block.Index)
+			}
+			result[block.Index] = []util.SrtBlock{{Timestamp: formatSRTTimeline(start, end), OriginLanguageSentence: block.OriginLanguageSentence}}
 		}
 	}
 	return result, nil

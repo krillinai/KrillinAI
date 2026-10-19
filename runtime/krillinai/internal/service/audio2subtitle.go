@@ -461,8 +461,18 @@ func (s Service) splitTextAndTranslateV2(
 	reportProgress func(completed, total int) error,
 	onProgress ...func(completed, total int),
 ) ([]*TranslatedItem, error) {
+	return s.splitTextAndTranslateRecoverable(ctx, basePath, inputText, originLang, targetLang, enableModalFilter, id, nil, reportProgress, onProgress...)
+}
+
+func (s Service) splitTextAndTranslateRecoverable(
+	ctx context.Context, basePath, inputText string,
+	originLang, targetLang types.StandardLanguageCode,
+	enableModalFilter bool, id int, task *types.SubtitleTask,
+	reportProgress func(completed, total int) error,
+	onProgress ...func(completed, total int),
+) ([]*TranslatedItem, error) {
 	sentences := splitTranslationSentences(inputText)
-	translator := &Translator{chatCompleter: s.ChatCompleter, filterNonSemanticFillers: enableModalFilter}
+	translator := (&Translator{chatCompleter: s.ChatCompleter, filterNonSemanticFillers: enableModalFilter}).withTranslationRecovery(basePath, task)
 	var results []*TranslatedItem
 	_, err := translator.translatePairedSentences(ctx, sentences, originLang, targetLang, subtitleTargetLimit(), translationBatchSize, func(batch []pairedSentence, completed, total int) error {
 		results = append(results, flattenPairedSentences(batch)...)
@@ -851,7 +861,7 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 					case <-ctx.Done():
 					}
 				}
-				translatedResults, err = s.splitTextAndTranslateV2(ctx, stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id, nil, reportProgress)
+				translatedResults, err = s.splitTextAndTranslateRecoverable(ctx, stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id, stepParam.TaskPtr, nil, reportProgress)
 				if err != nil {
 					return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
 				}

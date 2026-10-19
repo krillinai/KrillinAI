@@ -16,6 +16,13 @@ func (t *SubtitleTask) SetDetailedProgressReporter(reporter func(TaskProgress)) 
 	}
 }
 
+// 恢复消息不修改旧任务百分比；统一流水线负责保持整体进度单调。
+func (t *SubtitleTask) ReportTranslationRecovery(message string) {
+	if t != nil && t.detailedProgressReporter != nil {
+		t.detailedProgressReporter(TaskProgress{Phase: "recovering_translation", Message: message})
+	}
+}
+
 func (t *SubtitleTask) ReportProgress(progress TaskProgress) {
 	if t == nil {
 		return
