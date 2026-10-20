@@ -174,3 +174,36 @@ it('bridges a non-streaming model probe before submitting and replays the Respon
   expect(fetcher).toHaveBeenCalledOnce(); expect(fetcher.mock.lastCall?.[0]).toBe(`${baseUrl}/chat/completions`);
   expect(success).toHaveBeenCalledWith(model.id, 'text', 'responses');
 });
+
+async function chatToolCalls(frames: unknown[]) {
+  const bridge = responsesToChat({ model: 'gemini-3.7-flash', tools: [{ type: 'function', name: 'get_weather', parameters: { type: 'object', properties: { city: { type: 'string' } } } }],
+    input: [{ role: 'user', content: [{ type: 'input_text', text: 'weather in Paris and London' }] }], stream: true });
+  const body = frames.map(p => `data: ${JSON.stringify(p)}\n\n`).join('') + 'data: [DONE]\n\n';
+  const response = await chatToResponses(new Response(body, { headers: { 'content-type': 'text/event-stream' } }), bridge.tools, 'gemini-3.7-flash');
+  const events = (await response.text()).split('\n\n').filter(Boolean).map(frame => JSON.parse(frame.split('\n').find(l => l.startsWith('data:'))!.slice(5)));
+  return events.at(-1).response.output.map((item: { call_id: string; name: string; arguments: string }) => ({ id: item.call_id, name: item.name, arguments: item.arguments }));
+}
+
+it('keeps parallel Chat tool calls apart when the stream carries no index', async () => {
+  // Gemini's OpenAI-compatible endpoint sends every parallel call whole, in its own chunk, without an index.
+  expect(await chatToolCalls([
+    { choices: [{ delta: { tool_calls: [{ id: 'call_paris', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Paris"}' } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ id: 'call_london', type: 'function', function: { name: 'get_weather', arguments: '{"city":"London"}' } }] } }] },
+    { choices: [{ delta: {}, finish_reason: 'tool_calls' }] }
+  ])).toEqual([
+    { id: 'call_paris', name: 'get_weather', arguments: '{"city":"Paris"}' },
+    { id: 'call_london', name: 'get_weather', arguments: '{"city":"London"}' }
+  ]);
+});
+
+it('continues the last Chat tool call for argument fragments without an index', async () => {
+  expect(await chatToolCalls([
+    { choices: [{ delta: { tool_calls: [{ id: 'call_paris', type: 'function', function: { name: 'get_weather', arguments: '{"city":' } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ id: 'call_paris', function: { arguments: '"Paris"}' } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ id: 'call_london', type: 'function', function: { name: 'get_weather', arguments: '{"ci' } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ function: { arguments: 'ty":"London"}' } }] }, finish_reason: 'tool_calls' }] }
+  ])).toEqual([
+    { id: 'call_paris', name: 'get_weather', arguments: '{"city":"Paris"}' },
+    { id: 'call_london', name: 'get_weather', arguments: '{"city":"London"}' }
+  ]);
+});

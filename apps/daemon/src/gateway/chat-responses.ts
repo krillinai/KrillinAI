@@ -84,6 +84,16 @@ function usage(value: Item | undefined) {
     input_tokens_details: { cached_tokens: value?.prompt_tokens_details?.cached_tokens ?? 0 }, output_tokens_details: { reasoning_tokens: value?.completion_tokens_details?.reasoning_tokens ?? 0 } };
 }
 
+// Gemini's OpenAI-compatible endpoint streams every parallel tool call whole and without an index. A delta
+// without one starts a new call when it brings an id other than the latest call's, or a name without an id;
+// anything else (a repeated id, a bare argument fragment) continues the latest call.
+function unindexedCallSlot(calls: Map<number, Item>, call: Item): number {
+  if (!calls.size) return 0;
+  const latest = Math.max(...calls.keys());
+  const startsNew = call.id ? call.id !== calls.get(latest)!.id : Boolean(call.function?.name);
+  return startsNew ? latest + 1 : latest;
+}
+
 export async function chatToResponses(response: Response, tools: Map<string, Tool>, model: unknown): Promise<Response> {
   const id = `resp_${randomUUID()}`; const created = Math.floor(Date.now() / 1000);
   const envelope = (output: Item[], status = 'completed', tokenUsage?: Item) => ({ id, object: 'response', created_at: created, status, model, output, usage: usage(tokenUsage), error: null });
@@ -134,8 +144,9 @@ export async function chatToResponses(response: Response, tools: Map<string, Too
           yield event('response.output_text.delta', { item_id: message.id, output_index: 0, content_index: 0, delta: delta.content });
         }
         for (const call of delta.tool_calls ?? []) {
-          const index = call.index ?? 0; const current = calls.get(index) ?? { id: '', function: { name: '', arguments: '' } };
-          if (call.id) current.id += call.id;
+          const index = typeof call.index === 'number' ? call.index : unindexedCallSlot(calls, call);
+          const current = calls.get(index) ?? { id: '', function: { name: '', arguments: '' } };
+          if (call.id && call.id !== current.id) current.id += call.id;
           if (call.function?.name) current.function.name += call.function.name;
           if (call.function?.arguments) current.function.arguments += call.function.arguments;
           calls.set(index, current);
