@@ -19,6 +19,9 @@ import (
 type subtitleRoutingCompleter struct{}
 
 func (subtitleRoutingCompleter) ChatCompletion(prompt string) (string, error) {
+	if response, ok := neutralSemanticTestResponse(prompt); ok {
+		return response, nil
+	}
 	input, err := decodePairedTestInput(prompt)
 	if err != nil {
 		return "", err

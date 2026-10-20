@@ -11,10 +11,10 @@ import (
 	"krillin-ai/pkg/util"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	openaiapi "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
@@ -25,52 +25,16 @@ func sourceTranslationChanged(source pairedTranslationSource, target string) boo
 }
 
 // 只合并已经对应的相邻片段，不在两种语言中独立按比例切分。
-func repairPairedBoundaries(item pairedTranslationOutputSentence, sourceText string, limit int) (pairedTranslationOutputSentence, bool) {
-	var sources, targets []string
-	for _, segment := range item.Segments {
-		sources = append(sources, segment.Source)
-		targets = append(targets, segment.Target)
-	}
-	if !subtitleSegmentsPreserveText(sourceText, sources) || !subtitleSegmentsPreserveText(item.FullTarget, targets) {
-		return item, false
-	}
-	item.Segments = append([]pairedTranslationSegment(nil), item.Segments...)
-	// 取回原始边界空白，合并 URL 或词内片段时不凭空添加空格。
-	chunks := func(full string, segments []string) []string {
-		remaining := strings.TrimSpace(full)
-		var result []string
-		for _, segment := range segments {
-			after := remaining[len(strings.TrimSpace(segment)):]
-			next := strings.TrimLeftFunc(after, unicode.IsSpace)
-			result = append(result, remaining[:len(remaining)-len(next)])
-			remaining = next
-		}
-		return result
-	}
-	sourceChunks, targetChunks := chunks(sourceText, sources), chunks(item.FullTarget, targets)
-	changed := false
-	for i := 0; i+1 < len(item.Segments); {
-		left, right := item.Segments[i], item.Segments[i+1]
-		source, target := sourceChunks[i]+sourceChunks[i+1], targetChunks[i]+targetChunks[i+1]
-		badBoundary := subtitleBoundarySplitsSubject(left.Source, right.Source, limit) || subtitleBoundarySplitsSubject(left.Target, right.Target, limit)
-		if badBoundary && subtitleTargetLength(strings.TrimSpace(source)) <= subtitleAcceptedLimit(limit) && subtitleTargetLength(strings.TrimSpace(target)) <= subtitleAcceptedLimit(limit) {
-			item.Segments[i] = pairedTranslationSegment{Source: strings.TrimSpace(source), Target: strings.TrimSpace(target)}
-			item.Segments = append(item.Segments[:i+1], item.Segments[i+2:]...)
-			sourceChunks[i], targetChunks[i] = source, target
-			sourceChunks = append(sourceChunks[:i+1], sourceChunks[i+2:]...)
-			targetChunks = append(targetChunks[:i+1], targetChunks[i+2:]...)
-			changed = true
-			continue
-		}
-		i++
-	}
-	return item, changed
+func repairPairedBoundaries(item pairedTranslationOutputSentence, sourceText string, limit int, hints ...[]string) (pairedTranslationOutputSentence, bool) {
+	item, punctuationChanged := restorePairedTargetBoundaryPunctuation(item)
+	item, layoutChanged := optimizePairedLayout(item, sourceText, limit, hints...)
+	return item, punctuationChanged || layoutChanged
 }
 
 // recoverPairedSentence 只恢复已取得有效整句译文的句子，绝不回填原文或空占位。
 // 原译片段不能完整还原文本时，回到整句配对，避免按字数比例制造语义错位。
 func (t *Translator) recoverPairedSentence(sentence pairedSentence, source pairedTranslationSource, originLang, targetLang types.StandardLanguageCode) (pairedSentence, bool) {
-	if sentence.ID != source.ID || !hasSubtitleContent(sentence.FullTarget) || hasSubtitleLineBreak(sentence.FullTarget) ||
+	if sentence.OmittedHesitation || sentence.ID != source.ID || !hasSubtitleContent(sentence.FullTarget) || hasSubtitleLineBreak(sentence.FullTarget) ||
 		!t.isTranslationValid(source.Text, sentence.FullTarget, originLang, targetLang) || sourceTranslationChanged(source, sentence.FullTarget) {
 		return pairedSentence{}, false
 	}
@@ -86,9 +50,15 @@ func (t *Translator) recoverPairedSentence(sentence pairedSentence, source paire
 	if !validSegments {
 		sentence.Source = []string{source.Text}
 		sentence.Target = []string{sentence.FullTarget}
+		sentence.LayoutFallback = true
 	}
+	if !slices.Equal(sentence.NLPSourceHint, source.NLPSourceHint) {
+		// 边界建议改变时复用父句译文，只重新检查排版。
+		sentence.LayoutVersion = 0
+		sentence.LayoutReviewed = false
+	}
+	sentence.NLPSourceHint = source.NLPSourceHint
 	sentence.FullSource = source.Text
-	sentence.LayoutFallback = true
 	return sentence, true
 }
 
@@ -140,6 +110,10 @@ func isTransientTranslationRequestError(err error) bool {
 
 // 接口重试与内容纠错分别计数。持续限流进入低频等待，底层不可用仍返回真实错误。
 func (t *Translator) requestTranslation(ctx context.Context, prompt string, maxTokens int) (string, error) {
+	prompt = withTranslationFillerPolicy(prompt)
+	if len(prompt) > translationRequestBytes {
+		return "", fmt.Errorf("翻译请求超过预算")
+	}
 	for failures := 0; ; failures++ {
 		if err := ctx.Err(); err != nil {
 			return "", err
@@ -198,6 +172,17 @@ func (t *Translator) pairedPrompt(input pairedTranslationInput) string {
 func (t *Translator) translatePairedBatch(ctx context.Context, input pairedTranslationInput, originLang, targetLang types.StandardLanguageCode, save func(pairedSentence, bool) error) (pairedTranslationInput, error) {
 	remaining := input
 	candidates := make(map[string]pairedSentence)
+	// 排版入口已经有完整译文，失败时恢复这份译文，不能触发再次翻译。
+	for _, source := range input.Sentences {
+		if source.TargetText == "" {
+			continue
+		}
+		if value, ok := t.recoverPairedSentence(pairedSentence{ID: source.ID, FullTarget: source.TargetText}, source, originLang, targetLang); ok {
+			value.LayoutFallback = true
+			value.LayoutVersion, value.LayoutTarget = pairedLayoutVersion, input.MaxTargetChars
+			candidates[source.ID] = value
+		}
+	}
 	feedback := ""
 	maxTokens := 1024
 	for _, source := range input.Sentences {
@@ -242,6 +227,14 @@ func (t *Translator) translatePairedBatch(ctx context.Context, input pairedTrans
 		items := make(map[string]pairedTranslationOutputSentence)
 		duplicates := make(map[string]bool)
 		for _, item := range output.Sentences {
+			if item.FullTarget == "" {
+				for _, source := range remaining.Sentences {
+					if source.ID == item.ID {
+						item.FullTarget = source.TargetText
+						break
+					}
+				}
+			}
 			if _, exists := items[item.ID]; exists {
 				duplicates[item.ID] = true
 			}
@@ -263,7 +256,7 @@ func (t *Translator) translatePairedBatch(ctx context.Context, input pairedTrans
 				} else {
 					parsed, parseErr = t.parsePairedTranslation(string(data), single, originLang, targetLang)
 					if parseErr != nil {
-						if repaired, ok := repairPairedBoundaries(item, source.Text, remaining.MaxTargetChars); ok {
+						if repaired, ok := repairPairedBoundaries(item, source.Text, remaining.MaxTargetChars, source.NLPSourceHint); ok {
 							data, _ = json.Marshal(pairedTranslationOutput{Sentences: []pairedTranslationOutputSentence{repaired}})
 							parsed, parseErr = t.parsePairedTranslation(string(data), single, originLang, targetLang)
 						}
@@ -283,6 +276,16 @@ func (t *Translator) translatePairedBatch(ctx context.Context, input pairedTrans
 					sentence.Target = append(sentence.Target, segment.Target)
 				}
 				if candidate, ok := t.recoverPairedSentence(sentence, source, originLang, targetLang); ok {
+					// 短句的完整原译可直接成为安全配对，不为失效的多余切分反复请求。
+					encoded, _ := encodePairedSentenceForLayout(candidate)
+					if whole, err := t.parsePairedTranslation(encoded, single, originLang, targetLang); err == nil {
+						if err := save(whole[0], true); err != nil {
+							return remaining, err
+						}
+						continue
+					}
+					candidate.LayoutFallback = true
+					candidate.LayoutVersion, candidate.LayoutTarget = pairedLayoutVersion, input.MaxTargetChars
 					candidates[source.ID] = candidate
 					// 先保存有效译文，即使分段纠错期间断连也能恢复。
 					if err := save(candidate, false); err != nil {
@@ -335,6 +338,7 @@ func (t *Translator) translatePlainSentence(ctx context.Context, input pairedTra
 	input.Sentences = []pairedTranslationSource{source}
 	payload, _ := json.Marshal(input)
 	prompt := "仅翻译输入text的完整内容到target_language，不拆分、不配对、不计数字幕长度。保留全部事实、专名、数字、否定和条件；context_before/context_after仅供理解，禁止翻译进结果。仅输出JSON：{\"sentence_id\":\"输入ID\",\"target_text\":\"完整译文\"}。\n"
+	prompt += "semantic_context 若存在，只使用适用于当前 sentence_id 的术语含义，结合主题理解歧义，不把摘要翻译进结果。已有 target_text 必须原样保留。\n"
 	if t.filterNonSemanticFillers {
 		prompt += "仅忽略没有实际语义的um、uh、ah，保留具有实际含义的语气、否定及可能性。\n"
 	}

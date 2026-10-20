@@ -23,17 +23,28 @@ type Translator struct {
 	onRecovery               func(string)
 	recoveryDelay            time.Duration
 	onRateLimit              func()
+	preparedTranslation      *preparedTranslationContext
+	nlpSegmenter             translationNLPSegmenter
+	nlpBoundaryChecker       translationNLPBoundaryChecker
+	nlpRuntime               *translationNLPRuntime
+	reviseTranslation        bool
+	segmentTranslation       bool
 }
 
 func NewTranslator() *Translator {
+	return newTranslator(openai.NewClient(config.Conf.Llm.BaseUrl, config.Conf.Llm.ApiKey, config.Conf.App.Proxy))
+}
+
+func newTranslator(completer types.ChatCompleter) *Translator {
 	return &Translator{
-		chatCompleter: openai.NewClient(config.Conf.Llm.BaseUrl, config.Conf.Llm.ApiKey, config.Conf.App.Proxy),
+		segmentTranslation: translationFlowDefault == "segmented",
+		reviseTranslation:  translationRevisionDefault == "revised",
+		chatCompleter:      completer,
 	}
 }
 
 func (t *Translator) SplitTextAndTranslate(inputText string, originLang, targetLang types.StandardLanguageCode) ([]*TranslatedItem, error) {
-	sentences := splitTranslationSentences(inputText)
-	paired, err := t.translatePairedSentences(context.Background(), sentences, originLang, targetLang, subtitleTargetLimit(), 3, nil)
+	paired, err := t.translatePairedSentences(context.Background(), []string{inputText}, originLang, targetLang, subtitleTargetLimit(), 3, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -206,6 +217,9 @@ func (t *Translator) isTranslationValid(originText, translatedText string, origi
 	originText = strings.Join(strings.Fields(originText), " ")
 	translatedText = strings.Join(strings.Fields(translatedText), " ")
 	if translatedText == "" {
+		return false
+	}
+	if translationHasHesitationLeak(originText, translatedText, originLang, targetLang) {
 		return false
 	}
 	if originLang == targetLang {

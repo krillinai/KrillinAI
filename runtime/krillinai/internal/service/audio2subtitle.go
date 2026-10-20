@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -471,10 +472,15 @@ func (s Service) splitTextAndTranslateRecoverable(
 	reportProgress func(completed, total int) error,
 	onProgress ...func(completed, total int),
 ) ([]*TranslatedItem, error) {
-	sentences := splitTranslationSentences(inputText)
-	translator := (&Translator{chatCompleter: s.ChatCompleter, filterNonSemanticFillers: enableModalFilter}).withTranslationRecovery(basePath, task)
+	return s.translatePreparedText(ctx, basePath, inputText, originLang, targetLang, enableModalFilter, id, task, nil, reportProgress, onProgress...)
+}
+
+func (s Service) translatePreparedText(ctx context.Context, basePath, inputText string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool, id int, task *types.SubtitleTask, prepared *preparedTranslationContext, reportProgress func(completed, total int) error, onProgress ...func(completed, total int)) ([]*TranslatedItem, error) {
+	translator := newTranslator(s.ChatCompleter)
+	translator.filterNonSemanticFillers, translator.preparedTranslation = enableModalFilter, prepared
+	translator = translator.withTranslationRecovery(basePath, task)
 	var results []*TranslatedItem
-	_, err := translator.translatePairedSentences(ctx, sentences, originLang, targetLang, subtitleTargetLimit(), translationBatchSize, func(batch []pairedSentence, completed, total int) error {
+	_, err := translator.translatePairedSentences(ctx, []string{inputText}, originLang, targetLang, subtitleTargetLimit(), translationBatchSize, func(batch []pairedSentence, completed, total int) error {
 		results = append(results, flattenPairedSentences(batch)...)
 		if basePath != "" {
 			path := filepath.Join(basePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, id))
@@ -720,7 +726,7 @@ func (s Service) processAudioSegments(ctx context.Context, stepParam *types.Subt
 	)
 
 	// 启动翻译协程
-	s.startTranslateWorker(ctx, eg, stepParam, pendingTranslationQueue, translationProgressQueue, translatedQueue)
+	s.startTranslateWorker(ctx, eg, stepParam, pendingTranslationQueue, translationProgressQueue, translatedQueue, segmentNum)
 
 	// 处理结果协程
 	s.startResultHandler(ctx, eg, stepParam, segmentNum, timePoints, audioSegments,
@@ -835,46 +841,65 @@ func (s Service) startTranscribeWorkers(ctx context.Context, eg *errgroup.Group,
 // 启动翻译工作协程
 func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, stepParam *types.SubtitleTaskStepParam,
 	pendingTranslationQueue chan DataWithId[string], translationProgressQueue chan DataWithId[TranslationProgress],
-	translatedQueue chan DataWithId[[]*TranslatedItem]) {
+	translatedQueue chan DataWithId[[]*TranslatedItem], expectedSegments ...int) {
 
 	eg.Go(func() error {
-		for {
+		count := 1
+		if len(expectedSegments) > 0 {
+			count = expectedSegments[0]
+		}
+		var pending []DataWithId[string]
+		for len(pending) < count {
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case translateItem, ok := <-pendingTranslationQueue:
 				if !ok {
-					return nil
+					return fmt.Errorf("转录片段不完整：收到%d段，需要%d段", len(pending), count)
 				}
-				var translatedResults []*TranslatedItem
-				var err error
-				// 翻译文本
-				log.GetLogger().Info("Begin to translate", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
-
-				reportProgress := func(completed, total int) {
-					fraction := scaledProgress(completed, total, 0, 1)
-					select {
-					case translationProgressQueue <- DataWithId[TranslationProgress]{
-						Data: TranslationProgress{Fraction: fraction, Completed: completed, Total: total},
-						Id:   translateItem.Id,
-					}:
-					case <-ctx.Done():
-					}
-				}
-				translatedResults, err = s.splitTextAndTranslateRecoverable(ctx, stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id, stepParam.TaskPtr, nil, reportProgress)
-				if err != nil {
-					return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
-				}
-				_ = util.SaveToDisk(translatedResults, filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, translateItem.Id)))
-				log.GetLogger().Info("Translate completed", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
-				reportTranslationProgress(ctx, translationProgressQueue, translateItem.Id, 1)
-				select {
-				case translatedQueue <- DataWithId[[]*TranslatedItem]{Data: translatedResults, Id: translateItem.Id}:
-				case <-ctx.Done():
-					return ctx.Err()
-				}
+				pending = append(pending, translateItem)
 			}
 		}
+		sort.Slice(pending, func(i, j int) bool { return pending[i].Id < pending[j].Id })
+		var prepared map[int]*preparedTranslationContext
+		if count > 1 {
+			translator := newTranslator(s.ChatCompleter).withTranslationRecovery(stepParam.TaskBasePath, stepParam.TaskPtr)
+			var err error
+			prepared, err = translator.prepareAudioTranslationContexts(ctx, pending, stepParam.OriginLanguage, stepParam.TargetLanguage)
+			if err != nil {
+				return err
+			}
+		}
+		for _, translateItem := range pending {
+			var translatedResults []*TranslatedItem
+			var err error
+			// 翻译文本
+			log.GetLogger().Info("Begin to translate", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
+
+			reportProgress := func(completed, total int) {
+				fraction := scaledProgress(completed, total, 0, 1)
+				select {
+				case translationProgressQueue <- DataWithId[TranslationProgress]{
+					Data: TranslationProgress{Fraction: fraction, Completed: completed, Total: total},
+					Id:   translateItem.Id,
+				}:
+				case <-ctx.Done():
+				}
+			}
+			translatedResults, err = s.translatePreparedText(ctx, stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id, stepParam.TaskPtr, prepared[translateItem.Id], nil, reportProgress)
+			if err != nil {
+				return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
+			}
+			_ = util.SaveToDisk(translatedResults, filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, translateItem.Id)))
+			log.GetLogger().Info("Translate completed", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
+			reportTranslationProgress(ctx, translationProgressQueue, translateItem.Id, 1)
+			select {
+			case translatedQueue <- DataWithId[[]*TranslatedItem]{Data: translatedResults, Id: translateItem.Id}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		return nil
 	})
 }
 

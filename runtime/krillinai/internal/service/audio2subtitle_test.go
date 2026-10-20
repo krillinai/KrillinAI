@@ -308,6 +308,9 @@ type echoBatchCompleter struct {
 }
 
 func (c *echoBatchCompleter) ChatCompletion(prompt string) (string, error) {
+	if response, ok := neutralSemanticTestResponse(prompt); ok {
+		return response, nil
+	}
 	input, err := decodePairedTestInput(prompt)
 	if err != nil {
 		return "", err
@@ -369,7 +372,10 @@ type scriptedCompleter struct {
 	calls     int
 }
 
-func (c *scriptedCompleter) ChatCompletion(string) (string, error) {
+func (c *scriptedCompleter) ChatCompletion(prompt string) (string, error) {
+	if response, ok := neutralSemanticTestResponse(prompt); ok {
+		return response, nil
+	}
 	if c.calls >= len(c.responses) {
 		return "", errors.New("unexpected call")
 	}

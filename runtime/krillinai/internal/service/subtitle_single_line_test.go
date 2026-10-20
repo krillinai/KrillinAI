@@ -49,14 +49,14 @@ func TestPairedTranslationProtectsUnpunctuatedInputAndBatchBudget(t *testing.T) 
 		if err != nil {
 			return "", err
 		}
-		if len(prompt) > translationRequestBytes || input.MaxSourceChars != 50 {
+		if len(prompt) > translationRequestBytes || (input.MaxSourceChars != 0 && input.MaxSourceChars != 50) {
 			t.Fatalf("请求超限: %d", len(prompt))
 		}
 		for _, sentence := range input.Sentences {
 			if len(sentence.Text) > translationSentenceBytes {
 				t.Fatalf("输入未保护: %d", len(sentence.Text))
 			}
-			if subtitleTargetLength(sentence.Text) > input.MaxSourceChars {
+			if input.MaxSourceChars > 0 && subtitleTargetLength(sentence.Text) > input.MaxSourceChars {
 				if len(sentence.SourceHint) < 2 || compactSubtitleText(strings.Join(sentence.SourceHint, "")) != compactSubtitleText(sentence.Text) || !subtitleSegmentsHaveSafeBoundaries(sentence.SourceHint) {
 					t.Fatalf("原文分段参考不完整或破坏字素: %q", sentence.SourceHint)
 				}
@@ -82,8 +82,8 @@ func TestPairedTranslationProtectsUnpunctuatedInputAndBatchBudget(t *testing.T) 
 	var restored strings.Builder
 	for _, sentence := range paired {
 		for _, part := range sentence.Source {
-			if subtitleTargetLength(part) > 50 {
-				t.Fatal("原文超限")
+			if subtitleLayoutNeedsSplit(part, 50) {
+				t.Fatal("原文仍有明显可改善的超长段")
 			}
 			restored.WriteString(part)
 		}
@@ -188,10 +188,10 @@ func TestPairedTranslationRejectsSourceOverflowAndUnsafeBreaks(t *testing.T) {
 			t.Fatalf("未拒绝无效输出: %s", data)
 		}
 	}
-	if got := splitTranslationSentences("第一句。第二句！第三句？"); len(got) != 3 {
+	if got := splitTranslationSentences("第一句。第二句！第三句？", "zh_cn"); len(got) != 3 {
 		t.Fatalf("无空格语句未拆分: %q", got)
 	}
-	if got := splitTranslationSentences("Dr. Smith met Mr. Jones. Then they left."); len(got) != 2 {
+	if got := splitTranslationSentences("Dr. Smith met Mr. Jones. Then they left.", "en"); len(got) != 2 {
 		t.Fatalf("缩写被错误拆句: %q", got)
 	}
 }

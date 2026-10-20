@@ -32,9 +32,32 @@ func (t *Translator) withTranslationRecovery(workdir string, task *types.Subtitl
 	return &copy
 }
 
-func (t *Translator) openTranslationCheckpoint(texts []string, originLang, targetLang types.StandardLanguageCode) (*translationCheckpoint, error) {
+func (t *Translator) openTranslationCheckpoint(texts []string, originLang, targetLang types.StandardLanguageCode, plans ...*translationSemanticPlan) (*translationCheckpoint, error) {
 	checkpoint := &translationCheckpoint{sentences: make(map[string]pairedSentence)}
 	if t.checkpointDir == "" || len(texts) == 0 {
+		return checkpoint, nil
+	}
+	if t.segmentTranslation {
+		identity, err := json.Marshal([]any{"segmented-v1", segmentedFlowVersion(), originLang, targetLang, config.Conf.Llm.Model, config.Conf.Llm.BaseUrl, t.filterNonSemanticFillers, texts, plans})
+		if err != nil {
+			return nil, err
+		}
+		hash := sha256.Sum256(identity)
+		checkpoint.dir = filepath.Join(t.checkpointDir, "translation-checkpoints", hex.EncodeToString(hash[:]))
+		for i := range texts {
+			id := strconv.Itoa(i + 1)
+			data, err := os.ReadFile(filepath.Join(checkpoint.dir, id+".json"))
+			if os.IsNotExist(err) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			var sentence pairedSentence
+			if json.Unmarshal(data, &sentence) == nil {
+				checkpoint.sentences[id] = sentence
+			}
+		}
 		return checkpoint, nil
 	}
 	// 排版目标和批次大小不进入内容指纹；重新排版可以复用已取得的完整译文。
@@ -42,7 +65,9 @@ func (t *Translator) openTranslationCheckpoint(texts []string, originLang, targe
 		Version, SourceLanguage, TargetLanguage, Model, Endpoint, Prompt string
 		FilterFillers                                                    bool
 		Texts                                                            []string
-	}{"paired-recovery-v1", string(originLang), string(targetLang), config.Conf.Llm.Model, config.Conf.Llm.BaseUrl, pairedTranslationPrompt, t.filterNonSemanticFillers, texts})
+		Semantics                                                        []*translationSemanticPlan
+		ReviewPrompt                                                     string
+	}{"content-recovery-v4-fillers", string(originLang), string(targetLang), config.Conf.Llm.Model, config.Conf.Llm.BaseUrl, translationContentPrompt + translationFillerPolicy, t.filterNonSemanticFillers, texts, plans, translationSemanticReviewPrompt})
 	if err != nil {
 		return nil, err
 	}

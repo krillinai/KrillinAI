@@ -202,6 +202,9 @@ func TestTranslateSingleTextRejectsSubtitleMarkupAndUsesStructuredTranslation(t 
 type translationCompleterFunc func(string) (string, error)
 
 func (f translationCompleterFunc) ChatCompletion(prompt string) (string, error) {
+	if response, ok := neutralSemanticTestResponse(prompt); ok {
+		return response, nil
+	}
 	return f(prompt)
 }
 
@@ -315,11 +318,17 @@ func TestSplitTextAndTranslateDoesNotReturnOriginalOnFailure(t *testing.T) {
 	t.Cleanup(func() { config.Conf = previous })
 	config.Conf.App.MaxSentenceLength = 200
 	config.Conf.App.TranslateParallelNum = 1
-	completer := &scriptedCompleter{responses: []string{"I was a nobody.", "I was a nobody.", "I was a nobody."}}
-	translator := &Translator{chatCompleter: completer}
+	calls := 0
+	translator := &Translator{chatCompleter: translationCompleterFunc(func(string) (string, error) {
+		calls++
+		if calls == 3 {
+			return "", context.Canceled
+		}
+		return "I was a nobody.", nil
+	})}
 	items, err := translator.SplitTextAndTranslate("I was a nobody.", "en", "zh_cn")
-	if err == nil || items != nil || completer.calls != 3 {
-		t.Fatalf("items = %v, calls = %d, error = %v", items, completer.calls, err)
+	if err == nil || items != nil || calls != 3 {
+		t.Fatalf("items = %v, calls = %d, error = %v", items, calls, err)
 	}
 }
 
@@ -352,8 +361,8 @@ func TestSubtitleTranslationUsesSurroundingContextWithoutExtraCalls(t *testing.T
 			if err != nil || len(inputs) != 3 {
 				t.Fatalf("calls=%d error=%v", len(inputs), err)
 			}
-			middle := inputs[1].Sentences[0]
-			if fmt.Sprint(middle.Before) != "[Source 1. Source 2.]" || fmt.Sprint(middle.After) != "[Source 4. Source 5.]" {
+			middle := inputs[1]
+			if fmt.Sprint(middle.Before) != "[Source 1. Source 2.]" || fmt.Sprint(middle.After) != "[Source 5. Source 6.]" {
 				t.Fatalf("缺少整句上下文: %+v", middle)
 			}
 		})
