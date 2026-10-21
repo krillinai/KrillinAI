@@ -91,7 +91,28 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 		maxTokens += 2*len(source.Text) + 128
 	}
 	maxTokens = min(translationOutputBudget, max(2048, maxTokens))
-	for attempt := 0; attempt < 3 && len(remaining.Sentences) > 0; attempt++ {
+	for attempt := 0; attempt < translationMaxAttempts && len(remaining.Sentences) > 0; attempt++ {
+		// 最后一次切换整句请求，但仍计入同一句的三次预算，不能在外层重新计数。
+		if attempt == translationMaxAttempts-1 {
+			next := remaining
+			next.Sentences = nil
+			for _, source := range remaining.Sentences {
+				sentence, ok, err := t.translatePlainSentence(ctx, input, source, originLang, targetLang)
+				if err != nil {
+					return remaining, err
+				}
+				if !ok {
+					next.Sentences = append(next.Sentences, source)
+					continue
+				}
+				sentence.DraftTarget = sentence.FullTarget
+				if err := save(sentence, true); err != nil {
+					return remaining, err
+				}
+			}
+			remaining = next
+			break
+		}
 		payload, _ := json.Marshal(contentTranslationInput(remaining))
 		prompt := "任务：translation_content\n" + translationContentPrompt
 		if t.filterNonSemanticFillers {

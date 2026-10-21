@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -134,7 +135,7 @@ func TestFinalLengthRecoversAcrossParentPairsWithIndependentReview(t *testing.T)
 			if err != nil || !completed || splits != 4 || verifications != 1 || len(got.Source) != 4 || got.DraftTarget != original.DraftTarget || got.RevisionVersion != original.RevisionVersion || pairedFinalLengthIssue(got) != nil {
 				t.Fatalf("整父句恢复失败: %+v splits=%d verify=%d err=%v", got, splits, verifications, err)
 			}
-		} else if err == nil || completed || got.FullTarget != original.FullTarget || verifications != 3 {
+		} else if err != nil || !completed || got.FullTarget != original.FullTarget || !slices.Equal(got.Source, original.Source) || !slices.Equal(got.Target, original.Target) || !got.LayoutFallback || verifications != 3 {
 			t.Fatalf("核验拒绝仍采用跨配对改写: %+v completed=%v verify=%d err=%v", got, completed, verifications, err)
 		}
 	}
@@ -232,7 +233,7 @@ func TestSubtitleLengthPassReordersOnlyAfterFrozenAttemptsAndReview(t *testing.T
 				return "", err
 			}
 			if request.Sentences[0].Text == original.FullSource {
-				return "", context.Canceled // 整父句恢复也不可绕过核验失败。
+				return "", errors.New("整父句修正服务不可用") // 核验失败后仍保留原译。
 			}
 			item := pairedSentence{ID: "13", FullTarget: target, Source: []string{source}, Target: []string{target}}
 			if calls == 1 {
@@ -260,7 +261,7 @@ func TestSubtitleLengthPassReordersOnlyAfterFrozenAttemptsAndReview(t *testing.T
 		if !approve {
 			wantCalls++
 		}
-		if calls != wantCalls || reviews != 1 || completed != approve {
+		if calls != wantCalls || reviews != 1 || !completed {
 			t.Fatalf("approve=%v calls=%d reviews=%d completed=%v err=%v", approve, calls, reviews, completed, err)
 		}
 		if approve {
@@ -268,8 +269,8 @@ func TestSubtitleLengthPassReordersOnlyAfterFrozenAttemptsAndReview(t *testing.T
 			if err != nil || got.FullTarget != "那么，"+rewritten+"谢谢。" || len(got.Source) != 4 || got.Source[0] != "Well," || got.Source[3] != "Thanks." || got.Target[0] != "那么，" || got.Target[3] != "谢谢。" || pairedFinalLengthIssue(got) != nil {
 				t.Fatalf("未应用通过复核的局部调整: %+v err=%v", sentences["13"], err)
 			}
-		} else if err == nil || sentences["13"].FullTarget != original.FullTarget {
-			t.Fatal("复核失败仍然导出或覆盖原译")
+		} else if err != nil || sentences["13"].FullTarget != original.FullTarget || !slices.Equal(sentences["13"].Source, original.Source) || !slices.Equal(sentences["13"].Target, original.Target) {
+			t.Fatal("复核失败后未沿用完整原译及原分段")
 		}
 	}
 }
@@ -311,7 +312,7 @@ func TestSubtitleLengthPassBoundaryReviewRetriesUnnaturalCuts(t *testing.T) {
 	}
 }
 
-func TestSubtitleLengthPassFailurePreservesProgressAndNeverPublishes(t *testing.T) {
+func TestSubtitleLengthPassFailureKeepsOriginalUnlessCanceled(t *testing.T) {
 	original := pairedSentence{ID: "1", FullSource: strings.Repeat("long phrase ", 10), FullTarget: "完整译文不能丢失。", Source: []string{strings.TrimSpace(strings.Repeat("long phrase ", 10))}, Target: []string{"完整译文不能丢失。"}}
 	for _, cancel := range []bool{false, true} {
 		ctx, stop := context.WithCancel(context.Background())
@@ -324,15 +325,14 @@ func TestSubtitleLengthPassFailurePreservesProgressAndNeverPublishes(t *testing.
 			return "", errors.New("模型连接中断")
 		})}
 		var pending pairedSentence
+		completed := false
 		err := translator.splitLongPairedSubtitles(ctx, lengthSplitTestInput(original, 65), map[string]pairedSentence{"1": original}, "en", "zh_cn", func(value pairedSentence, complete bool) error {
-			if complete {
-				t.Fatal("超长回退整句被当作最终字幕导出")
-			}
+			completed = completed || complete
 			pending = value
 			return nil
 		})
 		stop()
-		if err == nil || calls != 1 || pending.FullTarget != original.FullTarget || !pending.LayoutFallback || cancel && !errors.Is(err, context.Canceled) {
+		if calls != 1 || pending.FullTarget != original.FullTarget || !slices.Equal(pending.Source, original.Source) || !slices.Equal(pending.Target, original.Target) || !pending.LayoutFallback || completed == cancel || cancel && !errors.Is(err, context.Canceled) || !cancel && err != nil {
 			t.Fatalf("pending=%+v calls=%d err=%v", pending, calls, err)
 		}
 	}

@@ -75,7 +75,11 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 			} // 超预算交回逐条恢复。
 			response, err := t.requestTranslation(ctx, prompt, 8192)
 			if err != nil {
-				return err
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				t.translationNotice("批量字幕修正请求重试后仍不可用，已保留原译继续逐句处理")
+				return nil
 			}
 			var output pairedTranslationOutput
 			if json.Unmarshal([]byte(util.ExtractJSONObject(response, "sentences")), &output) != nil {

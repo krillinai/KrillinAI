@@ -70,20 +70,18 @@ func TestPairedTranslationRateLimitBackoffHonorsCancellation(t *testing.T) {
 	}
 }
 
-func TestPairedTranslationRateLimitWaitsAndHonorsCancellation(t *testing.T) {
+func TestPairedTranslationRateLimitStopsAtConfiguredLimit(t *testing.T) {
 	previous := config.Conf
 	t.Cleanup(func() { config.Conf = previous })
 	config.Conf.App.TranslateMaxAttempts = 1
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	calls := 0
-	translator := &Translator{onRecovery: func(string) { cancel() }, chatCompleter: translationCompleterFunc(func(string) (string, error) {
+	translator := &Translator{chatCompleter: translationCompleterFunc(func(string) (string, error) {
 		calls++
 		return "", &openaiapi.APIError{HTTPStatusCode: http.StatusTooManyRequests}
 	})}
-	_, err := translator.translatePairedSentences(ctx, []string{"Hello."}, "en", "zh_cn", 50, 1, nil)
-	if !errors.Is(err, context.Canceled) || calls != 1 {
-		t.Fatalf("限流等待未响应取消: calls=%d error=%v", calls, err)
+	_, err := translator.translatePairedSentences(context.Background(), []string{"Hello."}, "en", "zh_cn", 50, 1, nil)
+	if translationRequestStatus(err) != http.StatusTooManyRequests || calls != 1 {
+		t.Fatalf("限流达到配置次数后没有退出: calls=%d error=%v", calls, err)
 	}
 }
 
@@ -531,6 +529,9 @@ func TestPairedTranslationOutputBudgetGrowsOnlyAfterTruncation(t *testing.T) {
 			budgets = append(budgets, limit)
 			if truncate && len(budgets) < 3 {
 				return "", fmt.Errorf("llm_translation_truncated: output budget exhausted")
+			}
+			if strings.Contains(prompt, "不拆分、不配对") {
+				return `{"sentence_id":"1","target_text":"你好。"}`, nil
 			}
 			input, err := decodePairedTestInput(prompt)
 			if err != nil {

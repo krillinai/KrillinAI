@@ -248,9 +248,17 @@ func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSu
 	if taskPtr.Status == types.SubtitleTaskStatusFailed {
 		return nil, fmt.Errorf("任务失败，原因：%s", taskPtr.FailReason)
 	}
+	// 阶段进度可能先达到 100；只有成功终态才允许客户端结束等待。
+	percent := taskPtr.ProcessPct
+	if percent > 99 {
+		percent = 99
+	}
+	if taskPtr.Status == types.SubtitleTaskStatusSuccess {
+		percent = 100
+	}
 	return &dto.GetVideoSubtitleTaskResData{
 		TaskId:         taskPtr.TaskId,
-		ProcessPercent: taskPtr.ProcessPct,
+		ProcessPercent: percent,
 		VideoInfo: &dto.VideoInfo{
 			Title:                 taskPtr.Title,
 			Description:           taskPtr.Description,

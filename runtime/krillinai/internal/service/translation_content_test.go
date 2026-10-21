@@ -127,7 +127,7 @@ func TestRevisionRequiresOriginalVerificationAndKeepsDraft(t *testing.T) {
 		})}
 		err := translator.reviseContentBatch(context.Background(), input, accepted, "en", "zh_cn", func(pairedSentence, bool) error { return nil })
 		if reject {
-			if err == nil || accepted["1"].FullTarget != "它发挥着实用主义的作用。" || accepted["1"].RevisionVersion != "" {
+			if err != nil || calls != 4 || accepted["1"].FullTarget != "它发挥着实用主义的作用。" || accepted["1"].RevisionVersion != "" || accepted["1"].SemanticReviewed {
 				t.Fatal("unverified revision accepted")
 			}
 			continue
@@ -178,7 +178,7 @@ func TestRevisionRetriesOnlyRejectedChangesAndPersistsVerifiedPeers(t *testing.T
 				return `{"corrections":[{"sentence_id":"2","reason":"保留对象","target_text":"我读诗。"}]}`, nil
 			})}
 			err := translator.reviseContentBatch(context.Background(), input, accepted, "en", "zh_cn", func(s pairedSentence, _ bool) error { saved[s.ID]++; return nil })
-			if (err != nil) != rejectAgain || revisions != 2 || verifications != 2 || saved["1"] != 1 || saved["3"] != 1 || accepted["1"].FullTarget != "我读书。" || !accepted["1"].SemanticReviewed {
+			if err != nil || revisions != 2 || verifications != 2 || saved["1"] != 1 || saved["3"] != 1 || accepted["1"].FullTarget != "我读书。" || !accepted["1"].SemanticReviewed {
 				t.Fatalf("err=%v revisions=%d verifications=%d saved=%v accepted=%+v", err, revisions, verifications, saved, accepted)
 			}
 			if rejectAgain {

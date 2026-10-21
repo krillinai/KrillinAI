@@ -186,5 +186,11 @@ func (t *Translator) reviseContentBatch(ctx context.Context, input pairedTransla
 		// 不得使这些成功项被重做，也不能把被拒项标为已审校。
 		pending = retry
 	}
-	return fmt.Errorf("完整初译已保存，译文修订未通过原文核验")
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// 未通过的候选从未写入 accepted；耗尽后继续使用修订前的原译，
+	// 也不把它标记为已通过核验。其他已通过句子的修改继续保留。
+	t.translationNotice(fmt.Sprintf("%d句译文修订或核验重试已耗尽，已保留原译继续生成字幕", len(pending)))
+	return ctx.Err()
 }

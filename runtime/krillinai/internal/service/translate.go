@@ -9,6 +9,7 @@ import (
 	"krillin-ai/log"
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/util"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -21,7 +22,6 @@ type Translator struct {
 	filterNonSemanticFillers bool
 	checkpointDir            string
 	onRecovery               func(string)
-	recoveryDelay            time.Duration
 	onRateLimit              func()
 	preparedTranslation      *preparedTranslationContext
 	nlpSegmenter             translationNLPSegmenter
@@ -225,6 +225,9 @@ func (t *Translator) isTranslationValid(originText, translatedText string, origi
 	if originLang == targetLang {
 		return true
 	}
+	if domain := subtitleDomain(originText); domain != "" && strings.EqualFold(domain, subtitleDomain(translatedText)) {
+		return true
+	}
 	if strings.EqualFold(originText, translatedText) {
 		return t.isSpecialContent(originText)
 	}
@@ -232,11 +235,25 @@ func (t *Translator) isTranslationValid(originText, translatedText string, origi
 	return t.hasTargetLanguageCharacteristics(translatedText, targetLang)
 }
 
-// isSpecialContent 检查是否是专有名词、数字等特殊内容
+var subtitleDomainPattern = regexp.MustCompile(`(?i)^(?:https?://)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::[0-9]{1,5})?(?:[/#?][^\s]*)?$`)
+
+func subtitleDomain(text string) string {
+	text = strings.Trim(strings.TrimSpace(text), "\"'“”‘’()[]{}<>.,!?;：，。！？；")
+	if subtitleDomainPattern.MatchString(text) {
+		return text
+	}
+	return ""
+}
+
+// isSpecialContent 检查是否是专有名词、域名、数字等特殊内容
 func (t *Translator) isSpecialContent(text string) bool {
 	text = strings.TrimSpace(text)
 	if len(text) == 0 {
 		return false
+	}
+	// 单独的域名保持原样是正确译法，含域名的普通句子仍须翻译。
+	if subtitleDomain(text) != "" {
+		return true
 	}
 
 	letterCount := 0

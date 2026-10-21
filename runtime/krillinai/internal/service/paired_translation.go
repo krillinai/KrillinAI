@@ -409,36 +409,15 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 		}
 		start += count
 	}
-	// 没有有效译文的少数句子延后恢复，让其余字幕先完成。格式失败不结束任务。
-	for len(deferred) > 0 {
-		if err := t.waitForTranslationRecovery(ctx, "部分字幕尚未获得有效译文，已保存完成内容，稍后自动重试"); err != nil {
-			return nil, err
-		}
-		var retry []pairedTranslationInput
+	// 初译的三次预算已在内容阶段耗尽。其他句先保存完成，不能重新开始无限恢复。
+	if len(deferred) > 0 {
+		var missing []string
 		for _, input := range deferred {
-			remaining := input
-			remaining.Sentences = nil
 			for _, source := range input.Sentences {
-				sentence, ok, err := t.translatePlainSentence(ctx, input, source, originLang, targetLang)
-				if err != nil {
-					return nil, err
-				}
-				if ok {
-					if err := t.completeSemanticBatch(ctx, input, map[string]pairedSentence{source.ID: sentence}, plan, originLang, targetLang, save); err != nil {
-						return nil, err
-					}
-				} else {
-					remaining.Sentences = append(remaining.Sentences, source)
-				}
-			}
-			if len(remaining.Sentences) > 0 {
-				retry = append(retry, remaining)
+				missing = append(missing, source.ID)
 			}
 		}
-		if err := commit(); err != nil {
-			return nil, err
-		}
-		deferred = retry
+		return nil, fmt.Errorf("句子%s初译已用尽%d次尝试，仍未取得有效译文；其他字幕已保存", strings.Join(missing, ","), translationMaxAttempts)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
