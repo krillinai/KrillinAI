@@ -27,6 +27,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
       sourceLanguage: z.string().default('zh_cn'),
       targetLanguage: z.string().default('en'),
       preferPlatformCaptions: z.boolean().default(true),
+      skipVideoDownload: z.boolean().default(false),
       bilingual: z.boolean().default(true),
       subtitlePosition: z.enum(['top', 'bottom']).default('top'),
       ...(version === 2
@@ -100,6 +101,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
         allowedJobStatuses: ['draft', 'running', 'needs_input', 'failed'],
         inputArtifacts: [
           { kind: 'source_video', selector: 'latest-completed', optional: true },
+          { kind: 'source_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'target_subtitle', selector: 'latest-completed' },
           { kind: 'bilingual_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_audio', selector: 'latest-completed', optional: true },
@@ -115,6 +117,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
         allowedJobStatuses: ['draft', 'running', 'needs_input', 'failed'],
         inputArtifacts: [
           { kind: 'source_video', selector: 'latest-completed', optional: true },
+          { kind: 'source_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'vertical_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'target_subtitle', selector: 'latest-completed' },
           { kind: 'bilingual_subtitle', selector: 'latest-completed', optional: true },
@@ -130,7 +133,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
         resultVersionPolicy: 'none',
         jobCompletionPolicy: 'preserve',
         invalidateDependentArtifacts: false,
-        allowedJobStatuses: ['draft', 'needs_input', 'failed', 'completed', 'canceled'],
+        allowedJobStatuses: ['draft', 'running', 'needs_input', 'failed', 'completed', 'canceled'],
         inputArtifacts: [],
         outputArtifacts: [{ kind: 'source_video', status: 'completed' }]
       },

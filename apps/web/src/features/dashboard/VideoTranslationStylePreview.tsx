@@ -2,17 +2,24 @@ import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import type { CreatorSubtitlePreviewRequest } from '@opencreator/protocol';
 import type { CreatorWebService } from '../../services/creator-service.js';
+import SubtitleCompositionPreview from './SubtitleCompositionPreview.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 
 export default function VideoTranslationStylePreview(props: {
   input: CreatorSubtitlePreviewRequest;
   render?: CreatorWebService['openSubtitlePreview'];
+  prepare?: CreatorWebService['prepareSubtitleRender'];
+  openFont?: CreatorWebService['openSubtitleFont'];
+  horizontal?: boolean;
+  majorTitle?: string;
+  minorTitle?: string;
 }) {
   const l = useLocalizedCopy();
   const key = JSON.stringify(props.input);
   const [retry, setRetry] = useState(0);
   const [preview, setPreview] = useState<{ key: string; url?: string; failed?: boolean }>();
   useEffect(() => {
+    if (props.prepare && props.openFont) return;
     const controller = new AbortController();
     let objectUrl: string | undefined;
     const timer = setTimeout(() => {
@@ -37,8 +44,13 @@ export default function VideoTranslationStylePreview(props: {
       controller.abort();
       if (objectUrl !== undefined) URL.revokeObjectURL(objectUrl);
     };
-  }, [key, props.render, retry]);
+  }, [key, props.render, props.prepare, props.openFont, retry]);
   const current = preview?.key === key ? preview : undefined;
+  if (props.prepare && props.openFont) return <SubtitleCompositionPreview prepare={props.prepare} openFont={props.openFont} time={0.5}
+    input={{ width: props.input.width, height: props.input.height, horizontal: props.horizontal ?? props.input.width >= props.input.height,
+      majorTitle: props.majorTitle, minorTitle: props.minorTitle,
+      bilingual: props.input.bilingual, subtitlePosition: props.input.subtitlePosition, subtitleStyle: props.input.subtitleStyle,
+      cues: [{ startMs: 0, endMs: 1000, text: props.input.translationText, sourceText: props.input.originalText }] }} />;
   if (current?.url !== undefined) {
     return <img className="video-translation-subtitle-rendered-preview" src={current.url} alt={l('字幕样式预览', 'Subtitle style preview')} />;
   }

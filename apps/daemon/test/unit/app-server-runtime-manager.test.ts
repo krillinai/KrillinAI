@@ -6,6 +6,7 @@ import type {
 } from '../../src/agent-tools/run-injection.js';
 import type {
   CodexAppServerHost,
+  CodexAppServerHostInput,
   CodexAppServerResult,
   CodexAppServerTurnInput
 } from '../../src/codex/app-server-host-2026-07-28.js';
@@ -17,6 +18,39 @@ import {
 import type { RuntimeThread } from '../../src/threads/types.js';
 
 describe('app-server runtime manager', () => {
+  it('follows local configuration changes between turns and keeps the rollout home', async () => {
+    let version = 'local-v1';
+    const hosts = [
+      fakeHost(91, [Promise.resolve(result('first')), Promise.resolve(result('second'))]),
+      fakeHost(92, [Promise.resolve(result('third'))])
+    ];
+    const createHost = vi.fn((_configuration: CodexAppServerHostInput) => hosts[createHost.mock.calls.length - 1]!);
+    const manager = createAppServerRuntimeManager({
+      codexBin: 'unused',
+      codexHome: 'old-home',
+      readConfiguration: () => ({ codexHome: 'existing-rollout-home', version }),
+      createHost
+    });
+    try {
+      await manager.startTurn(turnInput()).result;
+      const second = manager.startTurn(turnInput({ runId: 'second' }));
+      expect((await second.started).reused).toBe(true);
+      await second.result;
+      version = 'local-v2';
+      const third = manager.startTurn(turnInput({ runId: 'third', codexThreadId: 'existing-thread' }));
+      expect((await third.started).reused).toBe(false);
+      await third.result;
+      expect(createHost).toHaveBeenCalledTimes(2);
+      for (const [configuration] of createHost.mock.calls) {
+        expect(configuration).toMatchObject({ codexHome: 'existing-rollout-home' });
+      }
+      expect(hosts[0]!.close).toHaveBeenCalledWith('runtime_configuration_changed', undefined);
+      expect(hosts[1]!.run).toHaveBeenCalledWith(expect.objectContaining({ codexThreadId: 'existing-thread' }));
+    } finally {
+      await manager.close();
+    }
+  });
+
   it('serializes turns in one scope and deactivates every completed turn', async () => {
     const first = deferred<CodexAppServerResult>();
     const second = deferred<CodexAppServerResult>();

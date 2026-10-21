@@ -14,7 +14,8 @@ import {
   createCodexIsolatedHome,
   createCodexProbeHome,
   importLocalCodexConfiguration,
-  createFollowingLocalCodexHome
+  createFollowingLocalCodexHome,
+  synchronizeLocalCodexConfiguration
 } from '../../src/codex/probe-home.js';
 
 let tempDir = '';
@@ -35,7 +36,7 @@ describe('Codex Probe 临时 Home', () => {
     const read = createFollowingLocalCodexHome(source, isolated);
     const initial = read();
     writeFileSync(join(isolated, 'auth.json'), '{"OPENAI_API_KEY":"refreshed-secret"}');
-    expect(read()).toEqual(initial);
+    expect(read()).toEqual({ ...initial, repaired: false });
     expect(readFileSync(join(isolated, 'auth.json'), 'utf8')).toContain('refreshed-secret');
     writeFileSync(join(source, 'config.toml'), 'model = "second-model"\n');
     expect(read().version).not.toBe(initial.version);
@@ -44,6 +45,55 @@ describe('Codex Probe 临时 Home', () => {
     rmSync(join(source, 'auth.json'));
     read();
     expect(existsSync(join(isolated, 'auth.json'))).toBe(false);
+  });
+  it('checks an existing runtime copy on every startup even when the source did not change', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opencreator-startup-sync-'));
+    const source = join(tempDir, 'source');
+    const runtime = join(tempDir, 'runtime');
+    mkdirSync(source); mkdirSync(runtime);
+    writeFileSync(join(source, 'config.toml'), 'model = "current"\n');
+    writeFileSync(join(runtime, 'config.toml'), 'model = "stale"\n');
+    writeFileSync(join(runtime, 'auth.json'), '{"OPENAI_API_KEY":"stale-key"}');
+    writeFileSync(join(runtime, 'rollout.jsonl'), 'existing session');
+    expect(synchronizeLocalCodexConfiguration(source, runtime)).toBe(true);
+    expect(parse(readFileSync(join(runtime, 'config.toml'), 'utf8')).model).toBe('current');
+    expect(existsSync(join(runtime, 'auth.json'))).toBe(false);
+    expect(readFileSync(join(runtime, 'rollout.jsonl'), 'utf8')).toBe('existing session');
+    writeFileSync(join(runtime, 'config.toml'), 'model = "drifted"\n');
+    expect(synchronizeLocalCodexConfiguration(source, runtime)).toBe(true);
+    expect(synchronizeLocalCodexConfiguration(source, runtime)).toBe(false);
+    expect(readFileSync(join(source, 'config.toml'), 'utf8')).toBe('model = "current"\n');
+  });
+
+  it('repairs runtime drift after a failure and changes the host version without changing the local source', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opencreator-error-sync-'));
+    const source = join(tempDir, 'source');
+    const runtime = join(tempDir, 'runtime');
+    mkdirSync(source);
+    writeFileSync(join(source, 'config.toml'), 'model = "current"\n');
+    const read = createFollowingLocalCodexHome(source, runtime);
+    const initial = read();
+    writeFileSync(join(runtime, 'config.toml'), 'model = "drifted"\n');
+    const checked = read({ verifyRuntime: true });
+    expect(checked.repaired).toBe(true);
+    expect(checked.version).not.toBe(initial.version);
+    expect(parse(readFileSync(join(runtime, 'config.toml'), 'utf8')).model).toBe('current');
+    expect(read({ verifyRuntime: true })).toEqual({ ...checked, repaired: false });
+  });
+
+  it('validates local files before changing the runtime and never rewrites the source home', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opencreator-invalid-sync-'));
+    const source = join(tempDir, 'source');
+    const runtime = join(tempDir, 'runtime');
+    mkdirSync(source); mkdirSync(runtime);
+    writeFileSync(join(source, 'config.toml'), 'invalid = [');
+    writeFileSync(join(runtime, 'config.toml'), 'model = "working"\n');
+    writeFileSync(join(runtime, 'auth.json'), '{"OPENAI_API_KEY":"working-key"}');
+    expect(() => synchronizeLocalCodexConfiguration(source, runtime)).toThrow('Local Codex configuration or credentials are invalid');
+    expect(readFileSync(join(runtime, 'config.toml'), 'utf8')).toContain('working');
+    expect(readFileSync(join(runtime, 'auth.json'), 'utf8')).toContain('working-key');
+    expect(synchronizeLocalCodexConfiguration(source, source)).toBe(false);
+    expect(readFileSync(join(source, 'config.toml'), 'utf8')).toBe('invalid = [');
   });
   it('imports a local login once and does not overwrite an existing OpenCreator selection', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'opencreator-codex-import-test-'));

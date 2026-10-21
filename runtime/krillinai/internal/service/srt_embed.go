@@ -1,9 +1,8 @@
 package service
 
 import (
-	"bufio"
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"krillin-ai/internal/storage"
@@ -700,186 +699,19 @@ func formatTimestamp(t time.Duration) string {
 }
 
 func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.SubtitleTaskStepParam) error {
-	file, err := os.Open(inputSRT)
+	doc, err := subtitleDocumentFromSRT(inputSRT, isHorizontal, stepParam)
 	if err != nil {
-		log.GetLogger().Error("srtToAss Open input srt error", zap.Error(err))
-		return fmt.Errorf("srtToAss Open input srt error: %w", err)
+		return err
 	}
-	defer file.Close()
-
-	assFile, err := os.Create(outputASS)
+	var style *subtitlestyle.StyleSet
+	if stepParam != nil {
+		style = stepParam.SubtitleStyle
+	}
+	ass, err := CompileSubtitleDocument(doc, style)
 	if err != nil {
-		log.GetLogger().Error("srtToAss Create output ass error", zap.Error(err))
-		return fmt.Errorf("srtToAss Create output ass error: %w", err)
+		return err
 	}
-	defer assFile.Close()
-	fallbacks := packagedSubtitleFallbacks()
-	scanner := bufio.NewScanner(file)
-	styleSet := subtitlestyle.DefaultStyleSet()
-	if stepParam != nil && stepParam.SubtitleStyle != nil {
-		styleSet = stepParam.SubtitleStyle
-		if err := subtitlestyle.Validate(styleSet); err != nil {
-			return fmt.Errorf("subtitle style invalid: %w", err)
-		}
-	}
-	screenStyle := styleSet.Vertical
-	if isHorizontal {
-		screenStyle = styleSet.Horizontal
-	}
-	majorPrefix := fmt.Sprintf("{\\rMajor}{\\an%d}%s", subtitlestyle.Alignment(screenStyle.Major), subtitlestyle.DialogueTags(screenStyle.Major))
-	minorPrefix := fmt.Sprintf("{\\rMinor}{\\an%d}%s", subtitlestyle.Alignment(screenStyle.Minor), subtitlestyle.DialogueTags(screenStyle.Minor))
-	firstStyle, secondStyle := screenStyle.Major, screenStyle.Minor
-	firstPrefix, secondPrefix := majorPrefix, minorPrefix
-	if stepParam != nil && stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnBottom {
-		firstStyle, secondStyle = screenStyle.Minor, screenStyle.Major
-		firstPrefix, secondPrefix = minorPrefix, majorPrefix
-	}
-
-	if isHorizontal {
-		_, _ = assFile.WriteString(subtitlestyle.BuildAssHeader(styleSet, isHorizontal))
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "" {
-				continue
-			}
-			// 读取时间戳行
-			if !scanner.Scan() {
-				break
-			}
-			timestampLine := scanner.Text()
-			parts := strings.Split(timestampLine, " --> ")
-			if len(parts) != 2 {
-				continue // 无效时间戳格式
-			}
-
-			startTimeStr := strings.TrimSpace(parts[0])
-			endTimeStr := strings.TrimSpace(parts[1])
-			startTime, err := parseSrtTime(startTimeStr)
-			if err != nil {
-				log.GetLogger().Error("srtToAss parseSrtTime error", zap.Error(err))
-				return fmt.Errorf("srtToAss parseSrtTime error: %w", err)
-			}
-			endTime, err := parseSrtTime(endTimeStr)
-			if err != nil {
-				log.GetLogger().Error("srtToAss parseSrtTime error", zap.Error(err))
-				return fmt.Errorf("srtToAss parseSrtTime error: %w", err)
-			}
-
-			var subtitleLines []string
-			for scanner.Scan() {
-				textLine := scanner.Text()
-				if textLine == "" {
-					break // 字幕块结束
-				}
-				subtitleLines = append(subtitleLines, textLine)
-			}
-
-			if len(subtitleLines) == 0 {
-				continue
-			}
-			//var majorTextLanguage types.StandardLanguageCode
-			//if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop { // 一定是bilingual
-			//	majorTextLanguage = stepParam.TargetLanguage
-			//} else {
-			//	majorTextLanguage = stepParam.OriginLanguage
-			//}
-
-			//majorLine := strings.Join(splitMajorTextInHorizontal(subtitleLines[0], majorTextLanguage, stepParam.MaxWordOneLine), "      \\N")
-
-			// ASS条目
-			startFormatted := formatTimestamp(startTime)
-			endFormatted := formatTimestamp(endTime)
-			if len(subtitleLines) == 1 {
-				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], screenStyle.Major, stepParam))
-				combinedText := majorPrefix + subtitleFallbackFontTags(majorText, screenStyle.Major.FontName, fallbacks)
-				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
-				continue
-			}
-			majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], firstStyle, stepParam))
-			minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], secondStyle, stepParam))
-			combinedText := firstPrefix + subtitleFallbackFontTags(majorText, firstStyle.FontName, fallbacks) + `\N` + secondPrefix + subtitleFallbackFontTags(minorText, secondStyle.FontName, fallbacks)
-			_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
-		}
-	} else {
-		// TODO 竖屏拆分调优
-		_, _ = assFile.WriteString(subtitlestyle.BuildAssHeader(styleSet, isHorizontal))
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "" {
-				continue
-			}
-			if !scanner.Scan() {
-				break
-			}
-			timestampLine := scanner.Text()
-			parts := strings.Split(timestampLine, " --> ")
-			if len(parts) != 2 {
-				continue // 无效时间戳格式
-			}
-
-			startTimeStr := strings.TrimSpace(parts[0])
-			endTimeStr := strings.TrimSpace(parts[1])
-			startTime, err := parseSrtTime(startTimeStr)
-			if err != nil {
-				return err
-			}
-			endTime, err := parseSrtTime(endTimeStr)
-			if err != nil {
-				return err
-			}
-
-			var subtitleLines []string
-			for scanner.Scan() {
-				textLine := scanner.Text()
-				if textLine == "" {
-					break
-				}
-				subtitleLines = append(subtitleLines, textLine)
-			}
-			if len(subtitleLines) == 0 {
-				continue
-			}
-			if len(subtitleLines) > 1 {
-				startFormatted := formatTimestamp(startTime)
-				endFormatted := formatTimestamp(endTime)
-				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], firstStyle, stepParam))
-				minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], secondStyle, stepParam))
-				combinedText := firstPrefix + subtitleFallbackFontTags(majorText, firstStyle.FontName, fallbacks) + `\N` + secondPrefix + subtitleFallbackFontTags(minorText, secondStyle.FontName, fallbacks)
-				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
-				continue
-			}
-
-			content := subtitleLines[0]
-
-			if containsChinese(content) {
-				// 处理中文字幕
-				chineseLines := wrapVerticalChineseSubtitleForASS(content, screenStyle.Major, stepParam)
-				if len(chineseLines) == 0 {
-					chineseLines = splitChineseText(content, verticalChineseMaxRunesPerLine)
-				}
-				totalTime := endTime - startTime
-				for i, line := range chineseLines {
-					iStart := startTime + time.Duration(float64(i)*float64(totalTime)/float64(len(chineseLines)))
-					iEnd := startTime + time.Duration(float64(i+1)*float64(totalTime)/float64(len(chineseLines)))
-					if iEnd > endTime {
-						iEnd = endTime
-					}
-					startFormatted := formatTimestamp(iStart)
-					endFormatted := formatTimestamp(iEnd)
-					combinedText := majorPrefix + subtitleFallbackFontTags(line, screenStyle.Major.FontName, fallbacks)
-					_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
-				}
-			} else {
-				// 处理英文字幕
-				startFormatted := formatTimestamp(startTime)
-				endFormatted := formatTimestamp(endTime)
-				cleanedText := joinASSLines(wrapSubtitleForASS(content, screenStyle.Major, stepParam))
-				combinedText := majorPrefix + subtitleFallbackFontTags(cleanedText, screenStyle.Major.FontName, fallbacks)
-				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
-			}
-		}
-	}
-	return nil
+	return os.WriteFile(outputASS, []byte(ass), 0600)
 }
 
 func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool, withTts bool) error {
@@ -970,36 +802,49 @@ func pathExists(path string) bool {
 }
 
 func getResolution(inputVideo string) (int, int, error) {
-	// 获取视频信息
-	cmdArgs := []string{
-		"-v", "error",
-		"-select_streams", "v:0",
-		"-show_entries", "stream=width,height",
-		"-of", "csv=s=x:p=0",
-		inputVideo,
-	}
-	cmd := exec.Command(storage.FfprobePath, cmdArgs...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		log.GetLogger().Error("获取视频分辨率失败", zap.String("output", out.String()), zap.Error(err))
+	data, err := exec.Command(storage.FfprobePath, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,sample_aspect_ratio:stream_tags=rotate:stream_side_data=rotation", "-of", "json", inputVideo).Output()
+	if err != nil {
 		return 0, 0, err
 	}
+	return subtitleDisplayResolution(data)
+}
 
-	output := strings.TrimSpace(out.String())
-	output = strings.TrimSuffix(output, "x") // 去除尾部可能存在的x,例如1920x1080x
-
-	re := regexp.MustCompile(`^(\d+)x(\d+)$`)
-	dimensions := re.FindStringSubmatch(output)
-	if len(dimensions) != 3 {
-		log.GetLogger().Error("获取视频分辨率失败", zap.String("output", output))
-		return 0, 0, fmt.Errorf("invalid resolution format: %s", output)
+func subtitleDisplayResolution(data []byte) (int, int, error) {
+	var probe struct {
+		Streams []struct {
+			Width  int    `json:"width"`
+			Height int    `json:"height"`
+			SAR    string `json:"sample_aspect_ratio"`
+			Tags   struct {
+				Rotate string `json:"rotate"`
+			} `json:"tags"`
+			SideData []struct {
+				Rotation int `json:"rotation"`
+			} `json:"side_data_list"`
+		} `json:"streams"`
 	}
-
-	width, _ := strconv.Atoi(dimensions[1])
-	height, _ := strconv.Atoi(dimensions[2])
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return 0, 0, err
+	}
+	if len(probe.Streams) == 0 {
+		return 0, 0, fmt.Errorf("video dimensions missing")
+	}
+	stream := probe.Streams[0]
+	width, height := stream.Width, stream.Height
+	var numerator, denominator int
+	if _, err := fmt.Sscanf(stream.SAR, "%d:%d", &numerator, &denominator); err == nil && numerator > 0 && denominator > 0 {
+		width = int(math.Round(float64(width) * float64(numerator) / float64(denominator)))
+	}
+	rotation, _ := strconv.Atoi(stream.Tags.Rotate)
+	if len(stream.SideData) > 0 {
+		rotation = stream.SideData[0].Rotation
+	}
+	if rotation%180 != 0 {
+		width, height = height, width
+	}
+	if width < 1 || height < 1 {
+		return 0, 0, fmt.Errorf("invalid video dimensions")
+	}
 	return width, height, nil
 }
 

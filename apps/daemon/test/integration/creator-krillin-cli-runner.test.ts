@@ -530,7 +530,7 @@ describe('KrillinAI CLI runner', () => {
     ]);
   });
 
-  it.skipIf(process.platform === 'win32')('selects the short vertical subtitle without changing horizontal subtitle selection', async () => {
+  it.skipIf(process.platform === 'win32').each(['top', 'bottom'])('preserves bilingual document text and subtitle selection with translation on %s', async subtitlePosition => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-krillin-cli-render-'));
     const resourceRoot = join(tempDir, 'runtime');
     const jobsRoot = join(tempDir, 'jobs');
@@ -538,6 +538,7 @@ describe('KrillinAI CLI runner', () => {
     const cli = join(resourceRoot, 'bin', 'krillinai-cli');
     const source = join(jobsRoot, 'job-render', 'artifacts', 'source.mp4');
     const target = join(jobsRoot, 'job-render', 'artifacts', 'target.srt');
+    const original = join(jobsRoot, 'job-render', 'artifacts', 'original.srt');
     const bilingual = join(jobsRoot, 'job-render', 'artifacts', 'bilingual.srt');
     const vertical = join(jobsRoot, 'job-render', 'artifacts', 'vertical.srt');
     mkdirSync(dirname(cli), { recursive: true });
@@ -545,6 +546,7 @@ describe('KrillinAI CLI runner', () => {
     writeFileSync(cli, `#!${process.execPath}\n${FAKE_CLI}`);
     writeFileSync(source, 'fixture-video');
     writeFileSync(target, '1\n00:00:00,000 --> 00:00:01,000\n目标字幕\n');
+    writeFileSync(original, '1\n00:00:00,000 --> 00:00:01,000\nSource subtitle\n');
     writeFileSync(bilingual, '1\n00:00:00,000 --> 00:00:01,000\n目标字幕\nSource subtitle\n');
     writeFileSync(vertical, '1\n00:00:00,000 --> 00:00:01,000\n竖屏短字幕\n');
     chmodSync(cli, 0o755);
@@ -562,6 +564,7 @@ describe('KrillinAI CLI runner', () => {
     const config = createDefaultCreatorServicesConfig();
     const artifacts = [
       { id: 'source-1', kind: 'source_video', path: source },
+      { id: 'original-1', kind: 'source_subtitle', path: original },
       { id: 'vertical-1', kind: 'vertical_subtitle', path: vertical },
       { id: 'target-1', kind: 'target_subtitle', path: target },
       { id: 'bilingual-1', kind: 'bilingual_subtitle', path: bilingual }
@@ -583,7 +586,11 @@ describe('KrillinAI CLI runner', () => {
           id: 'job-render',
           state: {}
         },
-        inputArtifacts: [],
+        inputArtifacts: inputs.map(artifact => ({ ...artifact, metadata: {
+          cues: artifact.kind === 'target_subtitle' || artifact.kind === 'source_subtitle'
+            ? [{ start: '00:00:00,000', end: '00:00:01,000', text: artifact.kind === 'target_subtitle' ? '目标字幕' : 'Source subtitle' }]
+            : []
+        } })),
         workdir,
         signal: new AbortController().signal,
         reportProgress() {}
@@ -596,7 +603,7 @@ describe('KrillinAI CLI runner', () => {
         stage,
         config,
         artifacts: inputs,
-        options: { bilingual: true }
+        options: { bilingual: true, bilingualTop: subtitlePosition === 'top' }
       });
       return JSON.parse(readFileSync(join(workdir, 'observed-args.json'), 'utf8')) as string[];
     };
@@ -609,6 +616,10 @@ describe('KrillinAI CLI runner', () => {
       artifacts.filter(artifact => artifact.kind !== 'vertical_subtitle')
     ))).toBe(bilingual);
     expect(selectedSubtitle(await run('render-horizontal', 'stage-run-horizontal'))).toBe(bilingual);
+    for (const stageRunId of ['stage-run-horizontal', 'stage-run-vertical-fallback']) {
+      expect(JSON.parse(readFileSync(join(jobsRoot, 'job-render', stageRunId, 'observed-subtitle-document.json'), 'utf8')))
+        .toMatchObject({ bilingual: true, subtitlePosition, cues: [{ startMs: 0, endMs: 1000, text: '目标字幕', sourceText: 'Source subtitle' }] });
+    }
   });
 });
 
@@ -621,6 +632,9 @@ const args = process.argv.slice(2);
 const workdir = args[args.indexOf('--workdir') + 1];
 mkdirSync(workdir, { recursive: true });
 writeFileSync(join(workdir, 'observed-args.json'), JSON.stringify(args));
+if (args.includes('--subtitle-document')) {
+  writeFileSync(join(workdir, 'observed-subtitle-document.json'), readFileSync(args[args.indexOf('--subtitle-document') + 1]));
+}
 writeFileSync(
   join(workdir, 'observed-config.toml'),
   readFileSync(join(process.cwd(), 'config', 'config.toml'))

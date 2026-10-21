@@ -88,6 +88,40 @@ function PendingHarness() {
 }
 
 describe('CreatorSessionStore', () => {
+  it('retains newer download progress when an older control response, snapshot or SSE event arrives', async () => {
+    const stage: CreatorStageRun = {
+      id: 'download_1', jobId: 'job_1', stageId: 'download', executor: 'download', status: 'running',
+      dispatchStatus: 'claimed', claimOwner: null, claimExpiresAt: null, attempt: 1, idempotencyKey: null,
+      scopeKey: null, inputFingerprint: null, progress: { phase: 'downloading', percent: 42, downloadProgressSequence: 3 },
+      errorCode: null, errorMessage: null, startedAt: null, finishedAt: null
+    };
+    const initial = { ...job(2, {}), templateId: 'video-download', status: 'running' as const, stages: [stage] };
+    let session!: ReturnType<typeof useCreatorSession>;
+    let emit!: (event: CreatorEventEnvelope) => void;
+    let resolveControl!: (value: unknown) => void;
+    const controlDownload = vi.fn(() => new Promise(resolve => { resolveControl = resolve; }));
+    function SnapshotHarness() { session = useCreatorSession(); return <Harness />; }
+    render(<CreatorSessionProvider initialJob={initial} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn(),
+      getJob: vi.fn(async () => ({ job: initial })),
+      subscribeJobEvents: vi.fn((_id, onEvent) => { emit = onEvent; return { close: vi.fn() }; }), controlDownload
+    } as never}><SnapshotHarness /></CreatorSessionProvider>);
+    await waitFor(() => expect(emit).toBeDefined());
+    let controlWork!: Promise<void>;
+    await act(async () => { controlWork = session.controlDownload!(stage.id, 'resume'); });
+    const latest = { ...stage, progress: { ...stage.progress, downloadProgressSequence: 6, percent: 48 } };
+    const event = (incoming: CreatorStageRun): CreatorEventEnvelope => ({ id: `download:${incoming.progress.downloadProgressSequence}`,
+      jobId: initial.id, revision: 2, kind: 'stage_progress', payload: { stage: incoming as never }, createdAt: initial.updatedAt });
+    act(() => emit(event(latest)));
+    act(() => emit(event({ ...stage, progress: { ...stage.progress, downloadControl: 'paused', downloadProgressSequence: 4 } })));
+    act(() => session.applyRemoteSnapshot(initial));
+    await act(async () => {
+      resolveControl({ job: { ...initial, stages: [{ ...stage, progress: { ...stage.progress, downloadProgressSequence: 5 } }] }, stage, control: 'resumed' });
+      await controlWork;
+    });
+    expect(session.job.stages[0]).toEqual(latest);
+    expect(session.job.stages[0]!.progress.downloadControl).not.toBe('paused');
+  });
+
   it('does not overwrite a failed job with a delayed successful action response', async () => {
     let resolveAction!: (value: { job: CreatorJob }) => void;
     const applyAction = vi.fn(() => new Promise<{ job: CreatorJob }>(resolve => { resolveAction = resolve; }));

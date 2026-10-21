@@ -20,6 +20,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDownloadExecutor } from '../../src/creator/download/executor.js';
 import { parseDownloadProbe } from '../../src/creator/download/probe-parser.js';
 import type { CreatorExecutorInput } from '../../src/creator/executor.js';
+import { createCreatorProcessControl } from '../../src/creator/process-tree.js';
 
 let tempDir = '';
 
@@ -29,6 +30,61 @@ afterEach(async () => {
 });
 
 describe('creator download executor', () => {
+  it.skipIf(process.platform === 'win32')('suspends and continues the actual downloader without starting it again', async () => {
+    const binaries = await fakeBinaries({ holdDownload: true });
+    const workdir = join(tempDir, 'live-pause');
+    await mkdir(workdir);
+    const probe = parsedProbe();
+    const controller = new AbortController();
+    const stage = stageInput({ workdir, stageId: 'download', state: {
+      sourceUrl: probe.requestedUrl, mediaType: 'video', selectedOptionId: 'video-1080-1'
+    }, inputArtifacts: [await writeProbeArtifact(workdir, probe)] });
+    stage.signal = controller.signal;
+    stage.processControl = createCreatorProcessControl(controller.signal)!;
+    const ticks = async () => Number(await readFile(join(workdir, 'ticks'), 'utf8').catch(() => '0'));
+    const work = createDownloadExecutor(binaries).run(stage);
+    // Attach a rejection handler immediately so a failed assertion can clean up.
+    void work.catch(() => undefined);
+    try {
+      await expect.poll(ticks).toBeGreaterThan(2);
+      stage.processControl.pause();
+      await new Promise(resolve => setTimeout(resolve, 60));
+      const saved = await ticks();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      expect(await ticks()).toBe(saved);
+      stage.processControl.resume();
+      await expect.poll(ticks).toBeGreaterThan(saved);
+      await writeFile(join(workdir, 'finish'), 'finish');
+      const result = await work;
+      expect(result.outputs[0]?.kind).toBe('source_video');
+      expect(await readFile(join(workdir, 'starts'), 'utf8')).toBe('1');
+    } finally {
+      controller.abort();
+      await work.catch(() => undefined);
+    }
+  });
+
+  it.skipIf(process.platform === 'win32')('cancels a paused executor before it starts another subprocess', async () => {
+    const binaries = await fakeBinaries();
+    const workdir = join(tempDir, 'paused-before-spawn');
+    await mkdir(workdir);
+    const probe = parsedProbe();
+    const controller = new AbortController();
+    const reportProgress = vi.fn();
+    const stage = stageInput({ workdir, stageId: 'download', reportProgress, state: {
+      sourceUrl: probe.requestedUrl, mediaType: 'video', selectedOptionId: 'video-1080-1'
+    }, inputArtifacts: [await writeProbeArtifact(workdir, probe)] });
+    stage.signal = controller.signal;
+    stage.processControl = createCreatorProcessControl(controller.signal)!;
+    stage.processControl.pause();
+    const work = createDownloadExecutor(binaries).run(stage);
+    const canceled = expect(work).rejects.toThrow();
+    await expect.poll(() => reportProgress.mock.calls.some(([progress]) => progress.phase === 'preparing_download')).toBe(true);
+    controller.abort();
+    await canceled;
+    await expect(readFile(join(workdir, 'args.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it.each([null, 'not an SRT file'])('rejects missing or invalid subtitle output: %s', async subtitleContent => {
     const executor = createDownloadExecutor(await fakeBinaries({ subtitleContent }));
     const workdir = join(tempDir, 'subtitle-failure');
@@ -910,6 +966,7 @@ describe('creator download executor', () => {
       '--ffmpeg-location',
       binaries.ffmpegPath,
       '--progress',
+      '--continue',
       '--progress-delta',
       '0.5',
       '-f',
@@ -943,6 +1000,11 @@ describe('creator download executor', () => {
     );
     expect(downloadPercents[1]).toBeCloseTo(79.5, 1);
     expect(downloadPercents.at(-1)).toBeGreaterThan(downloadPercents[1]!);
+    expect(reportProgress.mock.calls
+      .map(([progress]) => progress)
+      .filter(progress => progress.phase === 'downloading')
+      .map(progress => progress.bytesPerSecond))
+      .toEqual([2.5 * 1024 ** 2, 512_000, null]);
     expect(reportProgress).toHaveBeenLastCalledWith(expect.objectContaining({
       status: 'succeeded',
       phase: 'completed',
@@ -1612,6 +1674,7 @@ async function fakeBinaries(input?: {
   reportedOutputName?: string;
   splitOutputUtf8?: boolean;
   subtitleContent?: string | null;
+  holdDownload?: boolean;
 }): Promise<{
   configStore: {
     read(): Promise<ReturnType<typeof createDefaultCreatorServicesConfig>>;
@@ -1631,7 +1694,7 @@ async function fakeBinaries(input?: {
   const failure = input?.failure;
   const videoCodec = input?.videoCodec ?? 'h264';
   await writeExecutable(ytDlpScriptPath, `#!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 const args = process.argv.slice(2);
 writeFileSync(join(process.cwd(), 'args.json'), JSON.stringify(args));
@@ -1665,16 +1728,24 @@ if (args.includes('--skip-download')) {
 const audio = args.includes('--extract-audio');
 const output = join(process.cwd(), ${JSON.stringify(input?.outputName ?? null)} ?? (audio ? 'download.mp3' : 'download.mp4'));
 const reportedOutput = join(process.cwd(), ${JSON.stringify(input?.reportedOutputName ?? null)} ?? ${JSON.stringify(input?.outputName ?? null)} ?? (audio ? 'download.mp3' : 'download.mp4'));
+if (${input?.holdDownload === true}) {
+  writeFileSync('starts', String(existsSync('starts') ? Number(readFileSync('starts', 'utf8')) + 1 : 1));
+  let ticks = 0;
+  while (!existsSync('finish')) {
+    writeFileSync('ticks', String(++ticks));
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+}
 writeFileSync(output, audio ? 'download-audio' : 'download-video');
 if (args.includes('--progress')) {
   if (args.includes('--progress-template')) {
     process.stderr.write('oc-preview:{"downloaded_bytes":42,"total_bytes":100}\\n');
     process.stderr.write('oc-preview:{"downloaded_bytes":10}\\n');
   }
-  process.stderr.write('[download] 42.0% of 100B\\n');
+  process.stderr.write('[download] 42.0% of 100B at 2.50MiB/s ETA 00:01\\n');
   if (!audio) {
-    process.stderr.write('[download] 100% of 100B\\n');
-    process.stderr.write('[download] 10.0% of 20B\\n');
+    process.stderr.write('[download] 100% of 100B in 00:01 at 512.00KB/s\\n');
+    process.stderr.write('[download] 10.0% of 20B at Unknown B/s ETA Unknown\\n');
   }
 }
 process.stderr.write(audio ? '[ExtractAudio] Destination\\n' : '[Merger] Merging formats\\n');

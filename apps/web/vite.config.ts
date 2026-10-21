@@ -45,6 +45,7 @@ const creatorSubtitleFontRoot = join(
 );
 
 export default defineConfig({
+  worker: { format: 'es' },
   plugins: [
     react(),
     opencreatorStaticResourcesPlugin(),

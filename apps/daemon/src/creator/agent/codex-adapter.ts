@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import { dirname } from 'node:path';
+import { publicErrorMessageFromFailure, safePublicErrorMessage } from '@opencreator/protocol';
 import type { AppServerRuntimeExecution, AppServerRuntimeManager } from '../../codex/app-server-runtime-manager.js';
 import type { ThreadManager } from '../../threads/types.js';
 import type {
@@ -20,6 +21,7 @@ export function createCodexCreatorAdapter(input: {
   guideVersion: number;
   guideHash: string;
   available: boolean;
+  recheckConfigurationAfterFailure?(): boolean | Promise<boolean>;
 }): AgentRuntimeAdapter {
   const active = new Map<string, AppServerRuntimeExecution>();
 
@@ -83,7 +85,14 @@ export function createCodexCreatorAdapter(input: {
     const result = Promise.all([execution.result, started])
       .then(([runtimeResult, startInfo]): AgentRuntimeTurnResult => {
         if (runtimeResult.turnStatus !== 'completed') {
-          throw new Error(`Creator Codex turn ${runtimeResult.turnStatus}`);
+          const reason = safePublicErrorMessage(runtimeResult.error?.message);
+          throw Object.assign(new Error(reason ?? `Creator Codex turn ${runtimeResult.turnStatus}`), {
+            publicFacts: {
+              kind: 'unknown',
+              provider: 'codex',
+              ...(reason === undefined ? {} : { upstreamMessage: reason })
+            }
+          });
         }
         return {
           content: finalAgentMessage(messages),
@@ -91,6 +100,26 @@ export function createCodexCreatorAdapter(input: {
           runtimeTurnId: runtimeResult.turnId,
           processGeneration: startInfo.generation
         };
+      })
+      .catch(async cause => {
+        if (input.recheckConfigurationAfterFailure === undefined
+          || (cause instanceof Error && /turn interrupted|canceled before start/.test(cause.message))) throw cause;
+        const reason = publicErrorMessageFromFailure(cause) ?? 'Creator Agent failed';
+        let repaired: boolean;
+        try {
+          repaired = await input.recheckConfigurationAfterFailure();
+        } catch (checkFailure) {
+          throw Object.assign(new Error(reason, { cause }), {
+            code: 'creator_codex_config_check_failed',
+            publicFacts: { kind: 'configuration', provider: 'codex',
+              upstreamMessage: safePublicErrorMessage(`${reason} Configuration check: ${publicErrorMessageFromFailure(checkFailure) ?? 'failed'}`) }
+          });
+        }
+        if (!repaired) throw cause;
+        throw Object.assign(new Error(reason, { cause }), {
+          code: 'creator_codex_config_resynced',
+          publicFacts: { kind: 'configuration', provider: 'codex', upstreamMessage: reason }
+        });
       })
       .finally(() => active.delete(runId));
     return {

@@ -2,6 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { createCreatorService } from './creator-service.js';
 
 describe('creator web service', () => {
+  it('controls a single download through its owner and encoded stage ID', async () => {
+    const client = { get: vi.fn(), post: vi.fn(), delete: vi.fn() };
+    const service = createCreatorService(client);
+    for (const action of ['pause', 'resume', 'cancel'] as const) {
+      await service.controlDownload('job 1', 'stage/2', action);
+      expect(client.post).toHaveBeenLastCalledWith(`/creator/jobs/job%201/downloads/stage%2F2/${action}`);
+    }
+  });
   it('uses the public creator endpoints', async () => {
     const client = {
       get: vi.fn(async () => ({ jobs: [] })),

@@ -21,6 +21,7 @@ import type { ProjectPermission } from '../projects/project-model.js';
 import { ProfileSettingsView, type ProfileSettingsService } from './ProfileSettingsView.js';
 import { CleanupSettingsView, type CleanupSettingsService } from './CleanupSettingsView.js';
 import { DiagnosticsSettingsView } from './DiagnosticsSettingsView.js';
+import { readTranslationContinuation } from '../dashboard/video-translation-continuation.js';
 import type { CreatorServicesSection } from './CreatorServicesSettingsView.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import type { CodexRuntimeSettingsService } from './CodexRuntimeSettingsView.js';
@@ -102,6 +103,7 @@ export type OpenCreatorSettingsViewProps = {
   initialSection?: CreatorServicesSection;
   componentId?: string;
   returnToTranslation?: boolean;
+  translationReturnPath?: string;
   onBack(): void;
 };
 
@@ -242,6 +244,7 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
                 service={props.creatorServicesService ?? null}
                 modelService={props.codexRuntimeService ?? null}
                 initialSection={props.initialSection}
+                onReturnToTranslation={props.returnToTranslation && readTranslationContinuation()?.returnPath === props.translationReturnPath ? props.onBack : undefined}
                 modeControls={<>
                   {modeControls}
                   {props.agentSetupNeeded && props.onOpenAgentSetup !== undefined ? (

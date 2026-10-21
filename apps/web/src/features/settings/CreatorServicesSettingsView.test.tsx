@@ -7,13 +7,35 @@ import {
 } from '@opencreator/protocol';
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmDialogProvider } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
+import { readTranslationContinuation, saveTranslationContinuation } from '../dashboard/video-translation-continuation.js';
 import { CreatorServicesSettingsView } from './CreatorServicesSettingsView.js';
 
+afterEach(() => sessionStorage.clear());
+
 describe('CreatorServicesSettingsView', () => {
+  it.each(['valid', 'missing', 'failed'] as const)('returns to the pending composition only after a valid save (%s)', async outcome => {
+    saveTranslationContinuation({ jobId: 'pending', version: 2, type: 'voice', status: 'configure',
+      createdAt: Date.now(), returnPath: '#/workbench?tool=video-translation&jobId=pending' });
+    const service = createService(outcome === 'valid' ? ['tts.openai.apiKey'] : []);
+    if (outcome === 'failed') vi.mocked(service.saveConfig).mockRejectedValue(new Error('Save failed'));
+    const onReturn = vi.fn();
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorServicesSettingsView connected service={service}
+      initialSection="tts" onReturnToTranslation={onReturn} /></LanguageProvider>);
+    await userEvent.click(await screen.findByRole('button', { name: '保存并继续配音合成' }));
+    await waitFor(() => expect(service.saveConfig).toHaveBeenCalledOnce());
+    if (outcome === 'valid') {
+      await waitFor(() => expect(onReturn).toHaveBeenCalledOnce());
+      expect(readTranslationContinuation()?.status).toBe('ready');
+    } else {
+      await waitFor(() => expect(screen.getByRole('button', { name: '保存并继续配音合成' })).toBeEnabled());
+      expect(onReturn).not.toHaveBeenCalled(); expect(readTranslationContinuation()?.status).toBe('configure');
+    }
+  });
+
   it('keeps the saved image service active until a detected local service is manually saved', async () => {
     const user = userEvent.setup();
     const service = createService();

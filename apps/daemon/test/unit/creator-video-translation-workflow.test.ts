@@ -20,6 +20,44 @@ afterEach(() => {
 });
 
 describe('video translation workflow', () => {
+  it.each(['horizontal', 'vertical'])('passes original subtitles from the saved result into %s composition', async videoFormat => {
+    const fixture = setup({ bilingual: true, composeVideo: true, videoFormat });
+    const workflow = createVideoTranslationWorkflow({
+      creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read: async () => createDefaultCreatorServicesConfig() }
+    });
+    const run = vi.fn(async (stage: { stageRun: { stageId: string } }) => ({
+      outputs: stage.stageRun.stageId === 'subtitle'
+        ? ['source_subtitle', 'target_subtitle', 'bilingual_subtitle'].map(kind => ({ kind, status: 'completed' as const, path: null }))
+        : [{ kind: `${videoFormat}_video`, status: 'completed' as const, path: null }]
+    }));
+    const runner = createCreatorStageRunner({
+      repository: fixture.repository, templates: fixture.service.templates,
+      executors: [{ id: 'krillinai', run }], workRoot: join(tempDir, 'work'),
+      onStageSucceeded(stage) { void workflow.handleStageChanged(stage); }
+    });
+    try {
+      const first = fixture.dispatcher.dispatch(fixture.jobId, {
+        action: 'run-stage', expectedRevision: 0, idempotencyKey: 'bilingual-composition-inputs',
+        input: { stageId: 'subtitle', workflow: true }
+      }, 'user').commandReceipt.stageRunId!;
+      await runner.runStageRun(first);
+      await vi.waitFor(() => expect(latestStage(fixture).stageId).toBe(`render-${videoFormat}`));
+      const rendered = await runner.runStageRun(latestStage(fixture).id);
+      expect(rendered.status).toBe('succeeded');
+      expect(run).toHaveBeenLastCalledWith(expect.objectContaining({
+        inputArtifacts: expect.arrayContaining([
+          expect.objectContaining({ kind: 'source_subtitle' }),
+          expect.objectContaining({ kind: 'target_subtitle' }),
+          expect.objectContaining({ kind: 'bilingual_subtitle' })
+        ])
+      }));
+    } finally {
+      await runner.close();
+      fixture.db.close();
+    }
+  });
+
   it.each([
     { suffix: '', error: 'creator_source_part_required' },
     { suffix: '?p=0', error: 'creator_source_invalid_part' },

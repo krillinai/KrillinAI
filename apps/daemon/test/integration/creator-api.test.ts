@@ -817,6 +817,33 @@ describe('creator api', () => {
     expect((await request('GET', `/creator/jobs/${job.id}`)).json().job.stages).toEqual([]);
   });
 
+  it('returns the authoritative Agent issue with its provider reason instead of a second HTTP error', async () => {
+    await setupServer({ agentRuntime: {
+      id: 'provider-failure', available: true,
+      async runTurn() {
+        throw Object.assign(new Error('The selected model is not supported by this account.'), {
+          publicFacts: { kind: 'http-rejected', provider: 'codex',
+            upstreamMessage: 'The selected model is not supported by this account.' }
+        });
+      }
+    } });
+    const created = await request('POST', '/creator/jobs', {
+      projectId: 'project_agent_failure', templateId: 'video-download'
+    });
+    const job = created.json().job;
+    const response = await request('POST', `/creator/jobs/${job.id}/agent-turns`, { message: 'hello' });
+    expect(response.statusCode).toBe(502);
+    expect(response.json()).toMatchObject({ error: {
+      code: 'creator_agent_failed',
+      issue: { code: 'creator_agent_failed', publicFacts: {
+        provider: 'codex', upstreamMessage: 'The selected model is not supported by this account.'
+      } }
+    } });
+    const current = (await request('GET', `/creator/jobs/${job.id}`)).json().job;
+    expect(current.issues).toHaveLength(1);
+    expect(current.issues[0].id).toBe(response.json().error.issue.id);
+  });
+
   it('returns the persisted Agent timeline and resolves approvals by generation', async () => {
     let observedDecision = '';
     const agentRuntime: AgentRuntimeAdapter = {

@@ -57,6 +57,53 @@ function EditingHarness(props: { preview?: boolean; readOnly?: boolean; saving?:
 }
 
 describe('VideoTranslationResultWorkspace', () => {
+  it('previews the completed video without autoplay and returns to the source when editing settings or subtitles', () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const props = { ...baseProps, workbench: true, immersive: true, subtitleAutosave: true,
+      editorSettings: { style: <input aria-label="测试字号" />, voice: <span>配音</span>, disabled: false, onOpen: vi.fn() },
+      subtitleVideoPreviews: { horizontal: { artifactId: 'source', src: 'blob:source', source: true } },
+      videoOutputs: [{ artifactId: 'rendered', variant: 'horizontal' as const, artifactVersion: 1, src: 'blob:rendered' }],
+      renderSubtitlePreview: () => <span>实时字幕叠加</span> };
+    const { rerender } = render(<VideoTranslationResultWorkspace {...props} activeTab="subtitles" />);
+    expect(screen.getByLabelText('横屏字幕视频预览')).toHaveAttribute('src', 'blob:source');
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="subtitles" videoPreviewRequest={{ key: 'done', version: 1 }} />);
+    expect(screen.getByLabelText('横屏字幕视频预览')).toHaveAttribute('src', 'blob:rendered');
+    expect(screen.getByLabelText('横屏字幕视频预览')).not.toHaveAttribute('autoplay');
+    expect(play).not.toHaveBeenCalled();
+    expect(screen.queryByText('实时字幕叠加')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '返回编辑预览' }));
+    expect(screen.getByLabelText('横屏字幕视频预览')).toHaveAttribute('src', 'blob:source');
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="subtitles" videoPreviewRequest={{ key: 'view-again', version: 1 }} />);
+    expect(screen.getByLabelText('横屏字幕视频预览')).toHaveAttribute('src', 'blob:rendered');
+    fireEvent.focus(screen.getByRole('textbox', { name: '测试字号' }));
+    expect(screen.getByLabelText('横屏字幕视频预览')).toHaveAttribute('src', 'blob:source');
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="subtitles" videoPreviewRequest={{ key: 'view-third', version: 1 }} />);
+    fireEvent.change(screen.getByRole('textbox', { name: '横屏字幕 1' }), { target: { value: '新字幕' } });
+    expect(screen.getByLabelText('横屏字幕视频预览')).toHaveAttribute('src', 'blob:source');
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="subtitles" onPrepareSourceVideo={vi.fn()}
+      videoOutputs={[{ ...props.videoOutputs[0]!, src: undefined, previewError: '成片加载失败' }]}
+      videoPreviewRequest={{ key: 'unavailable-preview', version: 1 }} />);
+    expect(screen.getByText('成片加载失败')).toBeVisible();
+    expect(screen.queryByRole('button', { name: '重试下载原视频' })).toBeNull();
+    play.mockRestore(); pause.mockRestore();
+  });
+
+  it('keeps shared task progress visible when settings collapse or the output view changes', () => {
+    const props = { ...baseProps, workbench: true, immersive: true,
+      taskProgress: <section aria-label="当前任务进度">生成配音 45%</section>,
+      editorSettings: { style: <span>样式</span>, voice: <span>配音</span>, disabled: true, onOpen: vi.fn() },
+      outputBusyLabel: '正在生成配音', outputDisabled: true };
+    const { rerender } = render(<VideoTranslationResultWorkspace {...props} activeTab="subtitles" />);
+    const bar = screen.getByRole('region', { name: '当前任务进度' });
+    expect(bar.parentElement?.firstElementChild?.tagName).toBe('HEADER');
+    expect(screen.getByRole('button', { name: '正在生成配音' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '收起设置' }));
+    expect(bar).toBeVisible();
+    rerender(<VideoTranslationResultWorkspace {...props} activeTab="video" />);
+    expect(screen.getAllByRole('region', { name: '当前任务进度' })).toHaveLength(1);
+  });
+
   it('finds and replaces across cues, navigates matches, and undoes or redoes a batch as one edit', () => {
     render(<EditingHarness />);
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
@@ -229,7 +276,7 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(within(dialog).getByRole('button', { name: '确认生成 V2' }).closest('header')).not.toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: '字幕样式' }));
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeDisabled();
-    fireEvent.keyDown(screen.getByRole('button', { name: '关闭' }), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('button', { name: '收起设置' }), { key: 'Escape' });
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(onImmersiveChange).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: '返回项目' })).toHaveFocus();
@@ -237,40 +284,68 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(video.closest('.video-result-workspace')).not.toHaveAttribute('inert');
   });
 
-  it('previews the rendered version until editing and preserves the playhead when switching to the source', () => {
+  it('preserves the selected settings, input state, scroll position, and timeline layout across version changes', () => {
+    const props = { ...baseProps, activeTab: 'subtitles' as const, immersive: true, workbench: true,
+      editorSettings: { style: <p>Style settings</p>, voice: <input aria-label="Voice choice" defaultValue="Narrator" />,
+        disabled: false, onOpen: vi.fn() } };
+    const { rerender } = render(<VideoTranslationResultWorkspace {...props} />);
+    fireEvent.click(screen.getByRole('tab', { name: '配音' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Voice choice' }), { target: { value: 'Reader' } });
+    const body = screen.getByRole('complementary', { name: '配音' }).querySelector('.subtitle-editor-settings-body')!;
+    body.scrollTop = 80;
+    fireEvent.keyDown(screen.getByRole('separator', { name: '调整时间轴高度' }), { key: 'ArrowUp' });
+    fireEvent.click(screen.getByRole('button', { name: '收起设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '收起时间轴' }));
+
+    rerender(<VideoTranslationResultWorkspace {...props} version={2} />);
+    expect(screen.queryByRole('complementary', { name: '配音' })).toBeNull();
+    expect(screen.getByRole('button', { name: '展开时间轴' })).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByRole('button', { name: '展开设置' }));
+    expect(screen.getByRole('complementary', { name: '配音' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Voice choice' })).toHaveValue('Reader');
+    expect(body.scrollTop).toBe(80);
+    expect(screen.getByRole('button', { name: '展开时间轴' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '展开时间轴' }));
+    expect(screen.getByRole('separator', { name: '调整时间轴高度' })).toHaveAttribute('aria-valuenow', '220');
+  });
+
+  it('previews saved bilingual subtitles on the source throughout editing even when a rendered video exists', () => {
     const settings = { style: <p>Style settings</p>, voice: null, disabled: false, onOpen: vi.fn(),
-      previewFormat: 'vertical' as const, previewTitles: <p>Portrait title</p> };
-    const renderSubtitlePreview = vi.fn(() => <p>Draft subtitle overlay</p>);
+      previewFormat: 'horizontal' as const, previewTitles: <p>Portrait title</p> };
+    const renderSubtitlePreview = vi.fn(() => <p>Bilingual subtitle overlay</p>);
     const props = { ...baseProps, activeTab: 'subtitles' as const, immersive: true, editorSettings: settings,
       videoOutputs: [{ artifactId: 'final', variant: 'horizontal' as const, artifactVersion: 1, src: 'blob:final' }],
       subtitleVideoPreviews: { horizontal: { artifactId: 'source', src: 'blob:source', source: true } },
+      subtitleOutputs: [{ ...baseProps.subtitleOutputs[0]!, cues: [{ ...baseProps.subtitleOutputs[0]!.cues[0]!, sourceText: 'Original subtitle' }] }],
       renderSubtitlePreview };
     const { rerender } = render(<VideoTranslationResultWorkspace {...props} />);
     const video = screen.getByLabelText('横屏字幕视频预览') as HTMLVideoElement;
-    expect(video).toHaveAttribute('src', 'blob:final');
-    expect(screen.queryByText('Draft subtitle overlay')).toBeNull();
+    expect(video).toHaveAttribute('src', 'blob:source');
+    expect(screen.getByText('Bilingual subtitle overlay')).toBeVisible();
+    expect(renderSubtitlePreview).toHaveBeenLastCalledWith(props.subtitleOutputs[0]!.cues, 1920, 1080, expect.objectContaining({ current: video }), 'horizontal');
     expect(screen.queryByText('Portrait title')).toBeNull();
-    expect(video.parentElement).toHaveAttribute('data-ratio', '16:9');
+    expect(video.closest('.video-result-player-frame')).toHaveAttribute('data-ratio', '16:9');
     fireEvent.timeUpdate(video, { target: { currentTime: 0.5 } });
     fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
+    expect(video).toHaveAttribute('src', 'blob:source');
+    expect(video.currentTime).toBe(0.5);
+    rerender(<VideoTranslationResultWorkspace {...props} editorSettings={{ ...settings, previewFormat: 'vertical' }} />);
     expect(screen.getByLabelText('竖屏字幕视频预览')).toBe(video);
     expect(video).toHaveAttribute('src', 'blob:source');
-    // A source reload emits a transient zero before metadata is available.
-    fireEvent.timeUpdate(video, { target: { currentTime: 0 } });
-    fireEvent.loadedMetadata(video);
     expect(video.currentTime).toBe(0.5);
-    expect(screen.getByText('Draft subtitle overlay')).toBeVisible();
-    expect(renderSubtitlePreview).toHaveBeenLastCalledWith(expect.any(Array), 9, 16);
-    expect(video.parentElement).toHaveAttribute('data-ratio', '9:16');
-    expect(screen.getByText('Portrait title').parentElement).toBe(video.parentElement);
+    expect(screen.getByText('Bilingual subtitle overlay')).toBeVisible();
+    expect(renderSubtitlePreview).toHaveBeenLastCalledWith(props.subtitleOutputs[0]!.cues, 720, 1280, expect.objectContaining({ current: video }), 'vertical');
+    expect(video.closest('.video-result-player-frame')).toHaveAttribute('data-ratio', '9:16');
+    expect(screen.queryByText('Portrait title')).toBeNull();
     rerender(<VideoTranslationResultWorkspace {...props} editorSettings={{ ...settings, previewFormat: 'horizontal' }} />);
-    expect(video.parentElement).toHaveAttribute('data-ratio', '16:9');
-    expect(renderSubtitlePreview).toHaveBeenLastCalledWith(expect.any(Array), 16, 9);
+    expect(video.closest('.video-result-player-frame')).toHaveAttribute('data-ratio', '16:9');
+    expect(renderSubtitlePreview).toHaveBeenLastCalledWith(props.subtitleOutputs[0]!.cues, 1920, 1080, expect.objectContaining({ current: video }), 'horizontal');
     expect(screen.queryByText('Portrait title')).toBeNull();
     expect(video.currentTime).toBe(0.5);
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
-    expect(video).toHaveAttribute('src', 'blob:final');
-    expect(screen.queryByText('Draft subtitle overlay')).toBeNull();
+    expect(video).toHaveAttribute('src', 'blob:source');
+    expect(screen.getByText('Bilingual subtitle overlay')).toBeVisible();
+    expect(video.currentTime).toBe(0.5);
   });
 
   it('synchronizes generated dubbing with the video and restores its original audio on exit', async () => {
@@ -503,10 +578,10 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(screen.getByText(activeTab === 'subtitles' ? '真实字幕' : 'horizontal.srt')).toBeInTheDocument();
   });
 
-  it.each(['video', 'subtitles'] as const)('disables duplicate downloads in the %s tab and directs users to the shared task panel', activeTab => {
+  it.each(['video', 'subtitles'] as const)('disables duplicate downloads in the %s tab and keeps subtitle editing available while preparing media', activeTab => {
     render(<VideoTranslationResultWorkspace {...baseProps} activeTab={activeTab} onPrepareSourceVideo={vi.fn()} previewPreparation={{ pending: true }} />);
     expect(screen.getByRole('button', { name: /正在准备/ })).toBeDisabled();
-    expect(screen.getByText(/右侧任务面板/)).toBeInTheDocument();
+    expect(screen.getByText(/字幕可以继续编辑/)).toBeInTheDocument();
   });
 
   it.each(['video', 'subtitles'] as const)('offers retry after failure in the %s tab without blocking subtitle access', activeTab => {
@@ -714,13 +789,13 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(screen.queryByRole('heading', { name: '竖屏字幕' })).not.toBeInTheDocument();
     const verticalVideo = screen.getByLabelText('竖屏字幕视频预览');
     expect(verticalVideo).toHaveAttribute('src', 'blob:http://localhost/horizontal-source-video');
-    expect(verticalVideo.parentElement).toHaveAttribute('data-ratio', '9:16');
+    expect(verticalVideo.closest('.video-result-player-frame')).toHaveAttribute('data-ratio', '9:16');
     Object.defineProperties(verticalVideo, {
       videoWidth: { configurable: true, value: 1920 },
       videoHeight: { configurable: true, value: 1080 }
     });
     fireEvent.loadedMetadata(verticalVideo);
-    expect(verticalVideo.parentElement).toHaveAttribute('data-ratio', '9:16');
+    expect(verticalVideo.closest('.video-result-player-frame')).toHaveAttribute('data-ratio', '9:16');
     fireEvent.click(screen.getByRole('radio', { name: '横屏' }));
     expect(screen.getByRole('radio', { name: '横屏' })).toHaveAttribute('aria-checked', 'true');
     expect(container.querySelector('.video-result-player-frame')).toHaveAttribute('data-ratio', '16:9');

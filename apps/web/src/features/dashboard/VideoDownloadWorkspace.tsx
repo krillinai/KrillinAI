@@ -20,6 +20,7 @@ import {
   LoaderCircle,
   Music2,
   PackageOpen,
+  Pause,
   Play,
   RefreshCw,
   Subtitles,
@@ -84,6 +85,8 @@ export default function VideoDownloadWorkspace(props: {
   );
   const submittingOptionIdsRef = useRef(new Set<string>());
   const downloadSubmissionTailRef = useRef<Promise<void>>(Promise.resolve());
+  const downloadControlsRef = useRef(new Set<string>());
+  const [downloadControlsPending, setDownloadControlsPending] = useState<ReadonlySet<string>>(() => new Set());
   const [taskControlPending, setTaskControlPending] = useState<
     'canceling' | 'resuming'
   >();
@@ -185,8 +188,8 @@ export default function VideoDownloadWorkspace(props: {
     [downloadArtifacts, downloadStages, options, probe, probeArtifact, props.batch?.jobs]
   );
   const latestTaskStage = session?.job.stages.at(-1);
-  const resumableStage = latestTaskStage?.status === 'canceled'
-    || latestTaskStage?.status === 'interrupted'
+  const resumableStage = ((latestTaskStage?.progress.downloadControl === 'paused' && latestTaskStage.status === 'running') || latestTaskStage?.status === 'canceled'
+    || latestTaskStage?.status === 'interrupted') && latestTaskStage.progress.downloadControl !== 'canceled'
     ? latestTaskStage
     : undefined;
   const failedStage = latestTaskStage?.status === 'failed'
@@ -553,6 +556,28 @@ export default function VideoDownloadWorkspace(props: {
       artifactId,
       status: 'failed'
     });
+  }
+
+  function downloadSession(item: DownloadHistoryItem) {
+    return item.ownerJobId === undefined ? session : props.batch?.resolveSession(item.ownerJobId);
+  }
+
+  async function controlDownload(item: DownloadHistoryItem, action: 'pause' | 'resume' | 'cancel') {
+    const owner = downloadSession(item);
+    const stage = item.stage;
+    if (!owner?.controlDownload || !stage || downloadControlsRef.current.has(stage.id)) return;
+    downloadControlsRef.current.add(stage.id);
+    setDownloadControlsPending(new Set(downloadControlsRef.current));
+    setError('');
+    setNotice('');
+    try {
+      await owner.controlDownload(stage.id, action);
+    } catch (caught) {
+      setError(formatDownloadError(caught, l));
+    } finally {
+      downloadControlsRef.current.delete(stage.id);
+      setDownloadControlsPending(new Set(downloadControlsRef.current));
+    }
   }
 
   async function cancelTask() {
@@ -1007,7 +1032,15 @@ export default function VideoDownloadWorkspace(props: {
                           ? stage?.status ?? 'queued'
                           : 'succeeded';
                         const percent = downloadProgressPercent(stage, artifact);
-                        const preparing = status === 'running'
+                        const active = status === 'queued' || status === 'running';
+                        const paused = stage?.progress.downloadControl === 'paused' && (status === 'running' || status === 'interrupted');
+                        const resumable = paused || ((status === 'canceled' || status === 'interrupted') && stage?.progress.downloadControl !== 'canceled');
+                        const controllable = !legacy && stage !== undefined && downloadSession(item)?.controlDownload !== undefined;
+                        const controlPending = stage !== undefined && (downloadControlsPending.has(stage.id)
+                          || (active && stage.progress.cancelRequested === true));
+                        const restoring = status === 'running' && !paused && stage?.progress.phase === 'preparing_download'
+                          && typeof stage.progress.resumedFromStageRunId === 'string';
+                        const preparing = !paused && !restoring && status === 'running'
                           && stage?.progress.phase === 'preparing_download';
                         const previewOpen = artifact !== undefined
                           && artifactPreview?.artifactId === artifact.id;
@@ -1020,7 +1053,7 @@ export default function VideoDownloadWorkspace(props: {
                             ? <h3 className="video-download-work-source">{item.sourceTitle}</h3> : null}
                           <div
                             className="video-result-file-row video-download-progress-row"
-                            data-status={status}
+                            data-status={paused ? 'paused' : status}
                             key={artifact?.id ?? stage?.id ?? `${option?.id ?? 'download'}-${index}`}
                           >
                             <span aria-hidden="true">
@@ -1037,7 +1070,7 @@ export default function VideoDownloadWorkspace(props: {
                                   ? downloadStageDescription(stage, option, l)
                                   : artifactDescription(artifact, l)}
                               </small>
-                              {status === 'queued' || status === 'running' ? (
+                              {active || resumable ? (
                                 <div
                                   className="video-download-row-progress"
                                   data-indeterminate={preparing || undefined}
@@ -1061,17 +1094,36 @@ export default function VideoDownloadWorkspace(props: {
                               ) : null}
                             </div>
                             {artifact === undefined ? (
+                              <div className="video-download-row-controls">
                               <span className="video-download-row-status">
-                                {status === 'failed'
+                                {active && stage?.progress.cancelRequested === true
+                                  ? stage.progress.downloadControl === 'paused' ? l('暂停中', 'Pausing') : l('取消中', 'Canceling')
+                                  : paused ? l('已暂停', 'Paused') : status === 'failed'
                                   ? l('失败', 'Failed')
                                   : status === 'canceled'
-                                    ? l('已取消', 'Canceled')
+                                    ? resumable ? l('已停止', 'Stopped') : l('已取消', 'Canceled')
                                     : status === 'interrupted'
                                       ? l('已中断', 'Interrupted')
                                       : preparing
                                         ? l('准备中', 'Preparing')
                                         : `${Math.round(percent)}%`}
                               </span>
+                              {paused ? <span className="video-download-row-status">{Math.round(percent)}%</span> : null}
+                              {controllable && (active || resumable) ? <>
+                                <button type="button" disabled={controlPending}
+                                  onClick={() => void controlDownload(item, resumable ? 'resume' : 'pause')}
+                                  aria-label={`${resumable ? l('继续下载', 'Resume download') : l('暂停下载', 'Pause download')} ${downloadPendingTitle(item.sourceTitle ?? probe?.title ?? url, option, l)}`}>
+                                  {controlPending ? <LoaderCircle size={14} className="smart-dubbing-spinner" />
+                                    : resumable ? <Play size={14} /> : <Pause size={14} />}
+                                  {resumable ? l('继续', 'Resume') : l('暂停', 'Pause')}
+                                </button>
+                                <button type="button" disabled={controlPending} className="video-download-cancel-button"
+                                  onClick={() => void controlDownload(item, 'cancel')}
+                                  aria-label={`${l('取消下载', 'Cancel download')} ${downloadPendingTitle(item.sourceTitle ?? probe?.title ?? url, option, l)}`}>
+                                  {l('取消', 'Cancel')}
+                                </button>
+                              </> : null}
+                              </div>
                             ) : (
                               <div className="video-download-file-actions">
                                 {artifact.kind !== 'source_subtitle' ? <button
@@ -1436,18 +1488,32 @@ function downloadStageDescription(
   l: ReturnType<typeof useLocalizedCopy>
 ): string {
   const detail = option === undefined ? undefined : optionDetail(option, l);
-  const status = stage === undefined || stage.status === 'queued'
+  const status = stage?.progress.downloadControl === 'paused' && stage.progress.cancelRequested !== true
+    && (stage.status === 'running' || stage.status === 'interrupted')
+    ? l('下载已暂停，可继续下载', 'Download paused. Resume when ready.')
+    : stage === undefined || stage.status === 'queued'
     ? l('等待前面的规格下载完成', 'Waiting for earlier formats')
     : stage.status === 'running'
-      ? downloadPhaseLabel(stage, l)
+      ? stage.progress.cancelRequested === true
+        ? stage.progress.downloadControl === 'paused' ? l('正在暂停下载', 'Pausing download') : l('正在取消下载', 'Canceling download')
+        : downloadPhaseLabel(stage, l)
       : stage.status === 'succeeded'
         ? l('已保存到项目', 'Saved to project')
         : stage.status === 'failed'
           ? l('下载未完成', 'Download did not complete')
-          : stage.status === 'canceled'
-            ? l('下载已取消，可返回规格列表重新提交', 'Canceled. Submit it again from formats.')
-            : l('下载已中断，可返回规格列表重新提交', 'Interrupted. Submit it again from formats.');
-  return [detail, status].filter(Boolean).join(' · ');
+          : stage.progress.downloadControl === 'paused'
+            ? l('下载已暂停，可继续下载', 'Download paused. Resume when ready.')
+            : stage.progress.downloadControl === 'canceled'
+              ? l('下载已取消', 'Download canceled')
+              : l('下载已停止，可继续下载', 'Download stopped. Resume when ready.');
+  const bytesPerSecond = stage?.status === 'running' && stage.progress.downloadControl !== 'paused'
+    && stage.progress.phase === 'downloading' && stage.progress.cancelRequested !== true
+    ? readNumber(stage.progress.bytesPerSecond)
+    : undefined;
+  const speed = bytesPerSecond !== undefined && bytesPerSecond >= 0
+    ? `${formatBytes(bytesPerSecond)}/s`
+    : undefined;
+  return [detail, status, speed].filter(Boolean).join(' · ');
 }
 
 function downloadPhaseLabel(
@@ -1456,7 +1522,9 @@ function downloadPhaseLabel(
 ): string {
   switch (stage.progress.phase) {
     case 'preparing_download':
-      return l('正在准备下载', 'Preparing download');
+      return typeof stage.progress.resumedFromStageRunId === 'string'
+        ? l('正在恢复下载', 'Reconnecting to resume download')
+        : l('正在准备下载', 'Preparing download');
     case 'merging_media':
       return l('正在合并音视频', 'Merging video and audio');
     case 'extracting_audio':
@@ -1471,6 +1539,7 @@ function downloadPhaseLabel(
 }
 
 function downloadHistoryIcon(item: DownloadHistoryItem) {
+  if (item.stage?.progress.downloadControl === 'paused' && ['running', 'interrupted'].includes(item.stage.status)) return <Pause size={18} />;
   if (item.artifact !== undefined) {
     if (item.artifact.kind === 'source_subtitle') return <Subtitles size={18} strokeWidth={1.7} />;
     return item.artifact.kind === 'source_audio'
@@ -1646,7 +1715,7 @@ function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
   const unit = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1_024)),
+    Math.max(0, Math.floor(Math.log(bytes) / Math.log(1_024))),
     units.length - 1
   );
   const value = bytes / 1_024 ** unit;

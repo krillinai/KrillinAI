@@ -4,6 +4,7 @@ import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import {
   videoTranslationPanelAdapter,
   videoGenerationPanelAdapter,
+  videoDownloadPanelAdapter,
   creatorPanelAdapterFor,
   stickmanVideoPanelAdapter,
   type CreatorPanelLocalize
@@ -11,6 +12,18 @@ import {
 
 const zh: CreatorPanelLocalize = value => value;
 const en: CreatorPanelLocalize = (_zh, value) => value;
+
+describe('video download controls', () => {
+  it('describes live pause and process recovery without calling them active transfer', () => {
+    const paused = { ...stage('download', '', 'running', null, 'download'),
+      progress: { phase: 'downloading', percent: 42, downloadControl: 'paused' } };
+    expect(videoDownloadPanelAdapter.runningProgressText?.(paused, videoDownloadPanelAdapter.readStageProgress(paused, zh), zh))
+      .toBe('下载已暂停，可继续下载');
+    const reconnecting = { ...paused, progress: { phase: 'preparing_download', percent: 42, resumedFromStageRunId: 'previous' } };
+    expect(videoDownloadPanelAdapter.runningProgressText?.(reconnecting, videoDownloadPanelAdapter.readStageProgress(reconnecting, en), en))
+      .toBe('Reconnecting to resume download');
+  });
+});
 
 describe('Remotion preparation progress', () => {
   it('uses the shared stickman adapter without exposing transcription or internal dependency fields', () => {

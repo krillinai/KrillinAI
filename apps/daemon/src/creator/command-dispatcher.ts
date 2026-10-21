@@ -334,7 +334,7 @@ function stageRequestProgress(
     if (job.state.sourceType === 'file' || typeof sourceUrl !== 'string' || videoSourceIdentity(sourceUrl) === null) {
       throw new CreatorCommandError('unsupported_source', 'A supported public video URL is required for preview');
     }
-    return { previewSourceUrl: sourceUrl };
+    return { previewSourceUrl: sourceUrl, ...(input.backgroundSourceDownload === true ? { backgroundSourceDownload: true } : {}) };
   }
   if (
     job.templateId !== 'video-download'
@@ -365,9 +365,18 @@ function stageRequestProgress(
       job.revision
     );
   }
+  const resumed = typeof input.resumedFromStageRunId === 'string'
+    ? job.stages.find(stage => stage.id === input.resumedFromStageRunId)
+    : undefined;
+  if (input.resumedFromStageRunId !== undefined && (!resumed || resumed.stageId !== 'download'
+    || !['canceled', 'interrupted'].includes(resumed.status) || resumed.progress.downloadControl === 'canceled'
+    || resumed.progress.sourceUrl !== sourceUrl || resumed.progress.optionId !== optionId)) {
+    throw new CreatorCommandError('creator_job_not_resumable', 'This download cannot be resumed. Select the format again to start a new download.');
+  }
   const probeArtifact = [...job.artifacts].reverse().find(artifact => (
     artifact.kind === 'download_probe'
     && artifact.status === 'completed'
+    && (resumed === undefined || artifact.id === resumed.progress.probeArtifactId)
     && readOptionalString(artifact.metadata.requestedUrl)?.trim() === sourceUrl.trim()
   ));
   const options = Array.isArray(probeArtifact?.metadata.options)
@@ -430,7 +439,13 @@ function stageRequestProgress(
     optionId,
     mediaType: selectedMediaType,
     sourceUrl,
-    probeArtifactId: probeArtifact.id
+    probeArtifactId: probeArtifact.id,
+    ...(resumed === undefined ? {} : {
+      percent: resumed.progress.percent ?? 0,
+      bytesPerSecond: null,
+      // Older runs used their own directory, even when they were resumed before this fix.
+      downloadWorkdirStageRunId: resumed.progress.downloadWorkdirStageRunId ?? resumed.id
+    })
   };
 }
 

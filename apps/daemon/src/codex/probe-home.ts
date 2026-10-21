@@ -91,25 +91,55 @@ export function importLocalCodexConfiguration(sourceHome: string, isolatedHome: 
   return true;
 }
 
+export function synchronizeLocalCodexConfiguration(
+  sourceHome: string,
+  isolatedHome: string,
+  options: { clearMissingSource?: boolean } = {}
+): boolean {
+  if (resolve(sourceHome) === resolve(isolatedHome)) return false;
+  const sourceConfig = join(sourceHome, 'config.toml');
+  const sourceAuth = join(sourceHome, 'auth.json');
+  if (!existsSync(sourceConfig) && !existsSync(sourceAuth) && !options.clearMissingSource) return false;
+  // Validate both inputs before changing the working runtime configuration.
+  try {
+    if (existsSync(sourceConfig)) parse(readFileSync(sourceConfig, 'utf8'));
+    if (existsSync(sourceAuth)) JSON.parse(readFileSync(sourceAuth, 'utf8'));
+  } catch {
+    throw new Error('Local Codex configuration or credentials are invalid. Check config.toml and auth.json.');
+  }
+  const previous = configurationFingerprint(isolatedHome);
+  for (const name of ['auth.json', 'config.toml']) {
+    if (!existsSync(join(sourceHome, name))) rmSync(join(isolatedHome, name), { force: true });
+  }
+  createCodexIsolatedHome(sourceHome, isolatedHome);
+  return previous !== configurationFingerprint(isolatedHome);
+}
+
 export function createFollowingLocalCodexHome(sourceHome: string, isolatedHome: string) {
   let version: string | undefined;
-  return () => {
-    const digest = createHash('sha256');
-    for (const name of ['auth.json', 'config.toml']) {
-      const path = join(sourceHome, name);
-      digest.update(name);
-      if (existsSync(path)) digest.update(readFileSync(path));
-    }
-    const nextVersion = digest.digest('hex');
-    if (nextVersion !== version) {
-      for (const name of ['auth.json', 'config.toml']) {
-        if (!existsSync(join(sourceHome, name))) rmSync(join(isolatedHome, name), { force: true });
-      }
-      createCodexIsolatedHome(sourceHome, isolatedHome);
+  let runtimeVersion: string | undefined;
+  let repairGeneration = 0;
+  return (options: { verifyRuntime?: boolean } = {}) => {
+    const nextVersion = configurationFingerprint(sourceHome);
+    let repaired = false;
+    if (nextVersion !== version || (options.verifyRuntime && configurationFingerprint(isolatedHome) !== runtimeVersion)) {
+      repaired = synchronizeLocalCodexConfiguration(sourceHome, isolatedHome, { clearMissingSource: version !== undefined });
+      if (repaired && nextVersion === version) repairGeneration += 1;
       version = nextVersion;
+      runtimeVersion = configurationFingerprint(isolatedHome);
     }
-    return { codexHome: isolatedHome, version: nextVersion };
+    return { codexHome: isolatedHome, version: `${nextVersion}:${repairGeneration}`, repaired };
   };
+}
+
+function configurationFingerprint(homePath: string): string {
+  const digest = createHash('sha256');
+  for (const name of ['auth.json', 'config.toml']) {
+    const path = join(homePath, name);
+    digest.update(name);
+    digest.update(existsSync(path) ? readFileSync(path) : '<missing>');
+  }
+  return digest.digest('hex');
 }
 
 function createMinimalProbeConfig(sourceHome: string, probeHome: string): void {

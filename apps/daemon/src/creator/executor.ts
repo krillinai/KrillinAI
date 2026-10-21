@@ -8,6 +8,7 @@ import type {
 } from '@opencreator/protocol';
 import { publicFactsFromFailure } from './public-error-facts.js';
 import { safePublicErrorMessage } from '@opencreator/protocol';
+import type { CreatorProcessControl } from './process-tree.js';
 
 export type CreatorExecutorOutput = {
   kind: string;
@@ -30,11 +31,13 @@ export type CreatorExecutorInput = {
   inputArtifacts: CreatorArtifact[];
   workdir: string;
   signal: AbortSignal;
+  processControl?: CreatorProcessControl;
   reportProgress(progress: Record<string, CreatorJson>): void;
 };
 
 export interface CreatorExecutor {
   readonly id: string;
+  readonly supportsProcessPause?: boolean;
   run(input: CreatorExecutorInput): Promise<CreatorExecutorResult>;
 }
 

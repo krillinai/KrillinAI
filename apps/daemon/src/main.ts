@@ -18,7 +18,7 @@ import {
   type RuntimeCapabilityMatrix
 } from './codex/capabilities.js';
 import { resolveCodexHome } from './codex/home.js';
-import { importLocalCodexConfiguration } from './codex/probe-home.js';
+import { synchronizeLocalCodexConfiguration } from './codex/probe-home.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { prepareOfficialRuntimeProbe } from './gateway/runtime-probe.js';
 import {
@@ -89,12 +89,17 @@ async function main(): Promise<void> {
   const localCodexHome = environment.localCodexHome === undefined
     ? environment.codexHome === undefined ? resolveCodexHome().path : codexHome
     : resolveCodexHome({ isolatedHome: environment.localCodexHome }).path;
-  importLocalCodexConfiguration(localCodexHome, codexHome);
   readOpenCreatorConfig(configFile);
   mkdirSync(dataDir, { recursive: true });
   mkdirSync(codexHome, { recursive: true });
   releaseRuntimeLock = acquireRuntimeLock(dataDir);
   process.once('exit', () => releaseRuntimeLock?.());
+  try {
+    synchronizeLocalCodexConfiguration(localCodexHome, codexHome);
+  } catch {
+    // Keep the app available so the user can inspect and fix their local setup.
+    console.warn('Local Codex configuration could not be synchronized. The assistant will check it again before use.');
+  }
   stopManagedParentWatch = installManagedParentWatch({
     parentPid: parseManagedParentPid(
       process.env.OPENCREATOR_MANAGED_PARENT_PID

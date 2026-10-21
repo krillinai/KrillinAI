@@ -5,6 +5,72 @@ import { createCodexCreatorAdapter } from '../../src/creator/agent/codex-adapter
 import type { RuntimeThread } from '../../src/threads/types.js';
 
 describe('creator codex adapter', () => {
+  it.each(['turn', 'request'] as const)('checks configuration after a failed %s and reports a repair without replaying the operation', async failure => {
+    const recheck = vi.fn(async () => true);
+    const fixture = failureFixture(recheck, failure);
+    await expect(fixture.adapter.runTurn(agentInput())).rejects.toMatchObject({
+      code: 'creator_codex_config_resynced',
+      message: 'Provider rejected the model',
+      publicFacts: { kind: 'configuration', provider: 'codex', upstreamMessage: 'Provider rejected the model' }
+    });
+    expect(recheck).toHaveBeenCalledOnce();
+    expect(fixture.startTurn).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the original error when the checked configuration is already consistent', async () => {
+    const recheck = vi.fn(async () => false);
+    const fixture = failureFixture(recheck);
+    const error = await fixture.adapter.runTurn(agentInput()).catch(error => error);
+    expect(error.message).toBe('Provider rejected the model');
+    expect(error.code).toBeUndefined();
+    expect(recheck).toHaveBeenCalledOnce();
+  });
+
+  it('reports a failed configuration check while retaining the provider reason', async () => {
+    const fixture = failureFixture(async () => { throw new Error('Local configuration is invalid'); });
+    await expect(fixture.adapter.runTurn(agentInput())).rejects.toMatchObject({
+      code: 'creator_codex_config_check_failed',
+      publicFacts: { kind: 'configuration', upstreamMessage: 'Provider rejected the model Configuration check: Local configuration is invalid' }
+    });
+  });
+
+  it('does not repair configuration after a canceled turn', async () => {
+    const recheck = vi.fn(async () => true);
+    const fixture = failureFixture(recheck, 'interrupted');
+    await expect(fixture.adapter.runTurn(agentInput())).rejects.toThrow('Creator Codex turn interrupted');
+    expect(recheck).not.toHaveBeenCalled();
+  });
+
+  it('preserves a sanitized provider error instead of replacing it with a generic failure', async () => {
+    const adapter = createCodexCreatorAdapter({
+      runtimeManager: {
+        startTurn: () => ({
+          cancel() {},
+          started: Promise.resolve({ pid: 1, reused: false, generation: 1 }),
+          result: Promise.resolve({
+            threadId: 'runtime-thread', turnId: 'runtime-turn', turnStatus: 'failed',
+            error: { message: "The 'test-model' model is not supported. api_key=sk-private-test" }
+          })
+        })
+      } as never,
+      threads: { getThread: () => thread(), setCodexThreadId() {} },
+      skillPath: '/runtime/skills/opencreator-runtime',
+      guideVersion: 2, guideHash: 'hash', available: true
+    });
+    const error = await adapter.runTurn({
+      threadId: 'thread-1', message: 'hello', selection: null,
+      context: creatorContext(), conflictAttempt: 0
+    }).catch(error => error);
+    expect(error).toMatchObject({
+      message: "The 'test-model' model is not supported. [redacted]",
+      publicFacts: {
+        kind: 'unknown', provider: 'codex',
+        upstreamMessage: "The 'test-model' model is not supported. [redacted]"
+      }
+    });
+    expect(JSON.stringify(error)).not.toContain('sk-private-test');
+  });
+
   it('uses the shared Runtime Manager with Skill, developer instructions and minimal context', async () => {
     const cancel = vi.fn();
     const startTurn = vi.fn((input: Record<string, unknown>) => {
@@ -130,6 +196,29 @@ describe('creator codex adapter', () => {
     );
   });
 });
+
+function agentInput() {
+  return { threadId: 'thread-1', message: 'hello', selection: null, context: creatorContext(), conflictAttempt: 0 as const };
+}
+
+function failureFixture(recheckConfigurationAfterFailure: () => Promise<boolean>, failure: 'turn' | 'request' | 'interrupted' = 'turn') {
+  const startTurn = vi.fn(() => ({
+    cancel() {},
+    started: Promise.resolve({ pid: 1, reused: false, generation: 1 }),
+    result: failure === 'request'
+      ? Promise.reject(new Error('Provider rejected the model'))
+      : Promise.resolve({ threadId: 'runtime-thread', turnId: 'runtime-turn',
+          turnStatus: failure === 'interrupted' ? 'interrupted' : 'failed',
+          ...(failure === 'interrupted' ? {} : { error: { message: 'Provider rejected the model' } }) })
+  }));
+  const adapter = createCodexCreatorAdapter({
+    runtimeManager: { startTurn } as never,
+    threads: { getThread: () => thread(), setCodexThreadId() {} },
+    skillPath: '/runtime/skills/opencreator-runtime', guideVersion: 2, guideHash: 'hash', available: true,
+    recheckConfigurationAfterFailure
+  });
+  return { adapter, startTurn };
+}
 
 function creatorContext(): AgentContextEnvelope {
   return {

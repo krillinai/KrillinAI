@@ -66,6 +66,7 @@ export type CreatorSessionContextValue = {
   applyAction(request: Omit<CreatorActionRequest, 'expectedRevision'>): Promise<CreatorJob>;
   cancelJob(): Promise<void>;
   resumeJob(): Promise<void>;
+  controlDownload?(stageRunId: string, action: 'pause' | 'resume' | 'cancel'): Promise<void>;
   uploadSourceVideo(file: File): Promise<void>;
   uploadReferenceImage(file: File): Promise<void>;
   uploadVideoReference?(file: File): Promise<{ assetId: string; expiresAt: string }>;
@@ -74,6 +75,8 @@ export type CreatorSessionContextValue = {
   openArtifact(artifactId: string): Promise<Response>;
   openDownloadThumbnail(probeArtifactId: string): Promise<Response>;
   openSubtitlePreview?: CreatorWebService['openSubtitlePreview'];
+  prepareSubtitleRender?: CreatorWebService['prepareSubtitleRender'];
+  openSubtitleFont?: CreatorWebService['openSubtitleFont'];
   openArtifactJson<T = unknown>(artifactId: string): Promise<T>;
   agentSession: CreatorAgentSession | null;
   turns: CreatorAgentTurn[];
@@ -171,6 +174,8 @@ export function CreatorSessionProvider(props: {
     | 'openArtifact'
     | 'openDownloadThumbnail'
     | 'openSubtitlePreview'
+    | 'prepareSubtitleRender'
+    | 'openSubtitleFont'
     | 'uploadReferenceImage'
     | 'uploadVideoReference'
     | 'uploadArticleImage'
@@ -178,6 +183,7 @@ export function CreatorSessionProvider(props: {
     | 'uploadSourceDocument'
     | 'cancelJob'
     | 'resumeJob'
+    | 'controlDownload'
     | 'preflight'
     | 'subscribeJobEvents'>>;
   children: ReactNode;
@@ -490,6 +496,13 @@ export function CreatorSessionProvider(props: {
         return previous !== undefined && terminalCreatorStage(previous.status)
           && (stage.status === 'queued' || stage.status === 'running');
       }))) return;
+    if (next.id === current.id) {
+      const stages = next.stages.map(stage => {
+        const previous = current.stages.find(candidate => candidate.id === stage.id);
+        return previous && olderDownloadProgress(stage, previous) ? previous : stage;
+      });
+      if (stages.some((stage, index) => stage !== next.stages[index])) next = { ...next, stages };
+    }
     const conflicts = [...dirtyRef.current].filter(field => (
       JSON.stringify(next.state[field]) !== JSON.stringify(draftRef.current[field])
     ));
@@ -782,15 +795,14 @@ export function CreatorSessionProvider(props: {
     try {
       await ensurePersistedJob();
       const response = await props.service.cancelJob(confirmedRef.current.id);
-      confirmedRef.current = response.job;
-      setConfirmedJob(response.job);
+      applyRemoteSnapshot(response.job);
       setError(null);
     } catch (cause) {
       setError(toSessionError(cause));
       captureCreatorFailure('creator.cancel-job', cause);
       throw cause;
     }
-  }, [captureCreatorFailure, ensurePersistedJob, props.service]);
+  }, [applyRemoteSnapshot, captureCreatorFailure, ensurePersistedJob, props.service]);
 
   const resumeJob = useCallback(async () => {
     if (props.service.resumeJob === undefined) {
@@ -804,8 +816,7 @@ export function CreatorSessionProvider(props: {
       await ensurePersistedJob();
       requestRevision = confirmedRef.current.revision;
       const response = await props.service.resumeJob(confirmedRef.current.id);
-      confirmedRef.current = response.job;
-      setConfirmedJob(response.job);
+      applyRemoteSnapshot(response.job);
       setError(null);
     } catch (cause) {
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
@@ -814,7 +825,20 @@ export function CreatorSessionProvider(props: {
       }
       throw cause;
     }
-  }, [captureCreatorFailure, ensurePersistedJob, flush, props.service]);
+  }, [applyRemoteSnapshot, captureCreatorFailure, ensurePersistedJob, flush, props.service]);
+
+  const controlDownload = useCallback(async (stageRunId: string, action: 'pause' | 'resume' | 'cancel') => {
+    if (!props.service.controlDownload) throw new Error('Download control is unavailable');
+    try {
+      const response = await props.service.controlDownload(confirmedRef.current.id, stageRunId, action);
+      applyRemoteSnapshot(response.job);
+      setError(null);
+    } catch (cause) {
+      setError(toSessionError(cause));
+      captureCreatorFailure(`creator.download-${action}`, cause);
+      throw cause;
+    }
+  }, [applyRemoteSnapshot, captureCreatorFailure, props.service]);
 
   const openArtifact = useCallback(async (artifactId: string) => {
     if (props.service.openArtifact === undefined) {
@@ -998,6 +1022,7 @@ export function CreatorSessionProvider(props: {
     applyAction,
     cancelJob,
     resumeJob,
+    ...(props.service.controlDownload ? { controlDownload } : {}),
     uploadReferenceImage,
     uploadVideoReference: props.service.uploadVideoReference,
     uploadSourceDocument,
@@ -1006,6 +1031,8 @@ export function CreatorSessionProvider(props: {
     openArtifact,
     openDownloadThumbnail,
     openSubtitlePreview: props.service.openSubtitlePreview,
+    prepareSubtitleRender: props.service.prepareSubtitleRender,
+    openSubtitleFont: props.service.openSubtitleFont,
     openArtifactJson,
     agentSession,
     turns,
@@ -1016,7 +1043,7 @@ export function CreatorSessionProvider(props: {
     steerAgentTurn,
     interruptAgentTurn,
     respondAgentApproval
-  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openDownloadThumbnail, openArtifactJson, preflight, props.service.openSubtitlePreview, props.service.uploadVideoReference, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
+  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, controlDownload, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openDownloadThumbnail, openArtifactJson, preflight, props.service.controlDownload, props.service.openSubtitlePreview, props.service.prepareSubtitleRender, props.service.openSubtitleFont, props.service.uploadVideoReference, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
 
   return (
     <CreatorSessionContext.Provider value={value}>
@@ -1038,6 +1065,7 @@ function mergeCreatorEvent(job: CreatorJob, event: CreatorEventEnvelope): Creato
     if (stage === null) return job;
     const index = job.stages.findIndex(candidate => candidate.id === stage.id);
     const previous = job.stages[index];
+    if (previous && olderDownloadProgress(stage, previous)) return job;
     if (previous !== undefined && terminalCreatorStage(previous.status)
       && (stage.status === 'queued' || stage.status === 'running') && event.revision <= job.revision) return job;
     const stages = index < 0
@@ -1072,6 +1100,11 @@ function mergeCreatorEvent(job: CreatorJob, event: CreatorEventEnvelope): Creato
 
 function terminalCreatorStage(status: string): boolean {
   return ['succeeded', 'failed', 'canceled', 'interrupted'].includes(status);
+}
+
+function olderDownloadProgress(incoming: CreatorStageRun, current: CreatorStageRun): boolean {
+  return incoming.stageId === 'download' && incoming.executor === 'download'
+    && (Number(incoming.progress.downloadProgressSequence) || 0) < (Number(current.progress.downloadProgressSequence) || 0);
 }
 
 function mergeIssueIntoJob(job: CreatorJob, issue: OpenCreatorIssue): CreatorJob {

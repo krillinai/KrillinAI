@@ -68,8 +68,8 @@ describe('KrillinAI CLI protocol', () => {
     expect(buildKrillinCliCommandArguments(stage as never, [], options, undefined)).not.toContain('--prepare-video');
   });
 
-  it('generates audio-only dubbing without a video, and lazily composes that audio later', () => {
-    const state = { sourceUrl: 'https://youtu.be/demo', dubbing: true, composeVideo: false };
+  it.each([true, false])('generates audio-only dubbing and composes it in the render stage (composeVideo=%s)', composeVideo => {
+    const state = { sourceUrl: 'https://youtu.be/demo', dubbing: true, composeVideo };
     const stage = { job: { templateId: 'video-translation', state }, stageRun: { stageId: 'tts', id: 'tts' }, workdir: '/job/tts' };
     const subtitle = { id: 'subtitle', kind: 'target_subtitle', path: '/job/target.srt' };
     const tts = buildKrillinCliCommandArguments(stage as never, [subtitle], buildKrillinStageOptions(stage as never), undefined);

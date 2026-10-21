@@ -1,4 +1,5 @@
 import {
+  videoSourceIdentity,
   parseBilibiliVideoSource,
   supportedVideoSourcePlatform,
   type CreatorJob,
@@ -67,6 +68,11 @@ export function createVideoTranslationWorkflow(input: {
     if (stage.status !== 'succeeded' || stage.progress.workflow !== true) return;
     let job = input.creator.getJob(stage.jobId);
     if (job === undefined || job.templateId !== 'video-translation') return;
+    if (job.status === 'canceled') return;
+    const sourceDownload = [...job.stages].reverse().find(run => run.progress.backgroundSourceDownload === true
+      && run.progress.workflowParentStageRunId === stage.id);
+    if (sourceDownload && ['canceled', 'interrupted'].includes(sourceDownload.status)) return;
+    if (job.stages.some(run => run.progress.backgroundSourceDownload === true && ['queued', 'running'].includes(run.status))) return;
     const nextStageId = nextWorkflowStage(job, stage.stageId);
     if (nextStageId === undefined) return;
     try {
@@ -79,9 +85,30 @@ export function createVideoTranslationWorkflow(input: {
     if (job !== undefined) queueNextStage(job, stage, nextStageId, input.dispatcher);
   }
 
+  function startSourceDownload(stage: CreatorStageRun): void {
+    if (stage.stageId !== 'subtitle' || stage.status !== 'running' || stage.progress.workflow !== true) return;
+    const job = input.creator.getJob(stage.jobId);
+    if (!job || job.templateId !== 'video-translation' || job.state.sourceType !== 'url'
+      || job.state.skipVideoDownload === true || typeof job.state.sourceUrl !== 'string'
+      || videoSourceIdentity(job.state.sourceUrl) === null) return;
+    if (job.stages.some(run => run.stageId === 'preview-source-video'
+      && (run.progress.workflowParentStageRunId === stage.id || ['queued', 'running'].includes(run.status)))) return;
+    input.dispatcher.dispatch(job.id, {
+      action: 'run-stage', expectedRevision: job.revision,
+      idempotencyKey: `video-translation:${stage.id}:source-download`,
+      input: { stageId: 'preview-source-video', backgroundSourceDownload: true, workflowParentStageRunId: stage.id }
+    }, 'system');
+  }
+
   return {
     validateStage,
     async handleStageChanged(stage: CreatorStageRun): Promise<void> {
+      startSourceDownload(stage);
+      if (stage.progress.backgroundSourceDownload === true && ['succeeded', 'failed'].includes(stage.status)) {
+        const job = input.creator.getJob(stage.jobId);
+        const parent = job?.stages.find(run => run.id === stage.progress.workflowParentStageRunId);
+        if (parent) await continueFrom(parent);
+      }
       await continueFrom(stage);
     },
     async reconcile(job: CreatorJob): Promise<void> {
@@ -112,6 +139,7 @@ export function createVideoTranslationWorkflow(input: {
     async recover(): Promise<void> {
       for (const job of input.creator.listJobs()) {
         if (job.templateId !== 'video-translation') continue;
+        for (const stage of job.stages) startSourceDownload(stage);
         const completed = [...job.stages].reverse().find(stage => (
           stage.status === 'succeeded' && stage.progress.workflow === true
         ));

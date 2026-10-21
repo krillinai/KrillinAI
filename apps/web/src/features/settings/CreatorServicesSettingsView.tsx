@@ -36,6 +36,7 @@ import {
   Save
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { readTranslationContinuation, saveTranslationContinuation, ttsServiceConfigured } from '../dashboard/video-translation-continuation.js';
 import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -64,6 +65,7 @@ export function CreatorServicesSettingsView(props: {
   modelService?: ModelSettingsService | null;
   initialSection?: CreatorServicesSection;
   modeControls?: ReactNode;
+  onReturnToTranslation?(): void;
 }) {
   const l = useLocalizedCopy();
   const confirm = useConfirmDialog();
@@ -289,6 +291,15 @@ export function CreatorServicesSettingsView(props: {
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
       pageIssues.resolveOperation('settings.creator-services.save');
       setNotice(l('配置已安全保存', 'Settings saved securely'));
+      const pending = readTranslationContinuation();
+      if (activeSection === 'tts' && props.onReturnToTranslation && pending?.status === 'configure') {
+        if (!ttsServiceConfigured(response, response.config.tts.provider)) {
+          setValidationError(l('请填写所选配音服务的必需凭据后继续。', 'Enter the required credentials for the selected dubbing service to continue.'));
+          return;
+        }
+        saveTranslationContinuation({ ...pending, status: 'ready' });
+        props.onReturnToTranslation();
+      }
     } catch (cause) {
       const message = readableSaveError(cause, l);
       const field = modelFieldFromError(message);
@@ -491,7 +502,8 @@ export function CreatorServicesSettingsView(props: {
               ) : (
                 <Save size={15} aria-hidden="true" />
               )}
-              {saving ? l('保存中', 'Saving') : l('保存配置', 'Save settings')}
+              {saving ? l('保存中', 'Saving') : activeSection === 'tts' && props.onReturnToTranslation && readTranslationContinuation()?.status === 'configure'
+                ? l('保存并继续配音合成', 'Save and continue composing') : l('保存配置', 'Save settings')}
             </button>
           </footer>
         </form>

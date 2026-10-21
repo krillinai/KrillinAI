@@ -1,5 +1,6 @@
 import type {
   CreatorActivity,
+  CreatorJob,
   CreatorJson,
   CreatorStageRun
 } from '@opencreator/protocol';
@@ -37,6 +38,7 @@ export type CreatorPanelAdapter = {
     l: CreatorPanelLocalize
   ): NormalizedCreatorActivity | null;
   readStageProgress(stage: CreatorStageRun, localize: CreatorPanelLocalize): CreatorStageProgressView;
+  taskProgress?(job: CreatorJob, l: CreatorPanelLocalize): CreatorTaskWorkflowView | null;
   aggregateStages?(stages: CreatorStageRun[]): CreatorStageRun[];
   runningProgressText?(
     stage: CreatorStageRun,
@@ -51,6 +53,16 @@ export type CreatorPanelAdapter = {
     stage: CreatorStageRun,
     l: CreatorPanelLocalize
   ): string | null;
+};
+
+export type CreatorTaskWorkflowView = {
+  key: string;
+  stage: CreatorStageRun;
+  steps: Array<{ id: string; label: string }>;
+  stepIndex: number;
+  waitingForNext: boolean;
+  resultVersion?: number;
+  completionLabel: string;
 };
 
 const genericAdapter: CreatorPanelAdapter = {
@@ -73,6 +85,7 @@ const genericAdapter: CreatorPanelAdapter = {
 
 export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   id: 'video-translation',
+  taskProgress: videoTranslationTaskProgress,
   failedProgressText(stage, l) {
     if (stage.stageId === 'preview-source-video') return l('原视频预览准备失败，可重试', 'Source video preview preparation failed. You can retry.', 'Förberedelsen av originalvideons förhandsvisning misslyckades. Du kan försöka igen.');
     if (stage.stageId === 'prepare-source-video') return l('原视频准备失败，已有字幕未受影响，可重试', 'Source video preparation failed; subtitles are preserved. You can retry.');
@@ -174,7 +187,9 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
     if (stage.stageId === 'prepare-source-video' || stage.stageId === 'preview-source-video') {
       const bytes = readFiniteNumber(stage.progress.downloadedBytes) ?? 0;
       const total = readFiniteNumber(stage.progress.totalBytes);
-      const amount = `${(bytes / 1024 ** 2).toFixed(1)} MiB${total === null ? '' : ` / ${(total / 1024 ** 2).toFixed(1)} MiB`}`;
+      const speed = readFiniteNumber(stage.progress.bytesPerSecond);
+      const remaining = readFiniteNumber(stage.progress.remainingSeconds);
+      const amount = `${(bytes / 1024 ** 2).toFixed(1)} MiB${total === null ? '' : ` / ${(total / 1024 ** 2).toFixed(1)} MiB`}${speed && speed > 0 ? ` · ${(speed / 1024 ** 2).toFixed(1)} MiB/s` : ''}${remaining === null ? '' : localize(` · 剩余约 ${Math.ceil(remaining)} 秒`, ` · ~${Math.ceil(remaining)} s remaining`)}`;
       if (stage.stageId === 'preview-source-video') return { ...standard,
         showMessage: true,
         percent: standard.phase === 'downloading' || standard.phase === 'completed' ? standard.percent : null,
@@ -230,6 +245,69 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
     };
   }
 };
+
+function videoTranslationTaskProgress(job: CreatorJob, l: CreatorPanelLocalize): CreatorTaskWorkflowView | null {
+  const generationIds = ['subtitle', 'tts', 'render-horizontal', 'render-vertical'];
+  const active = (stage: CreatorStageRun) => stage.status === 'queued' || stage.status === 'running';
+  const generations = job.stages.filter(stage => generationIds.includes(stage.stageId));
+  const latest = generations.at(-1);
+  const stage = [...generations].reverse().find(active)
+    ?? [...job.stages].reverse().find(run => ['prepare-source-video', 'preview-source-video'].includes(run.stageId) && active(run))
+    ?? latest;
+  if (!stage) return null;
+  const chain: CreatorStageRun[] = [stage];
+  const visited = new Set([stage.id]);
+  let ancestor = stage;
+  while (true) {
+    const parentId = ancestor.progress.resumedFromStageRunId ?? ancestor.progress.workflowParentStageRunId;
+    const parent = job.stages.find(run => run.id === parentId);
+    if (!parent || visited.has(parent.id) || !generationIds.includes(parent.stageId)) break;
+    visited.add(parent.id);
+    chain.unshift(parent);
+    ancestor = parent;
+  }
+  const root = chain[0]!;
+  const positive = (value: CreatorJson | undefined) => typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+  const snapshots = Array.isArray(job.state.resultSnapshots) ? job.state.resultSnapshots.map(readRecord) : [];
+  const baseVersion = positive(stage.progress.baseResultVersion);
+  const resultVersion = positive(stage.progress.targetResultVersion) ?? positive(stage.progress.resultVersion)
+    ?? (baseVersion === undefined ? undefined : Math.max(baseVersion, positive(job.state.resultVersion) ?? 0,
+      ...snapshots.map(value => positive(value?.version) ?? 0)) + 1);
+  // Completed workflows use their saved settings, so editing the next draft
+  // cannot turn an old successful stage back into a pending workflow.
+  const snapshot = snapshots.find(value => value?.version === (positive(root.progress.resultVersion) ?? resultVersion));
+  const settings = root.status === 'succeeded' || stage.status === 'succeeded' ? readRecord(snapshot?.state) ?? job.state : job.state;
+  const ids: string[] = [root.stageId];
+  if (root.progress.workflow === true && generationIds.includes(root.stageId) && settings.sourceType !== 'subtitle') {
+    if (root.stageId === 'subtitle' && settings.dubbing === true) ids.push('tts');
+    if ((root.stageId === 'subtitle' || root.stageId === 'tts') && settings.composeVideo === true) {
+      ids.push(settings.videoFormat === 'vertical' ? 'render-vertical' : 'render-horizontal');
+    }
+    if (settings.videoFormat === 'all' && ids.includes('render-horizontal')) ids.push('render-vertical');
+  }
+  if (!ids.includes(stage.stageId)) ids.push(stage.stageId);
+  const stepIndex = ids.indexOf(stage.stageId);
+  const waitingForNext = stage.status === 'succeeded' && stepIndex < ids.length - 1 && job.status !== 'canceled';
+  if (stage.stageId === 'subtitle' && stage.status === 'succeeded' && !waitingForNext) return null;
+  const labels: Record<string, string> = {
+    subtitle: l('翻译字幕', 'Translate subtitles'),
+    tts: l('生成配音', 'Generate dubbing'),
+    'render-horizontal': settings.videoFormat === 'all' ? l('合成横屏视频', 'Compose landscape video') : l('合成视频', 'Compose video'),
+    'render-vertical': settings.videoFormat === 'all' ? l('合成竖屏视频', 'Compose portrait video') : l('合成视频', 'Compose video'),
+    'prepare-source-video': l('下载原视频', 'Download source video'),
+    'preview-source-video': l('下载原视频', 'Download source video')
+  };
+  return {
+    key: root.id,
+    stage,
+    steps: ids.map(id => ({ id, label: labels[id] ?? videoTranslationPanelAdapter.stageLabel(id, l) })),
+    stepIndex,
+    waitingForNext,
+    resultVersion,
+    completionLabel: stage.stageId.startsWith('render-') ? l('视频合成完成', 'Video composition complete')
+      : stage.stageId === 'tts' ? l('配音生成完成', 'Dubbing complete') : l('原视频已就绪', 'Source video ready')
+  };
+}
 
 const videoTranslationDetailedPhases = new Set([
   'preparing_source', 'reading_platform_captions', 'processing_platform_captions',
@@ -450,7 +528,11 @@ export const videoDownloadPanelAdapter: CreatorPanelAdapter = {
       ? { ...progress, percent: null, indeterminate: true }
       : progress;
   },
-  runningProgressText(_stage, progress, l) {
+  runningProgressText(stage, progress, l) {
+    if (stage.progress.downloadControl === 'paused') return l('下载已暂停，可继续下载', 'Download paused. Resume when ready.');
+    if (progress.phase === 'preparing_download' && typeof stage.progress.resumedFromStageRunId === 'string') {
+      return l('正在恢复下载', 'Reconnecting to resume download');
+    }
     return progress.phase === null
       ? null
       : videoDownloadPanelAdapter.phaseLabel(progress.phase, l);

@@ -64,6 +64,7 @@ export type CodexAppServerResult = {
   threadId: string;
   turnId: string;
   turnStatus: 'completed' | 'interrupted' | 'failed';
+  error?: { message: string };
   stderr: string;
   terminationReason: 'completed' | 'canceled';
   outputTruncation: {
@@ -643,6 +644,9 @@ export function createCodexAppServerHost(
       threadId: job.threadId,
       turnId: job.turnId,
       turnStatus: status,
+      ...(isRecord(turn?.error) && typeof turn.error.message === 'string'
+        ? { error: { message: turn.error.message } }
+        : {}),
       stderr: job.stderr.text(),
       terminationReason:
         job.cancelRequested || status === 'interrupted'

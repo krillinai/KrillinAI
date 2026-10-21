@@ -5,6 +5,7 @@ import type {
   CreatorJson,
   CreatorServicesConfig
 } from '@opencreator/protocol';
+import { normalizeSubtitleRenderCues, type SubtitleRenderCueInput } from '@opencreator/protocol';
 import type { CreatorExecutorInput } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
 import { sha256CreatorFile } from '../file-hash.js';
@@ -152,6 +153,37 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
     stylePath,
     input.source
   );
+  if (args[0] === 'render-horizontal' || args[0] === 'render-vertical') {
+    const kind = args[0] === 'render-vertical' ? 'vertical_subtitle' : 'target_subtitle';
+    const source = input.stage.inputArtifacts.find(artifact => artifact.kind === kind)
+      ?? input.stage.inputArtifacts.find(artifact => artifact.kind === 'target_subtitle');
+    const readCues = (artifact: typeof source): SubtitleRenderCueInput[] => {
+      const value = artifact?.metadata.renderCues ?? artifact?.metadata.cues;
+      if (!Array.isArray(value)) return [];
+      return value.flatMap(cue => cue && typeof cue === 'object' && !Array.isArray(cue)
+        && typeof cue.start === 'string' && typeof cue.end === 'string' && typeof cue.text === 'string'
+        ? [{ start: cue.start, end: cue.end, text: cue.text, ...(typeof cue.sourceText === 'string' ? { sourceText: cue.sourceText } : {}) }] : []);
+    };
+    let cues = readCues(source);
+    const target = input.stage.inputArtifacts.find(artifact => artifact.kind === 'target_subtitle');
+    if (source?.kind === 'target_subtitle') {
+      const originals = readCues(input.stage.inputArtifacts.find(artifact => artifact.kind === 'source_subtitle'));
+      cues = cues.map((cue, index) => ({ ...cue, sourceText: cue.sourceText ?? originals[index]?.text }));
+    }
+    if (cues.length > 0) {
+      const snapshot = source?.metadata.settingsSnapshot;
+      const position = snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) && snapshot.subtitlePosition === 'bottom' ? 'bottom' : 'top';
+      const documentPath = join(configDir, 'subtitle-document.json');
+      await writeFile(documentPath, JSON.stringify({
+        bilingual: booleanOption(input.options, 'bilingual', false), subtitlePosition: booleanOption(input.options, 'bilingualTop', true) ? 'top' : 'bottom',
+        majorTitle: args[0] === 'render-vertical' ? stringOption(input.options, 'verticalTitle') : undefined,
+        minorTitle: args[0] === 'render-vertical' ? stringOption(input.options, 'verticalSubtitle') : undefined,
+        cues: normalizeSubtitleRenderCues({ cues, legacyMixed: source?.kind === 'vertical_subtitle' && !Array.isArray(source.metadata.renderCues),
+          targetPosition: position, targetCues: readCues(target) })
+      }), { mode: 0o600 });
+      args.push('--subtitle-document', documentPath);
+    }
+  }
   input.stage.reportProgress({
     krillinMode: 'cli',
     providerStatus: 'running',

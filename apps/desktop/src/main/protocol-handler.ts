@@ -290,7 +290,7 @@ export async function staticResponse(
       'Content-Security-Policy',
       [
         "default-src 'self'",
-        "script-src 'self'",
+        "script-src 'self' 'wasm-unsafe-eval'",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https://i.ytimg.com",
         "font-src 'self' data:",

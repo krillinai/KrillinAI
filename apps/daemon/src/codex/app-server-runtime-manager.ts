@@ -60,6 +60,7 @@ type ScopeEntry = {
 export function createAppServerRuntimeManager(input: {
   codexBin: string;
   codexHome: string;
+  readConfiguration?(): { codexHome: string; version: string };
   processInjector?: AgentScheduleProcessInjector;
   createHost?(input: CodexAppServerHostInput): CodexAppServerHost;
   maxIdleHosts?: number;
@@ -197,7 +198,12 @@ export function createAppServerRuntimeManager(input: {
     generation: number;
   }> {
     const profile = normalizeAppServerProfile(turn.profile);
-    const fingerprint = runtimeFingerprint(profile, turn);
+    const configuration = input.readConfiguration?.();
+    const fingerprint = JSON.stringify([
+      runtimeFingerprint(profile, turn),
+      configuration?.codexHome,
+      configuration?.version
+    ]);
     if (entry.host !== undefined && entry.staleReason !== undefined) {
       const reason = entry.staleReason;
       entry.staleReason = undefined;
@@ -221,7 +227,7 @@ export function createAppServerRuntimeManager(input: {
       entry.generation = generation;
       entry.host = createHost({
         codexBin: input.codexBin,
-        codexHome: input.codexHome,
+        codexHome: configuration?.codexHome ?? input.codexHome,
         cwd: turn.cwd,
         profile,
         mcpServers: processConfiguration?.mcpServers,
