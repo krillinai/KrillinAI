@@ -23,7 +23,7 @@
   "dependencies": {
     "@fastify/cors": "^11.0.1",
     "@iarna/toml": "2.2.5",
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "@opencreator/config": "workspace:*",
     "@opencreator/protocol": "workspace:*",
     "@opencreator/skill-market": "workspace:*",
