@@ -229,7 +229,7 @@ func (t *Translator) validateSegmentedSentence(sentence pairedSentence, source p
 	}
 	if state.Stage != "source" && state.Stage != "faithful" {
 		full := joinPairedTargetSegments(targets, targetLang)
-		if !subtitleSegmentsHaveSafeBoundaries(targets) || !t.isTranslationValid(source.Text, full, originLang, targetLang) {
+		if !subtitleSegmentsHaveSafeBoundaries(targets) || !hasUsableTranslation(full) {
 			return fmt.Errorf("目标语或字素不合法")
 		}
 	}

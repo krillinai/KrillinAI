@@ -406,6 +406,7 @@ type SubtitleTask struct {
 	progressReporter            func(uint8)
 	translationProgressReporter func(completed, total int)
 	detailedProgressReporter    func(TaskProgress)
+	translationReports          subtitleTranslationReports
 }
 
 func (t *SubtitleTask) SetProgressReporter(reporter func(uint8)) {

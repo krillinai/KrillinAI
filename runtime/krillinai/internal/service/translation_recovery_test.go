@@ -33,7 +33,7 @@ func TestTranslationPersistentRequestErrorsStopAfterThreeAttempts(t *testing.T) 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			_, err := translator.translatePairedSentences(ctx, []string{"Hello."}, "en", "zh_cn", 50, 1, nil)
-			if calls != 3 || translationRequestStatus(err) != status || !strings.Contains(err.Error(), "已用尽3次请求") {
+			if calls != 3 || err == nil || !strings.Contains(err.Error(), "全部1条正文字幕翻译失败") || !strings.Contains(err.Error(), "已用尽3次请求") {
 				t.Fatalf("接口故障未在三次后退出: calls=%d err=%v", calls, err)
 			}
 		})
@@ -182,7 +182,7 @@ func TestTranslationRepairsOnlyFailedSentences(t *testing.T) {
 		for _, source := range input.Sentences {
 			target := "有效译文" + source.ID
 			if calls == 1 && source.ID == "2" {
-				target = source.Text // 整句未译，必须修复。
+				target = "" // 未取得译文，只重试当前缺失句。
 			}
 			sentences = append(sentences, pairedSentence{ID: source.ID, FullTarget: target, Source: []string{source.Text}, Target: []string{target}})
 		}
@@ -267,7 +267,7 @@ func TestTranslationExhaustionStopsAfterThreeAttemptsAndKeepsOtherSentences(t *t
 		return echoPairedTestResponse(input)
 	})}
 	result, err := translator.translatePairedSentences(ctx, []string{"First.", "Second."}, "en", "zh_cn", 50, 1, nil)
-	if err == nil || !strings.Contains(err.Error(), "初译已用尽3次") || calls["1"] != 3 || calls["2"] != 1 || result != nil {
+	if err != nil || len(result) != 2 || result[0].FullTarget != "First." || result[0].TranslationFallbackReason == "" || calls["1"] != 3 || calls["2"] != 1 {
 		t.Fatalf("calls=%v result=%+v err=%v", calls, result, err)
 	}
 	files, _ := filepath.Glob(filepath.Join(translator.checkpointDir, "translation-checkpoints", "*", "2.json"))
@@ -352,13 +352,13 @@ func TestTranslationCheckpointSavesOtherConcurrentSuccesses(t *testing.T) {
 		}
 		return echoPairedTestResponse(input)
 	})}
-	_, err := translator.translatePairedSentences(context.Background(), []string{"First.", "Second."}, "en", "zh_cn", 50, 1, nil, func(completed, total int) {
+	partial, err := translator.translatePairedSentences(context.Background(), []string{"First.", "Second."}, "en", "zh_cn", 50, 1, nil, func(completed, total int) {
 		if completed == 1 {
 			once.Do(func() { close(saved) })
 		}
 	})
-	if err == nil {
-		t.Fatal("没有返回真实故障")
+	if err != nil || len(partial) != 2 || !strings.Contains(partial[0].TranslationFallbackReason, "LLM disconnected") {
+		t.Fatalf("单句连接故障未保留回退原因：%+v %v", partial, err)
 	}
 	var requested []string
 	translator.chatCompleter = translationCompleterFunc(func(prompt string) (string, error) {
@@ -452,11 +452,11 @@ func TestTranslationCheckpointRejectsInvalidCachedTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := checkpoint.save(pairedSentence{ID: "1", FullTarget: "Original.", Source: []string{"Original."}, Target: []string{"Original."}}); err != nil {
+	if err := checkpoint.save(pairedSentence{ID: "1", FullTarget: "", Source: []string{"Original."}, Target: []string{""}}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := translator.translatePairedSentences(context.Background(), []string{"Original."}, "en", "zh_cn", 50, 1, nil)
-	if err != nil || len(result) != 1 || result[0].FullTarget == "Original." {
+	if err != nil || len(result) != 1 || result[0].FullTarget == "" {
 		data, _ := json.Marshal(result)
 		t.Fatalf("无效检查点被当作成功: %s err=%v", data, err)
 	}

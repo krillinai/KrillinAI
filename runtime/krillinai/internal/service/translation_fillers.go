@@ -89,8 +89,8 @@ func mergeHesitationSourceUnits(text string, units []segmentedTranslationUnit, l
 	return units
 }
 
-// 不事后删除中文字符。对可明确识别的发声残留拒绝候选，让原有的
-// 局部重试/审查修复；有意义的单个“嗯”和所有引语不受规则误删。
+// 不事后删除中文字符。可识别的发声残留只作为审校提示，不阻断初译；
+// 有意义的单个“嗯”和所有引语不受规则误删。
 func translationHasHesitationLeak(source, target string, sourceLang, targetLang types.StandardLanguageCode) bool {
 	if hesitationQuoted(source) || hesitationQuoted(target) {
 		return false

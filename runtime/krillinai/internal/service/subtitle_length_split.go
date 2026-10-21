@@ -79,6 +79,23 @@ func pairedFinalLengthIssue(sentence pairedSentence) error {
 	return nil
 }
 
+// 只比较已经通过内容和意群核验的布局；优先缩短最长条，再减少总超长量。
+func betterPairedLayout(candidate, previous pairedSentence) bool {
+	score := func(sentence pairedSentence) (longest, overflow int) {
+		for _, segments := range [][]string{sentence.Source, sentence.Target} {
+			for _, text := range segments {
+				width := subtitleTargetLength(text)
+				longest = max(longest, width)
+				overflow += max(0, width-subtitleFinalDisplayLimit)
+			}
+		}
+		return
+	}
+	cl, co := score(candidate)
+	pl, po := score(previous)
+	return cl < pl || cl == pl && co < po
+}
+
 // 只处理超长配对；既有父句、上下文、NLP建议和其余合格配对保持不变。
 func (t *Translator) splitLongPairedSubtitles(ctx context.Context, input pairedTranslationInput, sentences map[string]pairedSentence, originLang, targetLang types.StandardLanguageCode, save func(pairedSentence, bool) error) error {
 	if err := ctx.Err(); err != nil {
@@ -158,7 +175,15 @@ func (t *Translator) repairLongPairedSubtitle(ctx context.Context, input pairedT
 			whole.SourceHint, whole.NLPSourceHint = nil, original.NLPSourceHint
 			parts, err = t.splitLongPairedSegment(ctx, input, original, whole, originLang, targetLang, true)
 			if err != nil {
-				return pairedSentence{}, err
+				if !errors.Is(err, errFinalLayoutExhausted) || ctx.Err() != nil {
+					return pairedSentence{}, err
+				}
+				// 前面已核验的局部结果仍然有效。父句恢复失败时，仅保留
+				// 当前及后续原片段，不能丢掉前面已经取得的更短布局。
+				updated.Source = append(updated.Source, original.Source[i:]...)
+				updated.Target = append(updated.Target, original.Target[i:]...)
+				updated.LayoutReviewed = wasReviewed && updated.LayoutReviewed
+				break
 			}
 			updated = parts
 			updated.DraftTarget, updated.RevisionVersion = original.DraftTarget, original.RevisionVersion
@@ -175,12 +200,12 @@ func (t *Translator) repairLongPairedSubtitle(ctx context.Context, input pairedT
 		}
 	}
 	updated.FullTarget = strings.TrimSpace(strings.Join(targetChunks, ""))
-	updated.LayoutFallback = false
+	updated.LayoutFallback = pairedFinalLengthIssue(updated) != nil
 	updated.LayoutVersion, updated.LayoutTarget = pairedLayoutVersion, input.MaxTargetChars
 	if !subtitleSegmentsPreserveText(updated.FullSource, updated.Source) || !subtitleSegmentsPreserveText(updated.FullTarget, updated.Target) {
 		return pairedSentence{}, fmt.Errorf("%w：句子%s超长分段未保持完整原译", errFinalLayoutExhausted, source.ID)
 	}
-	if err := pairedFinalLengthIssue(updated); err != nil {
+	if err := pairedFinalLengthIssue(updated); err != nil && !betterPairedLayout(updated, original) {
 		return pairedSentence{}, fmt.Errorf("%w：%v", errFinalLayoutExhausted, err)
 	}
 	return updated, nil
@@ -189,9 +214,12 @@ func (t *Translator) repairLongPairedSubtitle(ctx context.Context, input pairedT
 func (t *Translator) splitLongPairedSegment(ctx context.Context, input pairedTranslationInput, parent pairedSentence, source pairedTranslationSource, originLang, targetLang types.StandardLanguageCode, rewriteFromStart ...bool) (pairedSentence, error) {
 	layout := input
 	layout.PreserveFinalBoundaries = true
+	layout.AllowLengthOverflow = true
 	layout.MaxSourceChars, layout.MaxTargetChars, layout.MaxFullwidthChars = subtitleFinalDisplayLimit, subtitleFinalDisplayLimit, subtitleFinalDisplayLimit/2
 	layout.Sentences = []pairedTranslationSource{source}
 	issue := fmt.Sprintf("原文%d、译文%d显示单位；超过%d必须继续拆分", subtitleTargetLength(source.Text), subtitleTargetLength(source.TargetText), subtitleFinalDisplayLimit)
+	baseline := pairedSentence{Source: []string{source.Text}, Target: []string{source.TargetText}}
+	var best *pairedSentence
 	for attempt := 0; attempt < 3; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return pairedSentence{}, err
@@ -215,12 +243,19 @@ func (t *Translator) splitLongPairedSegment(ctx context.Context, input pairedTra
 		mode := subtitleLengthSplitMode(allowRewrite)
 		prompt := "任务：translation_length_split\n" + mode + subtitleLengthSplitPrompt + "\n输入 JSON：\n" + string(payload)
 		if len(prompt) > translationRequestBytes {
+			if best != nil {
+				break
+			}
 			return pairedSentence{}, fmt.Errorf("%w：句子%s超长字幕重排超过请求预算", errFinalLayoutExhausted, source.ID)
 		}
 		response, err := t.requestTranslation(ctx, prompt, min(8192, max(2048, pairedTranslationResponseBudget(source.Text, subtitleFinalDisplayLimit)+1024)))
 		if err != nil {
 			if ctx.Err() != nil {
 				return pairedSentence{}, ctx.Err()
+			}
+			if best != nil {
+				issue = err.Error()
+				break
 			}
 			return pairedSentence{}, fmt.Errorf("%w：句子%s单行排版请求重试后仍不可用：%v", errFinalLayoutExhausted, source.ID, err)
 		}
@@ -243,7 +278,7 @@ func (t *Translator) splitLongPairedSegment(ctx context.Context, input pairedTra
 				err = fmt.Errorf("局部修复在父句内新增重复译文，需回到完整父句调整配对")
 			}
 		}
-		if err == nil {
+		if err == nil && pairedFinalLengthIssue(parts[0]) != nil && (len(parts[0].Source) < 2 || !betterPairedLayout(parts[0], baseline)) {
 			err = pairedFinalLengthIssue(parts[0])
 		}
 		if err == nil && len(parts[0].Source) > 1 && !validTranslationSentencePartsWithLimit(source.Text, parts[0].Source, originLang, len(parts[0].Source)) {
@@ -274,11 +309,31 @@ func (t *Translator) splitLongPairedSegment(ctx context.Context, input pairedTra
 			}
 			if ok {
 				parts[0].LayoutReviewed = true
-				return parts[0], nil
+				if lengthErr := pairedFinalLengthIssue(parts[0]); lengthErr != nil {
+					if best == nil || betterPairedLayout(parts[0], *best) {
+						candidate := parts[0]
+						candidate.LayoutFallback = true
+						best = &candidate
+					}
+					err = lengthErr
+				} else {
+					return parts[0], nil
+				}
+			} else {
+				err = fmt.Errorf("新增切口未通过意群与逐段对应检查：%s", reason)
 			}
-			err = fmt.Errorf("新增切口未通过意群与逐段对应检查：%s", reason)
 		}
 		issue = subtitleTextPreview(err.Error(), 2500)
+	}
+	if err := ctx.Err(); err != nil {
+		return pairedSentence{}, err
+	}
+	if best != nil {
+		t.translationNotice(fmt.Sprintf("第%s句排版重试耗尽，已保留通过内容与意群核验的更短分段，超长部分由烧录换行显示", source.ID))
+		if err := ctx.Err(); err != nil {
+			return pairedSentence{}, err
+		}
+		return *best, nil
 	}
 	return pairedSentence{}, fmt.Errorf("%w：句子%s经过3次拆分或核验仍未满足%d单行上限：%s", errFinalLayoutExhausted, source.ID, subtitleFinalDisplayLimit, issue)
 }
@@ -343,7 +398,7 @@ func (t *Translator) reviewLengthBoundaries(ctx context.Context, input pairedTra
 		Terms          []translationSemanticTerm `json:"terms,omitempty"`
 		Candidate      pairedSentence            `json:"candidate"`
 	}{input.SourceLanguage, input.TargetLanguage, parent.FullSource, parent.FullTarget, terms, candidate}
-	ok, err := t.semanticJSON(ctx, "translation_length_boundary_review", "逐段审查刚拆出的连续双语字幕，不改写、不返回修正。完整译文的词义与事实另有独立核验；本阶段专查实际切口、跨段错位和自然承接，不重新按字典偏好或文学风格判词。允许不改变角色/事实的名词动词转换、主被动转换、补出目标语承接词和同义表达；不能仅因句法形式与原文不同而判对应错误。仍须拒绝把作者、对象、时间、条件等实际内容放到错误的原文片段。检查每对source_segments/target_segments是否表达对应内容，切口是否为自然意群，整组连读是否通顺。完整父句与适用术语供理解，原文仍为准。判断译词自身的完整含义：词义中隐含的角色不等于借用了邻段的同名成分，必须结合该源词及术语释义核对，不能按字面出现位置判定。字幕是连续播放的，一个完整从句、目的/条件/原因意群可单独显示，不要求每条独立成句；不能仅因后一条以连接词或条件词开头而判错。长度合格不代表切分合格：拒绝修饰语与中心词、主谓、动宾、介宾、助动词、固定表达、专名或并列数量短语的内部断裂；拒绝悬空短尾、病句、语序冲突或逐段错配。主句与完整状语从句之间的切口不等于拆开主谓/动宾，必须据具体语法判断。例如‘让我先谈谈把阅读视为 / 完成一本书的行为这一概念’、‘都摆满了 / 部分完成的书’、‘a / large collection’均不合格；独立回答可以短。完整后置修饰短语可以承接上一条的中心词独立显示，只要短语内部完整且目标语承接自然。例如“a collection of paintings / from different eras”可以对应“一批画作，/ 来自不同时代。”，这不是“a / large collection”式内部断裂；不能因自然译法使用动词承接就判作增义。但不能移借别段内容，作者、主题等并列信息仍须逐对核对。不能仅因完整全文含义正确就放过逐段错配。存在问题或无法确认时返回false，并指出具体切口或配对；全部通过才返回true。仅输出JSON：{\"acceptable\":true或false,\"reason\":\"具体理由\"}。", payload, "acceptable", &result, func() bool { return result.Acceptable != nil && strings.TrimSpace(result.Reason) != "" })
+	ok, err := t.semanticJSON(ctx, "translation_length_boundary_review", "长度由程序单独检查并继续优化；不能仅因片段超过显示上限，就否决内容正确、逐段对应且切口自然的候选。逐段审查刚拆出的连续双语字幕，不改写、不返回修正。完整译文的词义与事实另有独立核验；本阶段专查实际切口、跨段错位和自然承接，不重新按字典偏好或文学风格判词。允许不改变角色/事实的名词动词转换、主被动转换、补出目标语承接词和同义表达；不能仅因句法形式与原文不同而判对应错误。仍须拒绝把作者、对象、时间、条件等实际内容放到错误的原文片段。检查每对source_segments/target_segments是否表达对应内容，切口是否为自然意群，整组连读是否通顺。完整父句与适用术语供理解，原文仍为准。判断译词自身的完整含义：词义中隐含的角色不等于借用了邻段的同名成分，必须结合该源词及术语释义核对，不能按字面出现位置判定。字幕是连续播放的，一个完整从句、目的/条件/原因意群可单独显示，不要求每条独立成句；不能仅因后一条以连接词或条件词开头而判错。长度合格不代表切分合格：拒绝修饰语与中心词、主谓、动宾、介宾、助动词、固定表达、专名或并列数量短语的内部断裂；拒绝悬空短尾、病句、语序冲突或逐段错配。主句与完整状语从句之间的切口不等于拆开主谓/动宾，必须据具体语法判断。例如‘让我先谈谈把阅读视为 / 完成一本书的行为这一概念’、‘都摆满了 / 部分完成的书’、‘a / large collection’均不合格；独立回答可以短。完整后置修饰短语可以承接上一条的中心词独立显示，只要短语内部完整且目标语承接自然。例如“a collection of paintings / from different eras”可以对应“一批画作，/ 来自不同时代。”，这不是“a / large collection”式内部断裂；不能因自然译法使用动词承接就判作增义。但不能移借别段内容，作者、主题等并列信息仍须逐对核对。不能仅因完整全文含义正确就放过逐段错配。存在问题或无法确认时返回false，并指出具体切口或配对；全部通过才返回true。仅输出JSON：{\"acceptable\":true或false,\"reason\":\"具体理由\"}。", payload, "acceptable", &result, func() bool { return result.Acceptable != nil && strings.TrimSpace(result.Reason) != "" })
 	if !ok && result.Reason == "" {
 		result.Reason = "新增边界审查暂未完成"
 	}

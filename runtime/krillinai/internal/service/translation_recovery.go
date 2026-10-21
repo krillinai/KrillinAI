@@ -31,11 +31,31 @@ func repairPairedBoundaries(item pairedTranslationOutputSentence, sourceText str
 	return item, punctuationChanged || layoutChanged
 }
 
-// recoverPairedSentence 只恢复已取得有效整句译文的句子，绝不回填原文或空占位。
+func pairedTranslationTextIssue(sentence pairedSentence, source pairedTranslationSource) string {
+	if sentence.OmittedHesitation {
+		return "unexpected_omission"
+	}
+	if sentence.ID != source.ID {
+		return "sentence_id_mismatch"
+	}
+	if issue := translationTextIssue(sentence.FullTarget); issue != "" {
+		return issue
+	}
+	if sourceTranslationChanged(source, sentence.FullTarget) {
+		return "frozen_translation_changed"
+	}
+	return ""
+}
+
+// recoverPairedSentence 恢复结构可用的完整初译，语义疑点留给可回退审校。
+// 不在缺少模型返回时回填原文或空占位。
 // 原译片段不能完整还原文本时，回到整句配对，避免按字数比例制造语义错位。
 func (t *Translator) recoverPairedSentence(sentence pairedSentence, source pairedTranslationSource, originLang, targetLang types.StandardLanguageCode) (pairedSentence, bool) {
-	if sentence.OmittedHesitation || sentence.ID != source.ID || !hasSubtitleContent(sentence.FullTarget) || hasSubtitleLineBreak(sentence.FullTarget) ||
-		!t.isTranslationValid(source.Text, sentence.FullTarget, originLang, targetLang) || sourceTranslationChanged(source, sentence.FullTarget) {
+	// 沿用原文只用于本次交付，续跑必须重新翻译这些句子。
+	if sentence.TranslationFallbackReason != "" {
+		return pairedSentence{}, false
+	}
+	if pairedTranslationTextIssue(sentence, source) != "" {
 		return pairedSentence{}, false
 	}
 	validSegments := len(sentence.Source) > 0 && len(sentence.Source) == len(sentence.Target) &&
@@ -343,9 +363,15 @@ func (t *Translator) translatePlainSentence(ctx context.Context, input pairedTra
 	}
 	var item pairedTranslationOutputSentence
 	if err := json.Unmarshal([]byte(util.ExtractJSONObject(response, "target_text")), &item); err != nil {
+		noteTranslationTextIssue("plain_translation", source.ID, "invalid_response_json", translationMaxAttempts)
 		return pairedSentence{}, false, nil
 	}
-	sentence, ok := t.recoverPairedSentence(pairedSentence{ID: item.ID, FullTarget: item.FullTarget}, source, originLang, targetLang)
+	candidate := pairedSentence{ID: item.ID, FullTarget: item.FullTarget}
+	if issue := pairedTranslationTextIssue(candidate, source); issue != "" {
+		noteTranslationTextIssue("plain_translation", source.ID, issue, translationMaxAttempts)
+		return pairedSentence{}, false, nil
+	}
+	sentence, ok := t.recoverPairedSentence(candidate, source, originLang, targetLang)
 	if ok {
 		t.translationNotice(fmt.Sprintf("第%s句已通过整句翻译恢复，正在继续生成字幕", source.ID))
 	}

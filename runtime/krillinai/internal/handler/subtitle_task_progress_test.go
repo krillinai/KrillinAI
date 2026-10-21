@@ -52,3 +52,33 @@ func TestSubtitleHTTPProgressRequiresSuccessfulTask(t *testing.T) {
 		})
 	}
 }
+
+func TestSubtitleHTTPReportsPartialTranslationAndClearsAfterRetry(t *testing.T) {
+	task := &types.SubtitleTask{TaskId: t.Name(), Status: types.SubtitleTaskStatusSuccess}
+	task.SetTranslationFailures("checkpoint", []types.SubtitleTranslationFailure{{SentenceID: "2", SourceText: "We meet today.", Reason: "初译请求耗尽"}})
+	storage.SubtitleTasks.Store(task.TaskId, task)
+	t.Cleanup(func() { storage.SubtitleTasks.Delete(task.TaskId) })
+	h := &Handler{Service: &service.Service{}}
+	router := gin.New()
+	router.GET("/api/capability/subtitleTask", h.GetSubtitleTask)
+	for _, failed := range []bool{true, false} {
+		if !failed {
+			task.SetTranslationFailures("checkpoint", nil)
+		}
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/capability/subtitleTask?taskId="+task.TaskId, nil))
+		var result dto.GetVideoSubtitleTaskRes
+		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		if result.Error != 0 || result.Data == nil || result.Data.ProcessPercent != 100 {
+			t.Fatalf("部分完成应可下载：%s", response.Body.String())
+		}
+		if failed && (len(result.Data.TranslationFailures) != 1 || len(result.Data.Warnings) != 1 || result.Data.TranslationFailures[0].Reason == "") {
+			t.Fatalf("失败句信息丢失：%s", response.Body.String())
+		}
+		if !failed && (len(result.Data.TranslationFailures) != 0 || len(result.Data.Warnings) != 0) {
+			t.Fatal("恢复后仍显示旧警告")
+		}
+	}
+}

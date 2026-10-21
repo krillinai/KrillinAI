@@ -24,6 +24,7 @@ func (t *Translator) withTranslationRecovery(workdir string, task *types.Subtitl
 	// Translator 可供多个任务共用，任务路径和回调必须放在副本上。
 	copy := *t
 	copy.checkpointDir = workdir
+	copy.translationTask = task
 	if task != nil {
 		copy.onRecovery = func(message string) {
 			task.ReportTranslationRecovery(message)

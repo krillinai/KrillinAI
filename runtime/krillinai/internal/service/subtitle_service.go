@@ -256,9 +256,12 @@ func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSu
 	if taskPtr.Status == types.SubtitleTaskStatusSuccess {
 		percent = 100
 	}
+	failures := taskPtr.TranslationFailures()
 	return &dto.GetVideoSubtitleTaskResData{
-		TaskId:         taskPtr.TaskId,
-		ProcessPercent: percent,
+		Warnings:            types.TranslationWarnings(failures),
+		TranslationFailures: failures,
+		TaskId:              taskPtr.TaskId,
+		ProcessPercent:      percent,
 		VideoInfo: &dto.VideoInfo{
 			Title:                 taskPtr.Title,
 			Description:           taskPtr.Description,

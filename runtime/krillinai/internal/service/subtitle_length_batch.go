@@ -57,6 +57,7 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 			for _, item := range pending {
 				local := input
 				local.PreserveFinalBoundaries = true
+				local.AllowLengthOverflow = true
 				local.MaxSourceChars, local.MaxTargetChars, local.MaxFullwidthChars = 75, 75, 37
 				local.Before, local.After, local.SemanticContext = nil, nil, nil
 				source := item.source
@@ -103,6 +104,10 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 				data, _ := json.Marshal(pairedTranslationOutput{Sentences: []pairedTranslationOutputSentence{value}})
 				normalized := normalizeLengthSplitResponse(string(data), item.source, targetLang, rewrite)
 				parsed, err := t.parsePairedTranslation(normalized, requests[i].pairedTranslationInput, originLang, targetLang)
+				baseline := pairedSentence{Source: []string{item.source.Text}, Target: []string{item.source.TargetText}}
+				if err == nil && pairedFinalLengthIssue(parsed[0]) != nil && (len(parsed[0].Source) < 2 || !betterPairedLayout(parsed[0], baseline)) {
+					err = pairedFinalLengthIssue(parsed[0])
+				}
 				if err == nil && !validTranslationSentencePartsWithLimit(item.source.Text, parsed[0].Source, originLang, len(parsed[0].Source)) {
 					err = fmt.Errorf("切口拆开单词、专名或受保护文字")
 				}
@@ -131,7 +136,7 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 			}
 			next := make([]*longPairedWork, 0, len(pending))
 			for _, item := range pending {
-				if item.candidate == nil {
+				if item.candidate == nil || pairedFinalLengthIssue(*item.candidate) != nil {
 					next = append(next, item)
 				}
 			}
@@ -190,7 +195,7 @@ func (t *Translator) reviewLongPairedBatch(ctx context.Context, input pairedTran
 		TargetLanguage string       `json:"target_language"`
 		Items          []reviewItem `json:"items"`
 	}{input.SourceLanguage, input.TargetLanguage, items}
-	prompt := "Independently verify EACH subtitle item without rewriting. Check BOTH equivalent and acceptable. Verify resulting_parent_target_text against ALL parent_source_text and parent_target_text, not only the local pair: local repairs must not add a second translation of information already expressed by another cue, omit content, or leave contradictory order. equivalent: preserve all source meaning, facts, names, quantities, negation, degree, uncertainty, conditions, time, causality, shared components and terminology, with no omission/addition. Natural paraphrase and word-order changes are allowed; moving a condition alone does not change its logic—check the actual condition and result. acceptable: every source/target pair corresponds, cuts follow natural groups, and the whole target reads fluently. Complete purpose/condition/cause clauses may occupy successive cues; each cue need not stand alone. Reject internal breaks in words, names, idioms, modifier/head, subject/predicate, verb/preposition objects or coordinated quantities, dangling tails, mismatches and unnatural syntax. ‘都摆满了/部分读完的书’ and ‘出版社的/书’ are bad cuts. Recognize genuine speech repairs and interruptions: an already interrupted source phrase is not a newly introduced grammar break, but preserve its actual meaning. Correct full meaning does not excuse incorrect pair alignment. If uncertain, return false for the relevant check. Return each ID once as JSON: {\"reviews\":[{\"sentence_id\":\"ID\",\"equivalent\":true or false,\"acceptable\":true or false,\"reason\":\"specific evidence or problem\"}]}."
+	prompt := "长度由程序单独检查并继续优化；不能仅因片段超过显示上限，就否决内容正确、逐段对应且切口自然的候选。Independently verify EACH subtitle item without rewriting. Check BOTH equivalent and acceptable. Verify resulting_parent_target_text against ALL parent_source_text and parent_target_text, not only the local pair: local repairs must not add a second translation of information already expressed by another cue, omit content, or leave contradictory order. equivalent: preserve all source meaning, facts, names, quantities, negation, degree, uncertainty, conditions, time, causality, shared components and terminology, with no omission/addition. Natural paraphrase and word-order changes are allowed; moving a condition alone does not change its logic—check the actual condition and result. acceptable: every source/target pair corresponds, cuts follow natural groups, and the whole target reads fluently. Complete purpose/condition/cause clauses may occupy successive cues; each cue need not stand alone. Reject internal breaks in words, names, idioms, modifier/head, subject/predicate, verb/preposition objects or coordinated quantities, dangling tails, mismatches and unnatural syntax. ‘都摆满了/部分读完的书’ and ‘出版社的/书’ are bad cuts. Recognize genuine speech repairs and interruptions: an already interrupted source phrase is not a newly introduced grammar break, but preserve its actual meaning. Correct full meaning does not excuse incorrect pair alignment. If uncertain, return false for the relevant check. Return each ID once as JSON: {\"reviews\":[{\"sentence_id\":\"ID\",\"equivalent\":true or false,\"acceptable\":true or false,\"reason\":\"specific evidence or problem\"}]}."
 	ok, err := t.semanticJSON(ctx, "translation_length_batch_review", prompt, payload, "reviews", &output, func() bool {
 		if output.Reviews == nil || len(output.Reviews) != len(items) {
 			return false
@@ -220,7 +225,13 @@ func (t *Translator) reviewLongPairedBatch(ctx context.Context, input pairedTran
 				if *review.Equivalent && *review.Acceptable {
 					candidate := candidates[review.ID]
 					candidate.LayoutReviewed = true
-					item.candidate = &candidate
+					candidate.LayoutFallback = pairedFinalLengthIssue(candidate) != nil
+					if item.candidate == nil || betterPairedLayout(candidate, *item.candidate) {
+						item.candidate = &candidate
+					}
+					if lengthErr := pairedFinalLengthIssue(*item.candidate); lengthErr != nil {
+						item.issue = lengthErr.Error()
+					}
 				} else {
 					item.issue = review.Reason
 				}

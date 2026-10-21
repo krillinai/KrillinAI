@@ -132,9 +132,12 @@ func TestHesitationCandidateValidationAndRecovery(t *testing.T) {
 		{`Say "uh" twice.`, `把“呃”说两遍。`, "en", "zh_cn", true},
 		{"We meet at five.", "Wir treffen uns um fünf.", "en", "de", true},
 	} {
-		if got := translator.isTranslationValid(tc.source, tc.target, types.StandardLanguageCode(tc.sourceLang), types.StandardLanguageCode(tc.targetLang)); got != tc.valid {
+		if got := !translationHasHesitationLeak(tc.source, tc.target, types.StandardLanguageCode(tc.sourceLang), types.StandardLanguageCode(tc.targetLang)); got != tc.valid {
 			t.Errorf("%q -> %q: valid=%v want=%v", tc.source, tc.target, got, tc.valid)
 		}
+	}
+	if !hasUsableTranslation("呃，我不确定。") || len(translationQualityHints("I'm, uh, not sure.", "呃，我不确定。", "en", "zh_cn")) == 0 {
+		t.Fatal("发声残留应保留为初译并提示审校，不能阻断初译")
 	}
 	// 缓存里的省略标志不能成为跳过有实义句子的凭据。
 	_, ok := translator.recoverPairedSentence(pairedSentence{ID: "1", FullTarget: "我们去吧。", OmittedHesitation: true}, pairedTranslationSource{ID: "1", Text: "Let's go."}, "en", "zh_cn")

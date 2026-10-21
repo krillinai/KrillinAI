@@ -27,21 +27,22 @@ var pairedTranslationPrompt string
 var pairedTranslationRetry string
 
 type pairedSentence struct {
-	OmittedHesitation bool                       `json:"omitted_nonsemantic_hesitation,omitempty"`
-	SegmentState      *segmentedTranslationState `json:"segment_translation,omitempty"`
-	ID                string                     `json:"sentence_id"`
-	DraftTarget       string                     `json:"draft_target_text,omitempty"`
-	RevisionVersion   string                     `json:"revision_version,omitempty"`
-	FullSource        string                     `json:"source_text,omitempty"`
-	FullTarget        string                     `json:"target_text"`
-	NLPSourceHint     []string                   `json:"nlp_segments_hint,omitempty"`
-	Target            []string                   `json:"target_segments"`
-	Source            []string                   `json:"source_segments"`
-	LayoutReviewed    bool                       `json:"layout_reviewed,omitempty"`
-	LayoutVersion     int                        `json:"layout_version,omitempty"`
-	LayoutTarget      int                        `json:"layout_target,omitempty"`
-	LayoutFallback    bool                       `json:"layout_fallback,omitempty"`
-	SemanticReviewed  bool                       `json:"semantic_reviewed,omitempty"`
+	TranslationFallbackReason string                     `json:"translation_fallback_reason,omitempty"`
+	OmittedHesitation         bool                       `json:"omitted_nonsemantic_hesitation,omitempty"`
+	SegmentState              *segmentedTranslationState `json:"segment_translation,omitempty"`
+	ID                        string                     `json:"sentence_id"`
+	DraftTarget               string                     `json:"draft_target_text,omitempty"`
+	RevisionVersion           string                     `json:"revision_version,omitempty"`
+	FullSource                string                     `json:"source_text,omitempty"`
+	FullTarget                string                     `json:"target_text"`
+	NLPSourceHint             []string                   `json:"nlp_segments_hint,omitempty"`
+	Target                    []string                   `json:"target_segments"`
+	Source                    []string                   `json:"source_segments"`
+	LayoutReviewed            bool                       `json:"layout_reviewed,omitempty"`
+	LayoutVersion             int                        `json:"layout_version,omitempty"`
+	LayoutTarget              int                        `json:"layout_target,omitempty"`
+	LayoutFallback            bool                       `json:"layout_fallback,omitempty"`
+	SemanticReviewed          bool                       `json:"semantic_reviewed,omitempty"`
 }
 
 type pairedTranslationOutput struct {
@@ -73,19 +74,22 @@ func flattenPairedSentences(sentences []pairedSentence) []*TranslatedItem {
 }
 
 type pairedTranslationInput struct {
-	PreserveFinalBoundaries bool                             `json:"-"`
-	SourceLanguage          string                           `json:"source_language"`
-	TargetLanguage          string                           `json:"target_language"`
-	MaxTargetChars          int                              `json:"max_target_display_units"`
-	MaxSourceChars          int                              `json:"max_source_display_units"`
-	MaxFullwidthChars       int                              `json:"max_fullwidth_chars"`
-	Sentences               []pairedTranslationSource        `json:"sentences"`
-	SemanticContext         *translationBatchSemanticContext `json:"semantic_context,omitempty"`
-	Before                  []string                         `json:"context_before,omitempty"`
-	After                   []string                         `json:"context_after,omitempty"`
+	PreserveFinalBoundaries bool `json:"-"`
+	// 最终重拆可暂存仅长度超标的候选，完整性与切口检查仍须执行。
+	AllowLengthOverflow bool                             `json:"-"`
+	SourceLanguage      string                           `json:"source_language"`
+	TargetLanguage      string                           `json:"target_language"`
+	MaxTargetChars      int                              `json:"max_target_display_units"`
+	MaxSourceChars      int                              `json:"max_source_display_units"`
+	MaxFullwidthChars   int                              `json:"max_fullwidth_chars"`
+	Sentences           []pairedTranslationSource        `json:"sentences"`
+	SemanticContext     *translationBatchSemanticContext `json:"semantic_context,omitempty"`
+	Before              []string                         `json:"context_before,omitempty"`
+	After               []string                         `json:"context_after,omitempty"`
 }
 
 type pairedTranslationSource struct {
+	FailureReason string   `json:"-"`
 	ID            string   `json:"sentence_id"`
 	Text          string   `json:"text"`
 	SourceHint    []string `json:"source_segments_hint,omitempty"`
@@ -336,7 +340,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 		for i := range result {
 			result[i] = resolved[strconv.Itoa(i+1)]
 		}
-		return result, nil
+		return t.finishTranslationResult(ctx, result, checkpoint)
 	}
 	var pending []pairedTranslationInput
 	for _, input := range translationInputs {
@@ -417,7 +421,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 				missing = append(missing, source.ID)
 			}
 		}
-		return nil, fmt.Errorf("句子%s初译已用尽%d次尝试，仍未取得有效译文；其他字幕已保存", strings.Join(missing, ","), translationMaxAttempts)
+		return nil, fmt.Errorf("句子%s初译已用尽%d次尝试，仍未取得可用翻译文本；检查点和其他字幕已保存", strings.Join(missing, ","), translationMaxAttempts)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -426,7 +430,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	for i := range result {
 		result[i] = resolved[strconv.Itoa(i+1)]
 	}
-	return result, nil
+	return t.finishTranslationResult(ctx, result, checkpoint)
 }
 
 func (t *Translator) parsePairedTranslation(response string, input pairedTranslationInput, originLang, targetLang types.StandardLanguageCode) ([]pairedSentence, error) {
@@ -482,9 +486,9 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 		if !subtitleSegmentsPreserveText(original.Text, sentence.Source) {
 			issues = append(issues, fmt.Errorf("句子%s原文覆盖错误，存在改写、遗漏、重复、乱序或段内词间空格变化。仅译文可以调整语序，segments的source只能在以下正确原文中插入分割边界，禁止移动任何词或修改段内空格。正确原文=%q；错误的原文拼接=%q。请丢弃该句错误的source分段，直接从正确原文按顺序重新切成%d段", sentence.ID, original.Text, strings.Join(sentence.Source, " "), len(sentence.Target)))
 		}
-		// 检查完整句子，允许其中的专名片段保持原样及跨片段调整语序。
-		if !t.isTranslationValid(original.Text, sentence.FullTarget, originLang, targetLang) || sourceTranslationChanged(original, sentence.FullTarget) {
-			issues = append(issues, fmt.Errorf("句子%s没有有效目标语言译文或原样返回了整句原文", sentence.ID))
+		// 只检查完整文本可用性及排版时译文冻结，不以语言特征否定已有初译。
+		if !hasUsableTranslation(sentence.FullTarget) || sourceTranslationChanged(original, sentence.FullTarget) {
+			issues = append(issues, fmt.Errorf("句子%s缺少可用翻译文本或修改了冻结译文", sentence.ID))
 		}
 	}
 	if len(issues) > 0 {
@@ -504,11 +508,13 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 			result[i].Target = append(result[i].Target, pair.Target)
 		}
 		result[i].LayoutVersion, result[i].LayoutTarget = pairedLayoutVersion, input.MaxTargetChars
-		// 最终重拆使用硬上限与独立意群复核；软长度的短片段启发式
-		// 不能再次回并或否决一个已经满足单行上限的候选。
+		// 最终重拆使用独立意群复核，允许调用方暂存仅长度超标的候选；
+		// 软长度的短片段启发式不能再次回并这些边界。
 		var layoutErr error
 		if input.PreserveFinalBoundaries {
-			layoutErr = pairedFinalLengthIssue(result[i])
+			if !input.AllowLengthOverflow {
+				layoutErr = pairedFinalLengthIssue(result[i])
+			}
 			if layoutErr == nil {
 				for j := 0; j+1 < len(result[i].Source); j++ {
 					if subtitleBoundaryLeavesComplement(result[i].Source[j]) || subtitleBoundaryLeavesComplement(result[i].Target[j]) {
@@ -640,6 +646,9 @@ func subtitlePositionTime(spans []subtitleTimingSpan, position int, ending bool)
 // BatchTranslateSrtBlocks 按完整句子翻译，以两侧单行长度重新生成成对字幕和共享时间轴。
 // 有词级时间时沿用词时间；仅有 cue 时间时在原 cue 内按原文字符位置估算边界。
 func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util.SrtBlock, originLang, targetLang string, taskPtr *types.SubtitleTask, wordTimings ...[]VttWord) ([]*util.SrtBlock, error) {
+	local := *t
+	local.translationTask = taskPtr
+	t = &local
 	var texts []string
 	var spans []subtitleTimingSpan
 	position := 0
