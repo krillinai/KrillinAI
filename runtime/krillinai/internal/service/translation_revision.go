@@ -19,9 +19,10 @@ var translationRevisionPrompt string
 const translationRevisionVerifyPrompt = "Independently verify each revised translation against the complete source and supplied context; do not polish. The draft and terminology suggestions may be wrong: allow corrections of meaning and natural target-language order. Interpret colloquial ellipsis and self-repairs using context; an unambiguous implied reference may be explicit in translation, but new facts must not be invented. Check ALL facts, names, numbers, negation, degree, modality, conditions, time and causality, including the scoped meaning of any supplied terms. Fluency must not conceal omission/addition. Do not reject synonymous wording merely because its words are absent from the source or differ from the draft. For each rejection identify the source proposition and candidate phrase that change, omit or add meaning; stylistic preference alone is not a semantic defect. If uncertain, do not accept. JSON only: {\"accepted_ids\":[\"ID\"],\"reason\":\"specific problems for rejected IDs, or evidence for acceptance\"}."
 
 type translationRevisionSentence struct {
-	ID     string `json:"sentence_id"`
-	Text   string `json:"text"`
-	Target string `json:"target_text"`
+	ID           string   `json:"sentence_id"`
+	Text         string   `json:"text"`
+	Target       string   `json:"target_text"`
+	QualityHints []string `json:"quality_hints,omitempty"`
 }
 
 func revisionVersion() string {
@@ -34,7 +35,10 @@ func (t *Translator) reviseContentBatch(ctx context.Context, input pairedTransla
 	var pending []translationRevisionSentence
 	for _, source := range input.Sentences {
 		if sentence, ok := accepted[source.ID]; ok && sentence.RevisionVersion != version {
-			pending = append(pending, translationRevisionSentence{source.ID, source.Text, sentence.FullTarget})
+			pending = append(pending, translationRevisionSentence{
+				ID: source.ID, Text: source.Text, Target: sentence.FullTarget,
+				QualityHints: translationQualityHints(source.Text, sentence.FullTarget, originLang, targetLang),
+			})
 		}
 	}
 	if len(pending) == 0 {
@@ -65,7 +69,7 @@ func (t *Translator) reviseContentBatch(ctx context.Context, input pairedTransla
 			seen := make(map[string]bool)
 			for _, correction := range result.Corrections {
 				source, exists := byID[correction.ID]
-				if !exists || seen[correction.ID] || strings.TrimSpace(correction.Reason) == "" || hasSubtitleLineBreak(correction.TargetText) || len(correction.TargetText) > 4*len(source.Text)+1024 || !t.isTranslationValid(source.Text, correction.TargetText, originLang, targetLang) {
+				if !exists || seen[correction.ID] || strings.TrimSpace(correction.Reason) == "" || hasSubtitleLineBreak(correction.TargetText) || len(correction.TargetText) > 4*len(source.Text)+1024 || !hasUsableTranslation(correction.TargetText) {
 					return false
 				}
 				seen[correction.ID] = true
@@ -186,5 +190,11 @@ func (t *Translator) reviseContentBatch(ctx context.Context, input pairedTransla
 		// 不得使这些成功项被重做，也不能把被拒项标为已审校。
 		pending = retry
 	}
-	return fmt.Errorf("完整初译已保存，译文修订未通过原文核验")
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// 未通过的候选从未写入 accepted；耗尽后继续使用修订前的原译，
+	// 也不把它标记为已通过核验。其他已通过句子的修改继续保留。
+	t.translationNotice(fmt.Sprintf("%d句译文修订或核验重试已耗尽，已保留原译继续生成字幕", len(pending)))
+	return ctx.Err()
 }

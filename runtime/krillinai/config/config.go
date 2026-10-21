@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"go.uber.org/zap"
@@ -143,13 +144,14 @@ type OpenAiWhisper struct {
 }
 
 type Config struct {
-	App        App                    `toml:"app"`
-	Server     Server                 `toml:"server"`
-	Llm        OpenaiCompatibleConfig `toml:"llm"`
-	Transcribe Transcribe             `toml:"transcribe"`
-	Tts        Tts                    `toml:"tts"`
-	Dubbing    Dubbing                `toml:"dubbing"`
-	Image      Image                  `toml:"image"`
+	App         App                    `toml:"app"`
+	Server      Server                 `toml:"server"`
+	Llm         OpenaiCompatibleConfig `toml:"llm"`
+	LlmFallback OpenaiCompatibleConfig `toml:"llm_fallback"`
+	Transcribe  Transcribe             `toml:"transcribe"`
+	Tts         Tts                    `toml:"tts"`
+	Dubbing     Dubbing                `toml:"dubbing"`
+	Image       Image                  `toml:"image"`
 }
 
 var Conf = Config{
@@ -333,7 +335,26 @@ func CheckConfig() error {
 func CheckBaseConfig() error {
 	var err error
 	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
-	return err
+	if err != nil {
+		return err
+	}
+	return ValidateLLMFallbackConfig()
+}
+
+// 备用源为空时保持单源行为；配置不完整时阻止启动，避免故障时才发现无法切换。
+func ValidateLLMFallbackConfig() error {
+	fallback := Conf.LlmFallback
+	if fallback.BaseUrl == "" && fallback.ApiKey == "" && fallback.Model == "" {
+		return nil
+	}
+	if strings.TrimSpace(fallback.BaseUrl) == "" || strings.TrimSpace(fallback.ApiKey) == "" || strings.TrimSpace(fallback.Model) == "" {
+		return errors.New("备用 LLM 需要完整配置 base_url、api_key 和 model")
+	}
+	endpoint, err := url.Parse(fallback.BaseUrl)
+	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+		return errors.New("备用 LLM base_url 必须是有效的 HTTP/HTTPS 接口地址")
+	}
+	return nil
 }
 
 // SaveConfig 保存配置到文件

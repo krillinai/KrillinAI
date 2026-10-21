@@ -208,35 +208,22 @@ func (f translationCompleterFunc) ChatCompletion(prompt string) (string, error) 
 	return f(prompt)
 }
 
-func TestTranslationValidationKeepsOnlyWholeSpecialContent(t *testing.T) {
-	translator := &Translator{}
-	tests := []struct {
-		name, origin, translation string
-		want                      bool
+func TestTranslationAvailabilityKeepsCandidatesForReview(t *testing.T) {
+	for _, tc := range []struct {
+		text   string
+		usable bool
 	}{
-		{"普通整句不能原样返回", "I was 20 years old.", "I was 20 years old.", false},
-		{"包含专名也要翻译", "OpenAI had the customers we needed.", "OpenAI had the customers we needed.", false},
-		{"空格和大小写不能绕过检查", "Andrew proposed a partnership.", "ANDREW  proposed a partnership.", false},
-		{"数字多也不能豁免整句", "I am 20, 21, 22, 23.", "I am 20, 21, 22, 23.", false},
-		{"纯数字", "2026", "2026", true},
-		{"纯符号", "...", "...", true},
-		{"缩写", "NASA", "NASA", true},
-		{"品牌专名", "OpenAI", "OpenAI", true},
-		{"人名", "Andrew Huberman", "Andrew Huberman", true},
-		{"空译文", "hello", " \n ", false},
-		{"无目标语言", "hello", "a greeting", false},
-		{"短译文不受字节长度限制", "Yes, yes, yes, yes, yes, yes, yes.", "是。", true},
-		{"自然译文", "that had the customers we needed", "那些拥有我们所需客户的公司", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := translator.isTranslationValid(tt.origin, tt.translation, "en", "zh_cn"); got != tt.want {
-				t.Fatalf("isTranslationValid(%q, %q) = %v, want %v", tt.origin, tt.translation, got, tt.want)
-			}
-		})
-	}
-	if !translator.isTranslationValid("hello", "hello", "en", "en") {
-		t.Fatal("同语言字幕应允许保持原文")
+		{"35", true}, {"35.", true}, {"٣٥", true}, {"３５", true},
+		{"Muse.", true}, {"Pystock?", true}, {"東京", true}, {"محمد", true},
+		{"NASA", true}, {"Town.com.", true}, {"https://town.com/path?q=1", true},
+		{"I was 20 years old.", true}, {"OpenAI had the customers we needed.", true},
+		{"你好。", true}, {"नमस्ते", true}, {"Привет", true},
+		{"", false}, {" \n ", false}, {"...", false}, {"。！？", false},
+		{"译文\n第二行", false}, {`译文\N第二行`, false},
+	} {
+		if got := hasUsableTranslation(tc.text); got != tc.usable {
+			t.Errorf("文本 %q：可用=%v，期望=%v", tc.text, got, tc.usable)
+		}
 	}
 }
 
@@ -299,7 +286,7 @@ func TestBatchTranslateSrtBlocksDoesNotReturnOriginalAfterRecoveryFailure(t *tes
 	}
 }
 
-func TestBatchTranslateTextsRetriesUntranslatedSentenceWithProperNoun(t *testing.T) {
+func TestBatchTranslateTextsKeepsUnchangedCandidateForReview(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
 		`{"translations":[{"index":1,"text":"OpenAI had the customers we needed."}]}`,
@@ -307,8 +294,11 @@ func TestBatchTranslateTextsRetriesUntranslatedSentenceWithProperNoun(t *testing
 	}}
 	translator := &Translator{chatCompleter: completer}
 	translations, err := translator.batchTranslateTexts([]string{"OpenAI had the customers we needed."}, "en", "zh_cn")
-	if err != nil || completer.calls != 2 || len(translations) != 1 || translations[0] != "OpenAI拥有我们所需的客户。" {
+	if err != nil || completer.calls != 1 || len(translations) != 1 || translations[0] != "OpenAI had the customers we needed." {
 		t.Fatalf("translations = %v, calls = %d, error = %v", translations, completer.calls, err)
+	}
+	if len(translationQualityHints("OpenAI had the customers we needed.", translations[0], "en", "zh_cn")) == 0 {
+		t.Fatal("疑似未翻译的候选缺少审校提示")
 	}
 }
 

@@ -91,7 +91,34 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 		maxTokens += 2*len(source.Text) + 128
 	}
 	maxTokens = min(translationOutputBudget, max(2048, maxTokens))
-	for attempt := 0; attempt < 3 && len(remaining.Sentences) > 0; attempt++ {
+	for attempt := 0; attempt < translationMaxAttempts && len(remaining.Sentences) > 0; attempt++ {
+		// 最后一次切换整句请求，但仍计入同一句的三次预算，不能在外层重新计数。
+		if attempt == translationMaxAttempts-1 {
+			next := remaining
+			next.Sentences = nil
+			for _, source := range remaining.Sentences {
+				sentence, ok, err := t.translatePlainSentence(ctx, input, source, originLang, targetLang)
+				if err != nil {
+					if ctx.Err() != nil {
+						return remaining, ctx.Err()
+					}
+					source.FailureReason = err.Error()
+					next.Sentences = append(next.Sentences, source)
+					continue
+				}
+				if !ok {
+					next.Sentences = append(next.Sentences, source)
+					continue
+				}
+				sentence.DraftTarget = sentence.FullTarget
+				if err := save(sentence, true); err != nil {
+					return remaining, err
+				}
+				t.noteTranslationCandidate(source, sentence, originLang, targetLang)
+			}
+			remaining = next
+			break
+		}
 		payload, _ := json.Marshal(contentTranslationInput(remaining))
 		prompt := "任务：translation_content\n" + translationContentPrompt
 		if t.filterNonSemanticFillers {
@@ -108,7 +135,13 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 				feedback = "\n上次输出被截断，只返回完整译文JSON。"
 				continue
 			}
-			return remaining, err
+			if ctx.Err() != nil {
+				return remaining, ctx.Err()
+			}
+			for i := range remaining.Sentences {
+				remaining.Sentences[i].FailureReason = err.Error()
+			}
+			return remaining, nil
 		}
 		var output pairedTranslationOutput
 		decodeErr := json.Unmarshal([]byte(util.ExtractJSONObject(response, "sentences")), &output)
@@ -123,25 +156,41 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 		for _, source := range remaining.Sentences {
 			item, exists := items[source.ID]
 			if decodeErr != nil || !exists || duplicate[source.ID] {
+				reason := "missing_sentence_id"
+				if decodeErr != nil {
+					reason = "invalid_response_json"
+				} else if duplicate[source.ID] {
+					reason = "duplicate_sentence_id"
+				}
+				noteTranslationTextIssue("translation_content", source.ID, reason, attempt+1)
+				source.FailureReason = reason
 				issues = append(issues, fmt.Sprintf("句子%s缺失或ID重复，必须恰好返回一次", source.ID))
 				next.Sentences = append(next.Sentences, source)
 				continue
 			}
 			candidate := pairedSentence{ID: source.ID, FullTarget: item.FullTarget, DraftTarget: item.FullTarget}
+			if issue := pairedTranslationTextIssue(candidate, source); issue != "" {
+				source.FailureReason = issue
+				noteTranslationTextIssue("translation_content", source.ID, issue, attempt+1)
+				issues = append(issues, fmt.Sprintf("句子%s未取得可用翻译文本：%s", source.ID, issue))
+				next.Sentences = append(next.Sentences, source)
+				continue
+			}
 			// 接受兼容响应中的既有配对，但绝不要求内容生成阶段输出排版。
 			for _, segment := range item.Segments {
 				candidate.Source = append(candidate.Source, segment.Source)
 				candidate.Target = append(candidate.Target, segment.Target)
 			}
 			value, ok := t.recoverPairedSentence(candidate, source, originLang, targetLang)
-			if !ok || len(item.FullTarget) > 4*len(source.Text)+1024 {
-				issues = append(issues, fmt.Sprintf("句子%s译文无效、未翻译或包含换行", source.ID))
+			if !ok {
+				issues = append(issues, fmt.Sprintf("句子%s未取得可用翻译文本", source.ID))
 				next.Sentences = append(next.Sentences, source)
 				continue
 			}
 			if err := save(value, true); err != nil {
 				return remaining, err
 			}
+			t.noteTranslationCandidate(source, value, originLang, targetLang)
 		}
 		remaining = next
 		if len(issues) > 0 {

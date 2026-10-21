@@ -479,6 +479,7 @@ func (s Service) translatePreparedText(ctx context.Context, basePath, inputText 
 	translator := newTranslator(s.ChatCompleter)
 	translator.filterNonSemanticFillers, translator.preparedTranslation = enableModalFilter, prepared
 	translator = translator.withTranslationRecovery(basePath, task)
+	translator.translationReportScope = fmt.Sprintf("audio:%d", id)
 	var results []*TranslatedItem
 	_, err := translator.translatePairedSentences(ctx, []string{inputText}, originLang, targetLang, subtitleTargetLimit(), translationBatchSize, func(batch []pairedSentence, completed, total int) error {
 		results = append(results, flattenPairedSentences(batch)...)
@@ -494,6 +495,11 @@ func (s Service) translatePreparedText(ctx context.Context, basePath, inputText 
 		return nil
 	}, onProgress...)
 	if err != nil {
+		var allFailed *allTranslationFailedError
+		if errors.As(err, &allFailed) {
+			// 音频调用方需要先汇总其他片段，再判断是否整片翻译失败。
+			return results, err
+		}
 		return nil, err
 	}
 	return results, nil
@@ -870,6 +876,8 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 				return err
 			}
 		}
+		translatedContent := false
+		var allFailed *allTranslationFailedError
 		for _, translateItem := range pending {
 			var translatedResults []*TranslatedItem
 			var err error
@@ -888,7 +896,16 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 			}
 			translatedResults, err = s.translatePreparedText(ctx, stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id, stepParam.TaskPtr, prepared[translateItem.Id], nil, reportProgress)
 			if err != nil {
-				return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
+				var segmentFailed *allTranslationFailedError
+				if !errors.As(err, &segmentFailed) {
+					return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
+				}
+				if allFailed == nil {
+					allFailed = &allTranslationFailedError{reason: segmentFailed.reason}
+				}
+				allFailed.count += segmentFailed.count
+			} else if len(translatedResults) > 0 {
+				translatedContent = true
 			}
 			_ = util.SaveToDisk(translatedResults, filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, translateItem.Id)))
 			log.GetLogger().Info("Translate completed", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
@@ -898,6 +915,9 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 			case <-ctx.Done():
 				return ctx.Err()
 			}
+		}
+		if allFailed != nil && !translatedContent {
+			return allFailed
 		}
 		return nil
 	})

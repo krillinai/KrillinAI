@@ -31,6 +31,18 @@ func (t *Translator) translateSemanticBatch(ctx context.Context, input pairedTra
 	if err != nil {
 		return remaining, err
 	}
+	// 单句初译耗尽时明确标记沿用原文，其余句子继续审校和导出。
+	for _, source := range remaining.Sentences {
+		if err := ctx.Err(); err != nil {
+			return remaining, err
+		}
+		sentence := originalTranslationFallback(source, source.FailureReason)
+		accepted[source.ID] = sentence
+		if err := save(sentence, false); err != nil {
+			return remaining, err
+		}
+	}
+	remaining.Sentences = nil
 	if err := t.completeSemanticBatch(ctx, input, accepted, plan, originLang, targetLang, save); err != nil {
 		return remaining, err
 	}
@@ -41,8 +53,25 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 	if t.segmentTranslation {
 		return t.completeSegmentedBatch(ctx, input, accepted, originLang, targetLang, save)
 	}
+	var err error
+	input, err = finishFallbackSentences(input, accepted, save)
+	if err != nil {
+		return err
+	}
 	if t.reviseTranslation {
 		if err := t.reviseContentBatch(ctx, input, accepted, originLang, targetLang, save); err != nil {
+			return err
+		}
+		for _, source := range input.Sentences {
+			sentence, ok := accepted[source.ID]
+			if ok && sentence.RevisionVersion != revisionVersion() && unchangedTranslationNeedsReview(source, sentence, originLang, targetLang) {
+				fallback := originalTranslationFallback(source, "原样返回的文本未能完成翻译审校，已保留原文")
+				fallback.DraftTarget = sentence.DraftTarget
+				accepted[source.ID] = fallback
+			}
+		}
+		input, err = finishFallbackSentences(input, accepted, save)
+		if err != nil {
 			return err
 		}
 	}
@@ -93,7 +122,7 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 					for _, term := range plan.forSources([]pairedTranslationSource{source}).Terms {
 						found = found || term.Source == correction.TermSource
 					}
-					if !t.isTranslationValid(source.Text, correction.TargetText, originLang, targetLang) {
+					if !hasUsableTranslation(correction.TargetText) {
 						return false
 					}
 				}
@@ -153,7 +182,9 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 		layout.SemanticContext, layout.Before, layout.After = nil, nil, nil
 		groups, err := pairedLayoutBatches(layout)
 		if err != nil {
-			return err
+			// 已保存的译文即使超出排版请求预算，也不能重新变成初译失败。
+			// 保留现有配对，交给后续有限拆分；仍不可处理时沿用原译。
+			t.translationNotice(fmt.Sprintf("字幕排版请求超过预算，已保留完整初译继续生成字幕：%v", err))
 		}
 		for _, group := range groups {
 			_, err := t.translatePairedBatch(ctx, group, originLang, targetLang, func(value pairedSentence, _ bool) error {

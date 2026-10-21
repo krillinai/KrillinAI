@@ -24,6 +24,21 @@ func (c *Client) ChatCompletionContextWithMaxTokens(ctx context.Context, query s
 	if maxTokens < 1 || maxTokens > 8192 {
 		return "", fmt.Errorf("llm_translation_invalid_budget: output token budget must be between 1 and 8192")
 	}
+	text, primaryErr := c.chatCompletion(ctx, query, maxTokens, config.Conf.Llm.Model)
+	if primaryErr == nil || c.fallback == nil || ctx.Err() != nil {
+		return text, primaryErr
+	}
+	log.GetLogger().Warn("主 LLM 请求失败，切换备用 LLM", zap.String("fallback_model", c.fallbackModel))
+	text, fallbackErr := c.fallback.chatCompletion(ctx, query, maxTokens, c.fallbackModel)
+	if fallbackErr != nil {
+		// 包装备用源错误，保留限流状态和网络错误，供调用方继续退避重试。
+		return "", fmt.Errorf("主 LLM 请求失败 (%v)，备用 LLM 请求失败: %w", primaryErr, fallbackErr)
+	}
+	return text, nil
+}
+
+// 每个源独立计时；主源自身超时后，备用源仍可在父任务的剩余时间内完成请求。
+func (c *Client) chatCompletion(ctx context.Context, query string, maxTokens int, model string) (string, error) {
 	if c.requestTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.requestTimeout)
@@ -32,7 +47,7 @@ func (c *Client) ChatCompletionContextWithMaxTokens(ctx context.Context, query s
 	var responseFormat *openai.ChatCompletionResponseFormat
 
 	req := openai.ChatCompletionRequest{
-		Model: config.Conf.Llm.Model,
+		Model: model,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleSystem,

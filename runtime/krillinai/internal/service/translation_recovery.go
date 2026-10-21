@@ -31,11 +31,31 @@ func repairPairedBoundaries(item pairedTranslationOutputSentence, sourceText str
 	return item, punctuationChanged || layoutChanged
 }
 
-// recoverPairedSentence 只恢复已取得有效整句译文的句子，绝不回填原文或空占位。
+func pairedTranslationTextIssue(sentence pairedSentence, source pairedTranslationSource) string {
+	if sentence.OmittedHesitation {
+		return "unexpected_omission"
+	}
+	if sentence.ID != source.ID {
+		return "sentence_id_mismatch"
+	}
+	if issue := translationTextIssue(sentence.FullTarget); issue != "" {
+		return issue
+	}
+	if sourceTranslationChanged(source, sentence.FullTarget) {
+		return "frozen_translation_changed"
+	}
+	return ""
+}
+
+// recoverPairedSentence 恢复结构可用的完整初译，语义疑点留给可回退审校。
+// 不在缺少模型返回时回填原文或空占位。
 // 原译片段不能完整还原文本时，回到整句配对，避免按字数比例制造语义错位。
 func (t *Translator) recoverPairedSentence(sentence pairedSentence, source pairedTranslationSource, originLang, targetLang types.StandardLanguageCode) (pairedSentence, bool) {
-	if sentence.OmittedHesitation || sentence.ID != source.ID || !hasSubtitleContent(sentence.FullTarget) || hasSubtitleLineBreak(sentence.FullTarget) ||
-		!t.isTranslationValid(source.Text, sentence.FullTarget, originLang, targetLang) || sourceTranslationChanged(source, sentence.FullTarget) {
+	// 沿用原文只用于本次交付，续跑必须重新翻译这些句子。
+	if sentence.TranslationFallbackReason != "" {
+		return pairedSentence{}, false
+	}
+	if pairedTranslationTextIssue(sentence, source) != "" {
 		return pairedSentence{}, false
 	}
 	validSegments := len(sentence.Source) > 0 && len(sentence.Source) == len(sentence.Target) &&
@@ -69,15 +89,6 @@ func (t *Translator) translationNotice(message string) {
 	}
 }
 
-func (t *Translator) waitForTranslationRecovery(ctx context.Context, message string) error {
-	t.translationNotice(message)
-	delay := t.recoveryDelay
-	if delay <= 0 {
-		delay = 30 * time.Second
-	}
-	return waitTranslationRetry(ctx, delay)
-}
-
 func waitTranslationRetry(ctx context.Context, delay time.Duration) error {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
@@ -108,13 +119,17 @@ func isTransientTranslationRequestError(err error) bool {
 		errors.Is(err, context.DeadlineExceeded) || errors.As(err, &networkError)
 }
 
-// 接口重试与内容纠错分别计数。持续限流进入低频等待，底层不可用仍返回真实错误。
+const translationMaxAttempts = 3
+
+// 接口重试与内容纠错分别计数；包括持续限流在内，单次请求最多尝试三次。
 func (t *Translator) requestTranslation(ctx context.Context, prompt string, maxTokens int) (string, error) {
 	prompt = withTranslationFillerPolicy(prompt)
 	if len(prompt) > translationRequestBytes {
 		return "", fmt.Errorf("翻译请求超过预算")
 	}
-	for failures := 0; ; failures++ {
+	attempts := min(translationMaxAttempts, max(1, config.Conf.App.TranslateMaxAttempts))
+	var lastErr error
+	for failures := 0; failures < attempts; failures++ {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -134,20 +149,16 @@ func (t *Translator) requestTranslation(ctx context.Context, prompt string, maxT
 		if translationRequestStatus(err) == http.StatusTooManyRequests && t.onRateLimit != nil {
 			t.onRateLimit()
 		}
-		if failures >= max(1, config.Conf.App.TranslateMaxAttempts)-1 {
-			if translationRequestStatus(err) != http.StatusTooManyRequests {
-				return "", err
-			}
-			if err := t.waitForTranslationRecovery(ctx, "翻译服务暂时限流，已保留进度，正在等待恢复"); err != nil {
-				return "", err
-			}
-		} else {
-			log.GetLogger().Warn("字幕翻译接口临时失败，退避后重试", zap.Int("request_retry", failures+1), zap.Error(err))
-			if err := waitTranslationRetry(ctx, time.Second<<min(failures, 4)); err != nil {
-				return "", err
-			}
+		lastErr = err
+		if failures+1 >= attempts {
+			break
+		}
+		log.GetLogger().Warn("字幕翻译接口临时失败，退避后重试", zap.Int("request_retry", failures+1), zap.Error(err))
+		if err := waitTranslationRetry(ctx, time.Second<<min(failures, 4)); err != nil {
+			return "", err
 		}
 	}
+	return "", fmt.Errorf("翻译接口已用尽%d次请求，已保留现有结果: %w", attempts, lastErr)
 }
 
 func translationOutputError(err error) bool {
@@ -352,9 +363,15 @@ func (t *Translator) translatePlainSentence(ctx context.Context, input pairedTra
 	}
 	var item pairedTranslationOutputSentence
 	if err := json.Unmarshal([]byte(util.ExtractJSONObject(response, "target_text")), &item); err != nil {
+		noteTranslationTextIssue("plain_translation", source.ID, "invalid_response_json", translationMaxAttempts)
 		return pairedSentence{}, false, nil
 	}
-	sentence, ok := t.recoverPairedSentence(pairedSentence{ID: item.ID, FullTarget: item.FullTarget}, source, originLang, targetLang)
+	candidate := pairedSentence{ID: item.ID, FullTarget: item.FullTarget}
+	if issue := pairedTranslationTextIssue(candidate, source); issue != "" {
+		noteTranslationTextIssue("plain_translation", source.ID, issue, translationMaxAttempts)
+		return pairedSentence{}, false, nil
+	}
+	sentence, ok := t.recoverPairedSentence(candidate, source, originLang, targetLang)
 	if ok {
 		t.translationNotice(fmt.Sprintf("第%s句已通过整句翻译恢复，正在继续生成字幕", source.ID))
 	}

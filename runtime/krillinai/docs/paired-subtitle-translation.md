@@ -60,9 +60,15 @@ VTT/SRT 文本读取允许单行最多 4 MiB，之后才进入上述模型输入
 
 最终边界核验携带仅适用于该父句的术语释义，避免与内容核验对同一词作出冲突解释；术语仍为参考，原文为准。完整后置修饰短语可承接上一条的中心词单独显示，例如“a collection of paintings / from different eras”对应“一批画作，/ 来自不同时代。”，需与“a / large collection”式内部断裂区分。此规则要求短语内部完整、目标语承接自然，并逐对保留角色和信息，不允许借用其他片段的作者或主题来掩盖错配。
 
-超长内容先以待排版状态写入原有句级检查点。局部及必要的父句恢复仍不合格，或接口中断，明确报错并保留完整译文，续跑可继续排版；不能把超长整句回退结果当作合格字幕导出。最终长度检查独立执行，不需要修改既有主翻译提示词或使已有内容缓存失效。
+超长内容先以待排版状态写入原有句级检查点。有限尝试中取得的候选如果已通过内容和意群核验，且缩短了最长字幕或降低了总超长量，即使仍有少量超长，也保留其中最好的版本。后续片段和必要的父句恢复失败时，保留前面已核验的局部改进，只让尚未修复的部分沿用原片段。没有取得有效改进，或排版接口重试耗尽时，记录提示并沿用原有完整译文和分段继续导出；未通过核验的候选不替换原译，回退状态保留在检查点中。因此，75显示单位是优先修复目标，失败回退时不保证最终字幕满足该长度。任务取消和检查点写盘错误仍向上传播。最终长度检查独立执行，不需要修改既有主翻译提示词或使已有内容缓存失效。
 
-结构校验失败后附具体问题和上一轮结果，整批最多三次输出纠错。429和5xx使用独立的 `translate_max_attempts` 退避预算，支持取消，不消耗结构纠错次数。失败明确报错，不回填源文冒充译文。有效完整译文立即写入句级检查点，术语审校后再按原顺序交付结果。
+初译内容校验失败后附具体问题和上一轮结果，最多三次输出尝试，前两次使用批量JSON，最后一次改为逐句请求，仍计入同一句的三次预算。429和5xx等临时接口错误使用独立的 `translate_max_attempts` 退避预算，实际次数限制在1至3次，持续限流也不会无限等待；支持取消，不消耗内容纠错次数。单句未能取得有效完整初译时，使用原文保留该句及其时间位置，并在句级检查点写入 `translation_fallback_reason`。默认内容修订未完成、且跨语言正文仍与原文完全相同时，也明确记录为失败后沿用原文；已通过修订的专名、URL和合法共用词允许原样保留。
+
+部分正文翻译成功时，继续导出完整字幕，结果的 `warnings` 提示未翻译条数，`translation_failures` 记录对应句子ID、原文和失败原因；HTTP任务状态及流水线响应均返回这些字段，流水线清单同时持久化。保留原文的句子不会被标记为翻译审校成功。按相同输入与工作目录续跑时，仅重新初译这些失败句，复用其他已取得的译文；修复后清除对应失败记录和旧警告。正常译文需要补做的审校或排版仍按已有检查点继续。
+
+全部正文都无法翻译时仍返回任务失败，检查点保留以供续跑；纯犹豫音的省略不计为正文翻译成功。多段音频按整片汇总，不会因为某一个音频片段恰好只有失败句就提前终止，重复片段也分别计数。任务取消、检查点写盘错误等真实执行错误继续向上传播。有效完整译文立即写入句级检查点；后续修订或核验耗尽时保留修订前原译继续处理，不将被拒候选标为已通过核验。
+
+KrillinAI可通过可选的 `[llm_fallback]` 配置备用模型，`base_url`、`api_key` 和 `model` 全空时保持单主模型行为，启用时必须完整配置。主源请求失败、超时或返回空/截断响应时，以相同提示词和输出预算调用备用源；业务内容校验失败仍由内容纠错流程处理。每个新请求优先主源，任务取消不触发备用请求。主备请求各有独立超时，仍受父任务取消与截止时间约束；一次逻辑请求可包含主备两次调用，不代表整个任务最多调用模型三次。OpenCreator默认只配置主模型。
 
 DeepSeek V4 的 `deepseek-flash`、`deepseek-v4-flash` 和 `deepseek-v4-pro` 使用 `temperature=0.2`，减少结构和分段的随机变化，并发送 `reasoning_effort=none`，避免推理耗尽字幕 JSON 的输出预算；实测其低强度推理也可能耗尽预算。其他模型保留默认采样，不附加这些参数。接口返回 `finish_reason=length` 时明确报 `llm_translation_truncated`，不把被截断的内容当成完整译文或普通空响应。
 
@@ -84,6 +90,7 @@ DeepSeek V4 的 `deepseek-flash`、`deepseek-v4-flash` 和 `deepseek-v4-pro` 使
 go test ./internal/service -run 'TestPaired|TestTranslation|TestNormalSubtitle|TestSubtitle|TestBatchTranslate|TestMultilingual' -count=1 -timeout=120s
 go test ./internal/service -run 'TestSubtitleLayoutReview|TestPairedSoftLayout|Test.*(AudioTiming|Audio2Subtitle|YouTubeSubtitle|SubtitleProgress|SourceRoutes)' -count=1 -timeout=120s
 go test ./internal/pipeline -run 'TestSubtitle.*RecoveryIntegration|TestCatalogSourceTranslationIntegration|TestImportedSubtitleExportsUseReturnedPairedSegments' -count=1 -timeout=90s
+go test ./internal/service ./internal/pipeline ./internal/handler ./internal/types -run 'TestPartial|TestMissingTranslation|TestSubtitleHTTPReports|TestTranslationReports' -count=1 -timeout=90s
 KRILLINAI_TEST_NLP_PYTHON=/path/to/python go test ./internal/service -run '^TestTranslationNLP' -count=1 -timeout=90s
 KRILLINAI_PARENT_TRANSLATION_AUDIT_DIR=/path/to/en-to-zh/output go test ./internal/service -run '^TestPairedParentTranslationAuditLive$' -count=1
 /path/to/python internal/service/subtitle_nlp_test.py

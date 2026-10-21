@@ -117,7 +117,7 @@ func TestSubtitleRecoveryIntegration(t *testing.T) {
 	}
 }
 
-// 超长结果不能绕过最终检查；续跑复用完整译文，并以重新配对的原文映射时间。
+// 超长结果仍经过三次修正；耗尽后完整导出原译，续跑继续复用完整译文。
 func TestSubtitleFinalLengthRecoveryIntegration(t *testing.T) {
 	log.InitLogger()
 	previous := config.Conf
@@ -204,11 +204,12 @@ func TestSubtitleFinalLengthRecoveryIntegration(t *testing.T) {
 				_, err := GenerateSubtitles(context.Background(), NewServiceAdapter(svc), SubtitleRequest{TaskID: "length", Workdir: workdir, InputSRT: path, OriginLang: "en", TargetLang: "zh_cn", BilingualTop: true})
 				return err
 			}
-			if err := run(); err == nil || !strings.Contains(err.Error(), "75") {
-				t.Fatalf("三次后仍超长应明确失败: %v", err)
+			if err := run(); err != nil {
+				t.Fatalf("三次修正耗尽后应保留原译继续导出: %v", err)
 			}
-			if _, err := os.Stat(filepath.Join(workdir, types.SubtitleTaskTargetLanguageSrtFileName)); !os.IsNotExist(err) {
-				t.Fatal("超长回退结果不应导出")
+			fallback, err := readSRTBlocks(filepath.Join(workdir, types.SubtitleTaskTargetLanguageSrtFileName))
+			if err != nil || len(fallback) != 1 || strings.Join(fallback[0].Lines, "") != target || splits.Load() != 3 {
+				t.Fatalf("未在三次后完整导出原译: output=%+v splits=%d err=%v", fallback, splits.Load(), err)
 			}
 			ready.Store(true)
 			if err := run(); err != nil {

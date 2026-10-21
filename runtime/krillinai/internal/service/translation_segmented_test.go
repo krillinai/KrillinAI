@@ -399,7 +399,7 @@ func TestSegmentedOverflowRefinesOnlyRepeatedOverlongChild(t *testing.T) {
 	}
 }
 
-func TestSegmentedRecoveryRejectsCorruptPositionAndUntranslatedTarget(t *testing.T) {
+func TestSegmentedRecoveryRejectsCorruptPositionAndEmptyTarget(t *testing.T) {
 	source := pairedTranslationSource{ID: "1", Text: "I read books."}
 	sentence, _ := sourceSegmentedSentence(source)
 	sentence.SegmentState.Stage = "reviewed"
@@ -415,8 +415,12 @@ func TestSegmentedRecoveryRejectsCorruptPositionAndUntranslatedTarget(t *testing
 	}
 	sentence.SegmentState.Units[0].Start = 0
 	sentence.SegmentState.Units[0].Target = source.Text
+	if _, ok := translator.recoverSegmentedSentence(sentence, source, "en", "zh_cn"); !ok {
+		t.Fatal("已审校的原样文本不应再被字符规则拒绝")
+	}
+	sentence.SegmentState.Units[0].Target = ""
 	if _, ok := translator.recoverSegmentedSentence(sentence, source, "en", "zh_cn"); ok {
-		t.Fatal("untranslated checkpoint reused")
+		t.Fatal("empty checkpoint reused")
 	}
 }
 
