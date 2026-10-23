@@ -55,6 +55,25 @@ func (t *Translator) recoverPairedSentence(sentence pairedSentence, source paire
 	if sentence.TranslationFallbackReason != "" {
 		return pairedSentence{}, false
 	}
+	if t.semanticSourceUnits && sentence.LayoutBaseTarget == "" && sentence.LayoutVersion > 0 {
+		// 旧排版可能已经重写 FullTarget，不能把它当成新的冻结基准。
+		// 复用保存的初译重新校准；不重新请求初译，也不猜测旧校准结果。
+		if !hasUsableTranslation(sentence.DraftTarget) {
+			return pairedSentence{}, false
+		}
+		sentence.FullTarget = sentence.DraftTarget
+		sentence.Source, sentence.Target = nil, nil
+		sentence.RevisionVersion = ""
+		sentence.SemanticReviewed, sentence.LayoutReviewed = false, false
+		sentence.LayoutVersion, sentence.LayoutAttempts = 0, 0
+		sentence.LayoutApproximate = false
+	}
+	if t.semanticSourceUnits && sentence.LayoutBaseTarget != "" && sentence.FullTarget != sentence.LayoutBaseTarget {
+		sentence.FullTarget = sentence.LayoutBaseTarget
+		sentence.Source, sentence.Target = nil, nil
+		sentence.LayoutReviewed = false
+		sentence.LayoutApproximate = false
+	}
 	if pairedTranslationTextIssue(sentence, source) != "" {
 		return pairedSentence{}, false
 	}

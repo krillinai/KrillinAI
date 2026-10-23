@@ -168,6 +168,8 @@ func (t *Translator) reviseContentBatch(ctx context.Context, input pairedTransla
 			}
 			if value, changed := changes[source.ID]; changed {
 				sentence.FullTarget = value
+				sentence.LayoutBaseTarget, sentence.LayoutAttempts = "", 0
+				sentence.LayoutApproximate = false
 				sentence.Source = []string{source.Text}
 				sentence.Target = []string{value}
 				sentence.LayoutVersion = 0

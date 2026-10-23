@@ -40,6 +40,8 @@ func filterStandaloneQuotes(text string) string {
 type TranslatedItem struct {
 	OriginText     string
 	TranslatedText string
+	// First cue of a frozen parent; retained in audio checkpoints for export.
+	DisplayGroupSize int `json:",omitempty"`
 }
 
 // 泛型数据结构，用于携带ID的数据
@@ -479,6 +481,20 @@ func (s Service) translatePreparedText(ctx context.Context, basePath, inputText 
 	translator := newTranslator(s.ChatCompleter).withSemanticSourceUnits()
 	translator.filterNonSemanticFillers, translator.preparedTranslation = enableModalFilter, prepared
 	translator = translator.withTranslationRecovery(basePath, task)
+	// 转录词时间已经落盘。仅在文本精确匹配时用于排版预算，缺失时仍可翻译。
+	if basePath != "" {
+		path := filepath.Join(basePath, fmt.Sprintf(types.SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern, id))
+		if data, err := os.ReadFile(path); err == nil {
+			var transcription types.TranscriptionData
+			if json.Unmarshal(data, &transcription) == nil {
+				var words []VttWord
+				for _, word := range transcription.Words {
+					words = append(words, VttWord{Text: word.Text, Start: formatSRTTime(int64(math.Round(word.Start * 1000))), End: formatSRTTime(int64(math.Round(word.End * 1000)))})
+				}
+				translator.subtitleTimings, _ = subtitleWordTimingSpans(words, inputText)
+			}
+		}
+	}
 	translator.translationReportScope = fmt.Sprintf("audio:%d", id)
 	var results []*TranslatedItem
 	_, err := translator.translatePairedSentences(ctx, []string{inputText}, originLang, targetLang, subtitleTargetLimit(), translationBatchSize, func(batch []pairedSentence, completed, total int) error {
@@ -1044,7 +1060,9 @@ func (s Service) startResultHandler(ctx context.Context, eg *errgroup.Group, ste
 				audioSegments[translatedItems.Id].SrtNoTsFile = originNoTsSrtFileName
 				// 生成时间戳
 				var srtBlocks []*util.SrtBlock
+				var displayGroups []int
 				for i, translatedItem := range translatedItems.Data {
+					displayGroups = append(displayGroups, translatedItem.DisplayGroupSize)
 					srtBlocks = append(srtBlocks, &util.SrtBlock{
 						Index:                  i + 1,
 						Timestamp:              "",
@@ -1055,7 +1073,7 @@ func (s Service) startResultHandler(ctx context.Context, eg *errgroup.Group, ste
 
 				segmentIdx := translatedItems.Id
 
-				err = generateSrtWithTimestamps(srtBlocks, timePoints[segmentIdx], audioSegments[segmentIdx].TranscriptionData.Words, segmentIdx, stepParam)
+				err = generateSrtWithTimestamps(srtBlocks, timePoints[segmentIdx], audioSegments[segmentIdx].TranscriptionData.Words, segmentIdx, stepParam, displayGroups)
 				if err != nil {
 					return fmt.Errorf("audioToSubtitle audioToSrt generateTimestamps err: %w", err)
 				}
@@ -1569,16 +1587,21 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 	return startIdx, endIdx, result
 }
 
-func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, words []types.Word, segmentIdx int, stepParam *types.SubtitleTaskStepParam) error {
+func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, words []types.Word, segmentIdx int, stepParam *types.SubtitleTaskStepParam, displayGroups ...[]int) error {
 	if len(srtBlocks) == 0 || len(words) == 0 {
 		return nil
 	}
-	blocks, spans, err := pairedAudioTiming(srtBlocks, words, stepParam.OriginLanguage, tsOffset)
+	blocks, spans, err := pairedAudioTiming(srtBlocks, words, stepParam.OriginLanguage, tsOffset, displayGroups...)
 	if err != nil {
 		return fmt.Errorf("generate paired subtitle timestamps: %w", err)
 	}
 	if err := normalizeSrtBlocks(blocks, false); err != nil {
 		return err
+	}
+	if len(displayGroups) > 0 {
+		if err := validateFrozenDisplayBlocks(blocks, subtitleTargetLimit()); err != nil {
+			return err
+		}
 	}
 	for i := range blocks {
 		srtBlocks[i].Timestamp = blocks[i].Timestamp

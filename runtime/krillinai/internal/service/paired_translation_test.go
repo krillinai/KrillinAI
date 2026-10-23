@@ -919,7 +919,8 @@ func TestAudioTranslationWorkerStopsOnUpstreamFailure(t *testing.T) {
 			output := make(chan DataWithId[[]*TranslatedItem], 1)
 			svc.startTranslateWorker(ctx, group, &types.SubtitleTaskStepParam{TaskBasePath: t.TempDir(), OriginLanguage: "en", TargetLanguage: "zh_cn"}, pending, progress, output)
 			err := group.Wait()
-			want := 1
+			// 初译成功后，音频意群的冻结排版最多再尝试两次；失败不重译。
+			want := 3
 			if failure {
 				want = 1
 			}
@@ -936,15 +937,20 @@ func TestWordLevelSubtitleRouteExportsPairedNormalAndIndependentShortSubtitles(t
 	t.Cleanup(func() { config.Conf = previous })
 	config.Conf.App.MaxSentenceLength = 16
 	config.Conf.App.ShortSubtitleMaxChars = 8
-	fixture := "WEBVTT\n\n00:00:00.000 --> 00:00:02.500\nWe<00:00:00.200> can<00:00:00.500> launch<00:00:01.000> after<00:00:01.500> review.\n"
+	fixture := "WEBVTT\n\n00:00:00.000 --> 00:00:02.500\nWe<00:00:00.200> read<00:00:00.500> books<00:00:01.000> and<00:00:01.500> learn.\n"
 	req := subtitleRoutingTestRequest(t, fixture)
-	completer := &scriptedCompleter{responses: []string{`{"sentences":[{"sentence_id":"1","target_text":"审核后，我们就能发布。","segments":[{"source":"We can launch","target":"审核后，"},{"source":"after review.","target":"我们就能发布。"}]}]}`}}
-	svc := &YouTubeSubtitleService{translator: &Translator{chatCompleter: completer}}
+	// 两个意群在两种语言中顺序一致。旧样例将“能发布”和“审核后”配反，
+	// 不能用它要求冻结排版保留错误配对。分句行为另有专测，此处固定父句。
+	completer := &scriptedCompleter{responses: []string{
+		`{"sentences":[{"sentence_id":"1","target_text":"我们读书并学习。"}]}`,
+		`{"sentences":[{"sentence_id":"1","segments":[{"source":"We read books","target":"我们读书"},{"source":"and learn.","target":"并学习。"}]}]}`,
+	}}
+	svc := &YouTubeSubtitleService{translator: &Translator{chatCompleter: completer, preparedTranslation: &preparedTranslationContext{Texts: []string{"We read books and learn."}}}}
 	if _, err := svc.processYouTubeSubtitle(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
-	if completer.calls != 1 {
-		t.Fatalf("翻译和分段只应调用一次模型，实际%d", completer.calls)
+	if completer.calls != 2 {
+		t.Fatalf("应分别完成内容翻译和冻结排版，实际%d", completer.calls)
 	}
 	var timestamps []string
 	for _, name := range []string{types.SubtitleTaskOriginLanguageSrtFileName, types.SubtitleTaskTargetLanguageSrtFileName, types.SubtitleTaskBilingualSrtFileName} {
@@ -964,7 +970,7 @@ func TestWordLevelSubtitleRouteExportsPairedNormalAndIndependentShortSubtitles(t
 		}
 	}
 	short, err := util.ParseSrtFile(filepath.Join(req.TaskBasePath, types.SubtitleTaskShortOriginMixedSrtFileName))
-	if err != nil || len(short) <= 2 || short[0].OriginLanguageSentence != "审核后，" {
+	if err != nil || len(short) <= 2 || short[0].OriginLanguageSentence != "我们读书" {
 		t.Fatalf("短字幕未独立导出: %+v, %v", short, err)
 	}
 }

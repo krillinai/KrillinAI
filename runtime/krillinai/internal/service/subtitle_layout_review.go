@@ -11,12 +11,13 @@ import (
 var subtitleLayoutReviewPrompt string
 
 // 只审查有边界的句子，不重新翻译。结构检查通过不代表意群完整。
-func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTranslationInput, sentences map[string]pairedSentence, originLang, targetLang types.StandardLanguageCode, save func(pairedSentence, bool) error) error {
+func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTranslationInput, sentences map[string]pairedSentence, originLang, targetLang types.StandardLanguageCode, save func(pairedSentence, bool) error, feedback ...map[string]string) error {
 	var pending []pairedSentence
 	for _, source := range input.Sentences {
 		if sentence, ok := sentences[source.ID]; ok && len(sentence.Source) > 1 && !sentence.LayoutReviewed {
 			// 审校只消费当前原译与边界，不重复发送初译、版本和恢复状态。
 			sentence.DraftTarget, sentence.RevisionVersion = "", ""
+			sentence.LayoutBaseTarget, sentence.LayoutAttempts = "", 0
 			sentence.SemanticReviewed, sentence.LayoutFallback = false, false
 			sentence.LayoutVersion, sentence.LayoutTarget = 0, 0
 			pending = append(pending, sentence)
@@ -50,7 +51,11 @@ func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTransl
 		// 恢复时只重新审查失败句，避免一个错误使整批重复处理。
 		reviewer := *t
 		reviewer.checkpointDir = ""
-		reviewed, err := reviewer.semanticJSON(ctx, "translation_layout_review", subtitleLayoutReviewPrompt, reviewInput, "corrections", &result, func() bool {
+		prompt := subtitleLayoutReviewPrompt
+		if t.semanticSourceUnits {
+			prompt = frozenSubtitleLayoutReviewPrompt
+		}
+		reviewed, err := reviewer.semanticJSON(ctx, "translation_layout_review", prompt, reviewInput, "corrections", &result, func() bool {
 			if result.Corrections == nil || len(result.Reviews) != len(pending) {
 				return false
 			}
@@ -69,6 +74,9 @@ func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTransl
 				seen[review.ID] = true
 				if !*review.Aligned || !*review.Natural {
 					invalid[review.ID] = true
+					if len(feedback) > 0 {
+						feedback[0][review.ID] = subtitleTextPreview(review.Reason, 600)
+					}
 				}
 			}
 			clear(seen)
@@ -78,6 +86,13 @@ func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTransl
 					return false
 				}
 				seen[correction.ID] = true
+				if t.semanticSourceUnits && correction.Rewrite {
+					invalid[correction.ID] = true
+					if len(feedback) > 0 {
+						feedback[0][correction.ID] = "Target text is frozen. Move or merge cuts without rewriting."
+					}
+					continue
+				}
 				item := pairedTranslationOutputSentence{ID: correction.ID, FullTarget: original.FullTarget, Segments: correction.Segments}
 				if correction.Rewrite {
 					var targets []string
@@ -94,13 +109,22 @@ func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTransl
 				if correction.Rewrite {
 					single.Sentences[0].TargetText = ""
 				}
-				parsed, err := t.parsePairedTranslation(string(payload), single, originLang, targetLang)
+				var parsed []pairedSentence
+				var err error
+				if t.semanticSourceUnits {
+					var candidate pairedSentence
+					candidate, err = t.parseFrozenLayout(item, single, original, single.Sentences[0], originLang, targetLang)
+					parsed = []pairedSentence{candidate}
+				} else {
+					parsed, err = t.parsePairedTranslation(string(payload), single, originLang, targetLang)
+				}
 				if err != nil {
 					invalid[correction.ID] = true
 					continue
 				}
 				parsed[0].SemanticReviewed = original.SemanticReviewed
 				parsed[0].DraftTarget, parsed[0].RevisionVersion = original.DraftTarget, original.RevisionVersion
+				parsed[0].LayoutBaseTarget, parsed[0].LayoutAttempts = original.LayoutBaseTarget, original.LayoutAttempts
 				corrected[original.ID] = parsed[0]
 				rewritten[original.ID] = correction.Rewrite
 				delete(invalid, original.ID)

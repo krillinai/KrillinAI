@@ -30,6 +30,8 @@ type Translator struct {
 	semanticSourceUnits      bool
 	translationTask          *types.SubtitleTask
 	translationReportScope   string
+	subtitleTimings          []subtitleTimingSpan
+	subtitleSourceOffsets    map[string]int
 }
 
 // 音频和平台字幕使用语义意群；原始 SRT 导入继续沿用原有入口。

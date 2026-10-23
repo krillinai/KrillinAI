@@ -35,6 +35,9 @@ type pairedSentence struct {
 	RevisionVersion           string                     `json:"revision_version,omitempty"`
 	FullSource                string                     `json:"source_text,omitempty"`
 	FullTarget                string                     `json:"target_text"`
+	LayoutBaseTarget          string                     `json:"layout_base_target,omitempty"`
+	LayoutAttempts            int                        `json:"layout_attempts,omitempty"`
+	LayoutApproximate         bool                       `json:"layout_approximate,omitempty"`
 	NLPSourceHint             []string                   `json:"nlp_segments_hint,omitempty"`
 	Target                    []string                   `json:"target_segments"`
 	Source                    []string                   `json:"source_segments"`
@@ -63,11 +66,15 @@ type pairedTranslationSegment struct {
 func flattenPairedSentences(sentences []pairedSentence) []*TranslatedItem {
 	var items []*TranslatedItem
 	for _, sentence := range sentences {
+		first := len(items)
 		for i, source := range sentence.Source {
 			if sentence.OmittedHesitation || sentence.SegmentState != nil && sentence.Target[i] == "" {
 				continue
 			}
 			items = append(items, &TranslatedItem{OriginText: strings.TrimSpace(source), TranslatedText: strings.TrimSpace(sentence.Target[i])})
+		}
+		if sentence.LayoutVersion >= frozenPairedLayoutVersion && len(items)-first > 1 {
+			items[first].DisplayGroupSize = len(items) - first
 		}
 	}
 	return items
@@ -271,6 +278,16 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	if err != nil {
 		return nil, err
 	}
+	if t.semanticSourceUnits && len(t.subtitleTimings) > 0 {
+		local := *t
+		local.subtitleSourceOffsets = make(map[string]int, len(texts))
+		position := 0
+		for i, text := range texts {
+			local.subtitleSourceOffsets[strconv.Itoa(i+1)] = position
+			position += utf8.RuneCountInString(compactSubtitleText(text))
+		}
+		t = &local
+	}
 	if t.segmentTranslation {
 		inputs = segmentTranslationBatches(inputs, texts, plan)
 	}
@@ -299,6 +316,11 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	save := func(sentence pairedSentence, complete bool) error {
 		mu.Lock()
 		defer mu.Unlock()
+		if complete && t.semanticSourceUnits && !sentence.OmittedHesitation {
+			if err := pairedFinalLengthIssueAtLimit(sentence, limit); err != nil {
+				return err
+			}
+		}
 		if err := checkpoint.save(sentence); err != nil {
 			return err
 		}
@@ -380,7 +402,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 					recovered, ok = t.recoverPairedSentence(cached, source, originLang, targetLang)
 				}
 				if ok {
-					if recovered.LayoutFallback {
+					if recovered.LayoutFallback && (!t.semanticSourceUnits || recovered.LayoutBaseTarget == "") {
 						recovered.LayoutVersion = 0
 					}
 					recoveredSentences[source.ID] = recovered
@@ -711,6 +733,7 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 		batchSize = 10
 	}
 	// 批次由模型预算限制，不再把已配置的批次强行缩为三个父句。
+	t.subtitleTimings = spans
 	paired, err := t.translatePairedSentences(ctx, texts, types.StandardLanguageCode(originLang), types.StandardLanguageCode(targetLang), subtitleTargetLimit(), batchSize, nil, taskPtr.SetTranslationProgress)
 	if err != nil {
 		if len(blocks) > 0 {
@@ -721,6 +744,19 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 	var output []*util.SrtBlock
 	position = 0
 	for _, sentence := range paired {
+		if t.semanticSourceUnits && !sentence.OmittedHesitation {
+			timelines, err := frozenDisplayTimelines(sentence.Source, sentence.Target, spans, position)
+			if err != nil {
+				return nil, fmt.Errorf("句子%s: %w", sentence.ID, err)
+			}
+			for i, source := range sentence.Source {
+				output = append(output, &util.SrtBlock{
+					Index: len(output) + 1, Timestamp: timelines[i], OriginLanguageSentence: strings.TrimSpace(source), TargetLanguageSentence: strings.TrimSpace(sentence.Target[i]),
+				})
+				position += subtitleRuneLength(source)
+			}
+			continue
+		}
 		sentenceStart, outputStart := position, len(output)
 		invalidTiming := false
 		for i, source := range sentence.Source {
@@ -758,6 +794,11 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 	}
 	if len(output) == 0 {
 		return nil, fmt.Errorf("字幕只有无语义犹豫音，没有需要翻译的正文")
+	}
+	if t.semanticSourceUnits {
+		if err := validateFrozenDisplayBlocks(output, subtitleTargetLimit()); err != nil {
+			return nil, err
+		}
 	}
 	return output, nil
 }

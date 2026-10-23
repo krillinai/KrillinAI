@@ -54,7 +54,7 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 		return t.completeSegmentedBatch(ctx, input, accepted, originLang, targetLang, save)
 	}
 	var err error
-	input, err = finishFallbackSentences(input, accepted, save)
+	input, err = t.finishFallbackSentences(input, accepted, originLang, targetLang, save)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 				accepted[source.ID] = fallback
 			}
 		}
-		input, err = finishFallbackSentences(input, accepted, save)
+		input, err = t.finishFallbackSentences(input, accepted, originLang, targetLang, save)
 		if err != nil {
 			return err
 		}
@@ -155,8 +155,14 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 			sentence.FullTarget = correction.TargetText
 			sentence.Source, sentence.Target = []string{source.Text}, []string{correction.TargetText}
 			sentence.LayoutVersion, sentence.LayoutReviewed = 0, false
+			sentence.LayoutBaseTarget, sentence.LayoutAttempts = "", 0
+			sentence.LayoutApproximate = false
 		}
 		sentence.SemanticReviewed = sentence.SemanticReviewed || reviewed || plan.forSources([]pairedTranslationSource{source}) == nil
+		if t.semanticSourceUnits {
+			accepted[source.ID] = sentence
+			continue
+		}
 		if sentence.LayoutVersion != pairedLayoutVersion || sentence.LayoutTarget != input.MaxTargetChars {
 			source.TargetText = sentence.FullTarget
 			one := input
@@ -176,6 +182,9 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 		if err := save(sentence, false); err != nil {
 			return err
 		}
+	}
+	if t.semanticSourceUnits {
+		return t.layoutFrozenSubtitles(ctx, input, accepted, originLang, targetLang, save)
 	}
 	if len(layout.Sentences) > 0 {
 		// 排版不需要整批术语和前后文，完整父句与冻结译文已经足够。
