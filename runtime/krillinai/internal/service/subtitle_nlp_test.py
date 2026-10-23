@@ -21,6 +21,19 @@ class ConnectorBoundariesTest(unittest.TestCase):
 
 
 class DependencyBoundaryTest(unittest.TestCase):
+    def test_semantic_units_merge_broken_phrase_and_keep_other_cuts(self):
+        from spacy.tokens import Doc
+        from subtitle_nlp import merge_source_unit_parts
+        vocab = spacy.blank("en").vocab
+        words = "I had an existential crisis then I read another book".split()
+        heads = [1, 1, 4, 4, 1, 7, 7, 7, 9, 7]
+        deps = ["nsubj", "ROOT", "det", "amod", "dobj", "advmod", "nsubj", "conj", "det", "dobj"]
+        doc = Doc(vocab, words=words, heads=heads, deps=deps)
+        text = " ".join(words)
+        self.assertEqual(
+            merge_source_unit_parts(text, ["I had an existential", "crisis", "then I read another book"], lambda _: doc),
+            ["I had an existential crisis", "then I read another book"])
+
     def test_function_words_stay_with_their_complements(self):
         from spacy.tokens import Doc
         from subtitle_nlp import boundary_issue

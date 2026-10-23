@@ -75,7 +75,7 @@ func runTranslationNLP(ctx context.Context, texts []string, language types.Stand
 	return result, nil
 }
 
-func validTranslationNLPResult(texts []string, result translationNLPResult, language types.StandardLanguageCode) bool {
+func validTranslationNLPResult(texts []string, result translationNLPResult, language types.StandardLanguageCode, semanticUnits ...bool) bool {
 	if result.Unavailable != "" || result.Model == "" || len(result.Segments) != len(texts) || len(result.Tokens) != len(texts) {
 		return false
 	}
@@ -85,7 +85,11 @@ func validTranslationNLPResult(texts []string, result translationNLPResult, lang
 			return false
 		}
 		// The shared validator also protects words, dates, names, URLs and number/unit spans.
-		if len(parts) > 1 && !validTranslationSentencePartsWithLimit(text, parts, language, len(parts)) {
+		maxBytes := translationSentenceBytes
+		if len(semanticUnits) > 0 && semanticUnits[0] {
+			maxBytes = max(maxBytes, len(text)) // 先识别语义，再施加请求预算。
+		}
+		if len(parts) > 1 && !validTranslationSentencePartsWithBudget(text, parts, language, len(parts), maxBytes) {
 			return false
 		}
 		for j, part := range parts {
@@ -124,13 +128,13 @@ func (t *Translator) prepareTranslationNLPHints(ctx context.Context, texts []str
 		data, _ := os.ReadFile(cachePath)
 		_ = json.Unmarshal(data, &result)
 	}
-	if !validTranslationNLPResult(texts, result, language) {
+	if !validTranslationNLPResult(texts, result, language, t.semanticSourceUnits) {
 		var err error
 		result, err = segmenter(ctx, texts, language)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if err != nil || !validTranslationNLPResult(texts, result, language) {
+		if err != nil || !validTranslationNLPResult(texts, result, language, t.semanticSourceUnits) {
 			// 可选预处理降级不是翻译恢复事件，不能触发恢复/取消回调。
 			reason := result.Unavailable
 			if reason == "" {

@@ -476,7 +476,7 @@ func (s Service) splitTextAndTranslateRecoverable(
 }
 
 func (s Service) translatePreparedText(ctx context.Context, basePath, inputText string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool, id int, task *types.SubtitleTask, prepared *preparedTranslationContext, reportProgress func(completed, total int) error, onProgress ...func(completed, total int)) ([]*TranslatedItem, error) {
-	translator := newTranslator(s.ChatCompleter)
+	translator := newTranslator(s.ChatCompleter).withSemanticSourceUnits()
 	translator.filterNonSemanticFillers, translator.preparedTranslation = enableModalFilter, prepared
 	translator = translator.withTranslationRecovery(basePath, task)
 	translator.translationReportScope = fmt.Sprintf("audio:%d", id)
@@ -869,7 +869,7 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 		sort.Slice(pending, func(i, j int) bool { return pending[i].Id < pending[j].Id })
 		var prepared map[int]*preparedTranslationContext
 		if count > 1 {
-			translator := newTranslator(s.ChatCompleter).withTranslationRecovery(stepParam.TaskBasePath, stepParam.TaskPtr)
+			translator := newTranslator(s.ChatCompleter).withSemanticSourceUnits().withTranslationRecovery(stepParam.TaskBasePath, stepParam.TaskPtr)
 			var err error
 			prepared, err = translator.prepareAudioTranslationContexts(ctx, pending, stepParam.OriginLanguage, stepParam.TargetLanguage)
 			if err != nil {

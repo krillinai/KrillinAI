@@ -77,6 +77,10 @@ func validTranslationSentenceParts(text string, parts []string, language types.S
 }
 
 func validTranslationSentencePartsWithLimit(text string, parts []string, language types.StandardLanguageCode, maxParts int) bool {
+	return validTranslationSentencePartsWithBudget(text, parts, language, maxParts, translationSentenceBytes)
+}
+
+func validTranslationSentencePartsWithBudget(text string, parts []string, language types.StandardLanguageCode, maxParts, maxBytes int) bool {
 	if len(parts) < 2 || len(parts) > maxParts || !subtitleSegmentsPreserveText(text, parts) || !subtitleSegmentsHaveSafeBoundaries(parts) {
 		return false
 	}
@@ -89,11 +93,11 @@ func validTranslationSentencePartsWithLimit(text string, parts []string, languag
 	position := 0
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		if !hasSubtitleContent(part) || len(part) > translationSentenceBytes {
+		if !hasSubtitleContent(part) || len(part) > maxBytes {
 			return false
 		}
 		position += len(part)
-		if !translationBudgetBoundaryAllowed(protected, position, translationSentenceBytes) || !translationBudgetBoundaryAllowed(wordSpans, position, translationSentenceBytes) {
+		if !translationBudgetBoundaryAllowed(protected, position, maxBytes) || !translationBudgetBoundaryAllowed(wordSpans, position, maxBytes) {
 			return false
 		}
 		position += len(text[position:]) - len(strings.TrimLeftFunc(text[position:], unicode.IsSpace))
@@ -116,6 +120,9 @@ func (t *Translator) refineTranslationSentenceWithPrompt(ctx context.Context, te
 		return nil, err
 	}
 	prompt := instructions + "\n" + string(input)
+	if len(prompt) > translationRequestBytes {
+		return fallback, nil // 可选分句失败不阻止翻译；之后仍做本地预算保护。
+	}
 	valid := func(parts []string) bool {
 		return (len(fallback) == 1 && len(text) <= translationSentenceBytes && len(parts) == 1 && parts[0] == text) || validTranslationSentencePartsWithLimit(text, parts, language, maxParts)
 	}

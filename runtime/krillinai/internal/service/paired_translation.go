@@ -118,6 +118,10 @@ func buildPairedTranslationBatches(texts []string, originLang, targetLang types.
 }
 
 func buildPairedTranslationBatchesWithNLP(texts []string, hints [][]string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	return buildPairedTranslationBatchesForMode(texts, hints, originLang, targetLang, limit, batchSize, false, plans...)
+}
+
+func buildPairedTranslationBatchesForMode(texts []string, hints [][]string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, semanticUnits bool, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
 	if len(hints) != 0 && len(hints) != len(texts) {
 		return nil, fmt.Errorf("NLP边界建议与完整句数量不一致")
 	}
@@ -132,13 +136,25 @@ func buildPairedTranslationBatchesWithNLP(texts []string, hints [][]string, orig
 		plan = plans[0]
 	}
 	var batches []pairedTranslationInput
+	if semanticUnits {
+		batchSize = min(batchSize, 10)
+	}
+	contextFor := translationBatchContext
+	if semanticUnits {
+		contextFor = translationUnitBatchContext
+	}
 	for start := 0; start < len(texts); {
 		input := pairedTranslationInput{
 			SourceLanguage: types.GetStandardLanguageName(originLang), TargetLanguage: types.GetStandardLanguageName(targetLang),
 			MaxSourceChars: limit, MaxTargetChars: limit, MaxFullwidthChars: limit / 2,
 		}
 		outputBudget := 0
+		sourceChars := 0
 		for i := start; i < min(len(texts), start+batchSize); i++ {
+			chars := utf8.RuneCountInString(texts[i]) + 1
+			if semanticUnits && i > start && sourceChars+chars > 600 {
+				break
+			}
 			source := pairedTranslationSource{ID: strconv.Itoa(i + 1), Text: texts[i]}
 			if len(hints) > 0 && len(hints[i]) > 1 {
 				source.NLPSourceHint = hints[i]
@@ -149,7 +165,7 @@ func buildPairedTranslationBatchesWithNLP(texts []string, hints [][]string, orig
 
 			estimate := 2*len(texts[i]) + 128
 			input.Sentences = append(input.Sentences, source)
-			input.Before, input.After = translationBatchContext(texts, start, i+1)
+			input.Before, input.After = contextFor(texts, start, i+1)
 			input.SemanticContext = plan.forSources(input.Sentences)
 			input = fitPairedTranslationSemanticContext(input)
 			payload, err := json.Marshal(input)
@@ -158,12 +174,13 @@ func buildPairedTranslationBatchesWithNLP(texts []string, hints [][]string, orig
 			}
 			if len(payload)+len(translationContentPrompt)+2500 > translationRequestBytes || outputBudget+estimate > translationOutputBudget {
 				input.Sentences = input.Sentences[:len(input.Sentences)-1]
-				input.Before, input.After = translationBatchContext(texts, start, i)
+				input.Before, input.After = contextFor(texts, start, i)
 				input.SemanticContext = plan.forSources(input.Sentences)
 				input = fitPairedTranslationSemanticContext(input)
 				break
 			}
 			outputBudget += estimate
+			sourceChars += chars
 		}
 		if len(input.Sentences) == 0 {
 			return nil, fmt.Errorf("第%d句超过翻译请求预算，无法安全提交", start+1)
@@ -218,7 +235,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	if limit < 1 || batchSize < 1 {
 		return nil, fmt.Errorf("目标长度和批次大小必须大于0")
 	}
-	if t.segmentTranslation && t.nlpRuntime == nil {
+	if (t.segmentTranslation || t.semanticSourceUnits) && t.nlpRuntime == nil {
 		local := *t
 		local.nlpRuntime = newTranslationNLPRuntime(ctx)
 		defer local.nlpRuntime.close()
@@ -231,20 +248,26 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 		texts, plan = t.preparedTranslation.Texts, t.preparedTranslation.Plan
 		hints = t.preparedTranslation.NLPHints
 	} else {
-		texts, err = t.prepareTranslationSentences(ctx, texts, originLang)
+		if t.semanticSourceUnits {
+			texts, err = t.prepareSemanticTranslationUnits(ctx, texts, originLang)
+		} else {
+			texts, err = t.prepareTranslationSentences(ctx, texts, originLang)
+		}
 		if err != nil {
 			return nil, err
 		}
-		hints, err = t.prepareTranslationNLPHints(ctx, texts, originLang)
-		if err != nil {
-			return nil, err
+		if !t.semanticSourceUnits {
+			hints, err = t.prepareTranslationNLPHints(ctx, texts, originLang)
+			if err != nil {
+				return nil, err
+			}
 		}
 		plan, err = t.prepareTranslationSemanticPlan(ctx, texts, originLang, targetLang)
 		if err != nil {
 			return nil, err
 		}
 	}
-	inputs, err := buildPairedTranslationBatchesWithNLP(texts, hints, originLang, targetLang, limit, batchSize, plan)
+	inputs, err := buildPairedTranslationBatchesForMode(texts, hints, originLang, targetLang, limit, batchSize, t.semanticSourceUnits, plan)
 	if err != nil {
 		return nil, err
 	}

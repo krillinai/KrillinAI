@@ -30,7 +30,10 @@ def runtime_request(request):
     if nlp is None:
         return metadata
     result = dict(metadata)
-    if "boundary_requests" in request:
+    if "source_unit_requests" in request:
+        result["segments"] = [merge_source_unit_parts(r["source"], r["parts"], nlp)
+                              for r in request["source_unit_requests"]]
+    elif "boundary_requests" in request:
         result["issues"] = [boundary_issue(r["source"], r["parts"], nlp)
                             for r in request["boundary_requests"]]
     elif "requests" in request:

@@ -220,7 +220,7 @@ func TestTranslationNLPLongUnitsUseIndependentTokenTarget(t *testing.T) {
 			},
 			chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
 				calls++
-				if !strings.Contains(prompt, "20个源语言NLP token") || strings.Contains(prompt, "75") {
+				if !strings.Contains(prompt, "20 source-language NLP tokens") || strings.Contains(prompt, "75") {
 					t.Fatal("源文预分句与显示长度耦合")
 				}
 				parts := []string{"rewritten", right}

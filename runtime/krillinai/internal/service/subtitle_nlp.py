@@ -123,6 +123,18 @@ def boundary_issue(text, parts, nlp):
                 return f"Unsafe source boundary: keep {token.text!r} with {head.text!r} ({token.dep_}); move the cut outside this grammatical phrase."
     return ""
 
+def merge_source_unit_parts(text, parts, nlp):
+    """Remove unsafe proposed cuts; keep the original text and all safe cuts."""
+    doc = nlp(text)
+    cuts, cursor = [], 0
+    for part in parts[:-1]:
+        cursor = text.index(part, cursor) + len(part)
+        left, right = text[:cursor].strip(), text[cursor:].strip()
+        if not boundary_issue(text, [left, right], lambda _: doc):
+            cuts.append(cursor)
+    return slice_parts(text, cuts)
+
+
 def main():
     request = json.load(sys.stdin)
     prefix = MODELS.get(request["language"])

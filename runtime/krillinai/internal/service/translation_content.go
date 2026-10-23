@@ -28,13 +28,21 @@ type translationContentSource struct {
 }
 
 func translationBatchContext(texts []string, start, end int) (before, after []string) {
-	for i := max(0, start-2); i < start; i++ {
+	return translationContextWindow(texts, start, end, 2, 2)
+}
+
+func translationUnitBatchContext(texts []string, start, end int) (before, after []string) {
+	return translationContextWindow(texts, start, end, 3, 2)
+}
+
+func translationContextWindow(texts []string, start, end, previous, subsequent int) (before, after []string) {
+	for i := max(0, start-previous); i < start; i++ {
 		parts, _ := splitSubtitleText(texts[i], func(s string) bool { return len(s) <= 384 })
 		if len(parts) > 0 {
 			before = append(before, parts[len(parts)-1])
 		}
 	}
-	for i := end; i < min(len(texts), end+2); i++ {
+	for i := end; i < min(len(texts), end+subsequent); i++ {
 		parts, _ := splitSubtitleText(texts[i], func(s string) bool { return len(s) <= 384 })
 		if len(parts) > 0 {
 			after = append(after, parts[0])
@@ -121,6 +129,9 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 		}
 		payload, _ := json.Marshal(contentTranslationInput(remaining))
 		prompt := "任务：translation_content\n" + translationContentPrompt
+		if t.semanticSourceUnits {
+			prompt += "\nThe source IDs are consecutive semantic units, which may be clauses or complete phrases rather than standalone sentences. Read the whole batch and surrounding context; translate each unit naturally without repeating shared information or borrowing content from another ID.\n"
+		}
 		if t.filterNonSemanticFillers {
 			prompt += "\n仅译文忽略无实际语义的um/uh/ah，保留有意义的犹豫、引语、演示和语气。\n"
 		}
