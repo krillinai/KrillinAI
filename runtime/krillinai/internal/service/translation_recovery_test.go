@@ -41,7 +41,7 @@ func TestTranslationPersistentRequestErrorsStopAfterThreeAttempts(t *testing.T) 
 }
 
 func TestTranslationRepairsSubjectBoundaryLocally(t *testing.T) {
-	source := "This is a very long beginning that remains separate. And it is useful."
+	source := "This is a long beginning that remains separate. And it is useful."
 	// 单独输入完整文本会按句号分成两句；以逗号连接以检验同一句中的局部边界。
 	source = strings.Replace(source, "separate.", "separate,", 1)
 	target := "这是一段需要单独保留的比较长的介绍内容，另外，它很有用。"
@@ -49,7 +49,7 @@ func TestTranslationRepairsSubjectBoundaryLocally(t *testing.T) {
 	translator := &Translator{chatCompleter: translationCompleterFunc(func(string) (string, error) {
 		calls++
 		data, err := encodePairedTestResponse([]pairedSentence{{ID: "1", FullTarget: target,
-			Source: []string{"This is a very long beginning that remains separate,", "And it", "is useful."},
+			Source: []string{"This is a long beginning that remains separate,", "And it", "is useful."},
 			Target: []string{"这是一段需要单独保留的比较长的介绍内容，", "另外，", "它很有用。"}}})
 		return string(data), err
 	})}
@@ -141,18 +141,20 @@ func TestShortSubtitleFallsBackWhenGraphemeOrTimingCannotBeSplit(t *testing.T) {
 	}
 }
 
-func TestTranslationAcceptsSmallOverflowWithoutExtraCalls(t *testing.T) {
+func TestTranslationRepairsConfiguredOverflowAndKeepsValidTarget(t *testing.T) {
 	for _, length := range []int{50, 51, 55, 56} {
 		t.Run(fmt.Sprint(length), func(t *testing.T) {
 			calls := 0
 			target := "译" + strings.Repeat("a", length-2)
 			translator := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
 				calls++
-				input, err := decodePairedTestInput(prompt)
+				_, err := decodePairedTestInput(prompt)
 				if err != nil {
 					return "", err
 				}
-				if calls > 1 && input.Sentences[0].TargetText != target {
+				var request subtitleLengthSplitInput
+				_ = semanticTestPayload(prompt, &request)
+				if calls > 1 && request.OriginalTarget != target {
 					t.Fatal("修复排版时没有冻结已完成的译文")
 				}
 				data, err := encodePairedTestResponse([]pairedSentence{{ID: "1", FullTarget: target, Source: []string{"Hello."}, Target: []string{target}}})
@@ -160,7 +162,10 @@ func TestTranslationAcceptsSmallOverflowWithoutExtraCalls(t *testing.T) {
 			})}
 			result, err := translator.translatePairedSentences(context.Background(), []string{"Hello."}, "en", "zh_cn", 50, 1, nil)
 			wantCalls := 1
-			if err != nil || calls != wantCalls || len(result) != 1 || result[0].FullTarget != target || result[0].Target[0] != target {
+			if length > 50 {
+				wantCalls = 4 // 一次初译，三轮有限拆分，失败保留原译。
+			}
+			if err != nil || calls != wantCalls || len(result) != 1 || result[0].FullTarget != target || result[0].Target[0] != target || result[0].LayoutFallback != (length > 50) {
 				t.Fatalf("calls=%d result=%+v error=%v", calls, result, err)
 			}
 		})
@@ -214,7 +219,10 @@ func TestTranslationRestoresFullSentenceWithoutDroppingContent(t *testing.T) {
 func TestTranslationRetainsValidTargetWhenLayoutRepairRewritesIt(t *testing.T) {
 	target := strings.Repeat("完整", 18)
 	calls := 0
-	translator := &Translator{chatCompleter: translationCompleterFunc(func(string) (string, error) {
+	translator := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
+		if strings.HasPrefix(prompt, "任务：translation_length_rewrite_review\n") {
+			return `{"equivalent":false,"reason":"删减后的译文丢失原始含义"}`, nil
+		}
 		calls++
 		text := target
 		if calls > 1 {
@@ -224,7 +232,7 @@ func TestTranslationRetainsValidTargetWhenLayoutRepairRewritesIt(t *testing.T) {
 		return string(data), err
 	})}
 	result, err := translator.translatePairedSentences(context.Background(), []string{"Original."}, "en", "zh_cn", 50, 1, nil)
-	if err != nil || calls != 3 || result[0].FullTarget != target {
+	if err != nil || calls != 6 || result[0].FullTarget != target {
 		t.Fatalf("排版纠错改写了译文: %+v calls=%d err=%v", result, calls, err)
 	}
 }
@@ -318,14 +326,16 @@ func TestTranslationCheckpointSurvivesDisconnectDuringLayoutRepair(t *testing.T)
 		if err != nil {
 			return "", err
 		}
-		if input.Sentences[0].TargetText != target {
+		var request subtitleLengthSplitInput
+		_ = semanticTestPayload(prompt, &request)
+		if input.Sentences[0].TargetText != target && request.OriginalTarget != target {
 			t.Fatal("恢复时没有锁定已有的完整译文")
 		}
 		data, err := encodePairedTestResponse([]pairedSentence{{ID: "1", FullTarget: target, Source: []string{"Hello."}, Target: []string{target}}})
 		return string(data), err
 	})
 	result, err := translator.translatePairedSentences(context.Background(), []string{"Hello."}, "en", "zh_cn", 20, 3, nil)
-	if err != nil || len(result) != 1 || result[0].FullTarget != target || calls != 2 || layoutCalls != 2 {
+	if err != nil || len(result) != 1 || result[0].FullTarget != target || calls != 2 || layoutCalls != 5 {
 		t.Fatalf("result=%+v calls=%d err=%v", result, calls, err)
 	}
 	files, _ := filepath.Glob(filepath.Join(dir, "translation-checkpoints", "*", "*.json"))

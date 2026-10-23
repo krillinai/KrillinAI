@@ -45,6 +45,11 @@ func TestSubtitleRecoveryIntegration(t *testing.T) {
 					content := []byte(`{"summary":"问候","terms":[]}`)
 					if strings.HasPrefix(prompt, "任务：translation_revision\n") {
 						content = []byte(`{"corrections":[]}`)
+					} else if strings.HasPrefix(prompt, "任务：translation_length_split\n") {
+						// 显示配置变严格后会请求重拆；接口故障只保留现有译文，不记作初译。
+						layouts.Add(1)
+						http.Error(w, "length repair unavailable", http.StatusBadRequest)
+						return
 					} else if !strings.HasPrefix(prompt, "任务：translation_context\n") {
 						_, payload, _ := strings.Cut(prompt, "输入 JSON：\n")
 						var input struct {

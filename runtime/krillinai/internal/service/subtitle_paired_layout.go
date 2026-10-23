@@ -8,7 +8,7 @@ import (
 	"unicode"
 )
 
-const pairedLayoutVersion = 6
+const pairedLayoutVersion = 7
 
 // 这些汉语补语标记后必须跟宾语，不能因模型给出通过就保留内部切口。
 // 句末标点或明确的口语中断不在此规则中，其他语法仍由句法及语义审查处理。

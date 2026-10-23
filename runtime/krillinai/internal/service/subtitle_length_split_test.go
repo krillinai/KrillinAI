@@ -129,7 +129,7 @@ func TestFinalLengthRecoversAcrossParentPairsWithIndependentReview(t *testing.T)
 		})}
 		sentences := map[string]pairedSentence{"17": original}
 		completed := false
-		err := translator.splitLongPairedSubtitles(context.Background(), lengthSplitTestInput(original, 65), sentences, "en", "zh_cn", func(_ pairedSentence, complete bool) error { completed = completed || complete; return nil })
+		err := translator.splitLongPairedSubtitles(context.Background(), lengthSplitTestInput(original, 75), sentences, "en", "zh_cn", func(_ pairedSentence, complete bool) error { completed = completed || complete; return nil })
 		got := sentences["17"]
 		if approve {
 			if err != nil || !completed || splits != 4 || verifications != 1 || len(got.Source) != 4 || got.DraftTarget != original.DraftTarget || got.RevisionVersion != original.RevisionVersion || pairedFinalLengthIssue(got) != nil {
@@ -146,7 +146,7 @@ func lengthSplitTestInput(original pairedSentence, limit int) pairedTranslationI
 }
 
 func TestSubtitleLengthPassKeepsCompliantUnitsWithoutRequests(t *testing.T) {
-	for _, source := range []string{strings.Repeat("x", 75), "这些书都还没有读完。", "هذه الكتب لم تكتمل بعد", "これらの本はまだ読み終わっていません。"} {
+	for _, source := range []string{strings.Repeat("x", 65), "这些书都还没有读完。", "هذه الكتب لم تكتمل بعد", "これらの本はまだ読み終わっていません。"} {
 		original := pairedSentence{ID: "1", FullSource: source, FullTarget: "这些书都还没有读完。", Source: []string{source}, Target: []string{"这些书都还没有读完。"}, SemanticReviewed: true, LayoutReviewed: true}
 		translator := &Translator{chatCompleter: translationCompleterFunc(func(string) (string, error) { t.Fatal("合格字幕不应再次请求模型"); return "", nil })}
 		completed := 0
@@ -176,12 +176,12 @@ func TestSubtitleLengthPassRechecksAndOnlySplitsLongPair(t *testing.T) {
 		if err := semanticTestPayload(prompt, &request); err != nil {
 			return "", err
 		}
-		if request.MaxDisplayUnits != 75 || request.Sentences[0].Text != longSource || (calls == 1 && request.Sentences[0].TargetText != longTarget) || request.ParentSource != original.FullSource || request.AllowTargetRewrite != (calls > 1) {
+		if request.MaxDisplayUnits != 65 || request.Sentences[0].Text != longSource || (calls == 1 && request.Sentences[0].TargetText != longTarget) || strings.Contains(prompt, original.FullSource) || request.AllowTargetRewrite != (calls > 1) {
 			t.Fatalf("重拆影响了其他片段或未冻结译文: %+v", request)
 		}
 		item := pairedSentence{ID: "7", FullTarget: longTarget, Source: []string{longSource}, Target: []string{longTarget}}
 		if calls > 1 {
-			if !strings.Contains(request.PreviousIssue, "超过单行上限75") {
+			if !strings.Contains(request.PreviousIssue, "超过单行上限65") {
 				t.Fatal("没有再次检查仍然超长的响应")
 			}
 			item.Source = []string{"because they are timeless", "and they speak in very general philosophical terms", "about contemporary morals,"}

@@ -462,8 +462,8 @@ func TestPairedTranslationKeepsSubjectsWithPredicates(t *testing.T) {
 		calls++
 		source, target := []string{"And the interesting part is that it", "isn't just a giant database of titles."}, []string{"而有意思的是，它", "不只是一个庞大的书名数据库。"}
 		if calls > 1 {
-			if !strings.Contains(prompt, "紧密语法边界") {
-				t.Error("纠错请求必须说明语义边界问题")
+			if !strings.Contains(prompt, "超过70必须继续拆分") {
+				t.Error("最终拆分请求必须说明配置长度")
 			}
 			source, target = parts, []string{"而有意思的是，", "它不只是一个庞大的书名数据库。"}
 		}
@@ -471,7 +471,7 @@ func TestPairedTranslationKeepsSubjectsWithPredicates(t *testing.T) {
 		return string(response), err
 	})}
 	result, err := translator.translatePairedSentences(context.Background(), []string{text}, "en", "zh_cn", 70, 1, nil)
-	if err != nil || calls != 1 || len(result) != 1 || len(result[0].Target) != 1 || result[0].Target[0] != "而有意思的是，它不只是一个庞大的书名数据库。" {
+	if err != nil || calls != 2 || len(result) != 1 || len(result[0].Target) != 2 || result[0].FullTarget != "而有意思的是，它不只是一个庞大的书名数据库。" || pairedFinalLengthIssueAtLimit(result[0], 70) != nil {
 		t.Fatalf("不自然的分段应被纠正: calls=%d result=%+v err=%v", calls, result, err)
 	}
 }
@@ -606,7 +606,7 @@ func TestPairedTranslationMergesUnnecessarySegmentsLocally(t *testing.T) {
 		want       string
 	}{
 		{"中文整句正好50", "zh_cn", []string{strings.Repeat("好", 12), strings.Repeat("好", 13)}, 50, strings.Repeat("好", 25)},
-		{"中文略超目标允许回并", "zh_cn", []string{strings.Repeat("好", 13), strings.Repeat("好", 13)}, 50, strings.Repeat("好", 26)},
+		{"中文52配置允许整句", "zh_cn", []string{strings.Repeat("好", 13), strings.Repeat("好", 13)}, 52, strings.Repeat("好", 26)},
 		{"英文单词保留空格", "en", []string{"Use AI ", "tools today."}, 50, "Use AI tools today."},
 		{"中文中的英文词边界", "zh_cn", []string{"使用AI ", "tools提高效率。"}, 50, "使用AI tools提高效率。"},
 		{"从完整译文恢复词内边界", "en", []string{"cafe", "teria today."}, 50, "cafeteria today."},
@@ -700,10 +700,18 @@ func TestNormalSubtitleLimitIsIndependentOfShortSubtitles(t *testing.T) {
 		translator := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
 			calls++
 			input, err := decodePairedTestInput(prompt)
-			if err != nil || (!strings.HasPrefix(prompt, "任务：translation_content\n") && (input.MaxTargetChars != 50 || input.MaxSourceChars != 50 || input.MaxFullwidthChars != 25 || !strings.Contains(prompt, "长度是软排版目标") || !strings.Contains(prompt, "全角字符计2"))) || strings.Contains(prompt, "SAFE_TARGET_CHARS") {
+			if err != nil || (!strings.HasPrefix(prompt, "任务：translation_content\n") && (input.MaxTargetChars != 50 || input.MaxSourceChars != 50 || input.MaxFullwidthChars != 25 || !strings.Contains(prompt, "每侧长度上限：50显示单位") && !strings.Contains(prompt, `"max_display_units":50`))) || strings.Contains(prompt, "SAFE_TARGET_CHARS") {
 				t.Fatalf("普通字幕未使用独立50字符约束: %+v, %v", input, err)
 			}
-			data, err := encodePairedTestResponse([]pairedSentence{{ID: "1", FullTarget: "压力主要源于没有采取行动，针对自己能够掌控的事情。", Source: []string{"The stress primarily comes from", "not taking action over something", "that you can have some control over."}, Target: []string{"压力主要源于", "没有采取行动，", "针对自己能够掌控的事情。"}}})
+			item := pairedSentence{ID: "1", FullTarget: target, Source: []string{"The stress primarily comes from", "not taking action over something", "that you can have some control over."}, Target: []string{"压力主要源于", "没有采取行动，", "针对自己能够掌控的事情。"}}
+			if input.Sentences[0].Text != source {
+				if input.Sentences[0].Text != "The stress primarily comes from not taking action over something" {
+					t.Fatalf("请求了非预期片段: %s", input.Sentences[0].Text)
+				}
+				item.Source, item.Target = item.Source[:2], item.Target[:2]
+				item.FullTarget = strings.Join(item.Target, "")
+			}
+			data, err := encodePairedTestResponse([]pairedSentence{item})
 			return string(data), err
 		})}
 		blocks, err := translator.BatchTranslateSrtBlocks(context.Background(), []*util.SrtBlock{{Index: 1, Timestamp: "00:00:07,359 --> 00:00:15,430", OriginLanguageSentence: source}}, "en", "zh_cn", nil)
@@ -711,7 +719,7 @@ func TestNormalSubtitleLimitIsIndependentOfShortSubtitles(t *testing.T) {
 		for _, block := range blocks {
 			targets = append(targets, block.TargetLanguageSentence)
 		}
-		if err != nil || len(blocks) != 2 || calls != 1 || strings.Join(targets, "") != target {
+		if err != nil || len(blocks) != 3 || calls != 2 || strings.Join(targets, "") != target {
 			t.Fatalf("短字幕参数%d影响普通字幕: %+v calls=%d error=%v", shortLimit, blocks, calls, err)
 		}
 	}

@@ -56,7 +56,7 @@ func TestPairedTranslationProtectsUnpunctuatedInputAndBatchBudget(t *testing.T) 
 			if len(sentence.Text) > translationSentenceBytes {
 				t.Fatalf("输入未保护: %d", len(sentence.Text))
 			}
-			if input.MaxSourceChars > 0 && subtitleTargetLength(sentence.Text) > input.MaxSourceChars {
+			if !strings.HasPrefix(prompt, "任务：translation_length_split") && input.MaxSourceChars > 0 && subtitleTargetLength(sentence.Text) > input.MaxSourceChars {
 				if len(sentence.SourceHint) < 2 || compactSubtitleText(strings.Join(sentence.SourceHint, "")) != compactSubtitleText(sentence.Text) || !subtitleSegmentsHaveSafeBoundaries(sentence.SourceHint) {
 					t.Fatalf("原文分段参考不完整或破坏字素: %q", sentence.SourceHint)
 				}

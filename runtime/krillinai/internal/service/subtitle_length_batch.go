@@ -28,7 +28,7 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 			continue
 		}
 		for i, text := range parent.Source {
-			if subtitleTargetLength(text) <= 75 && subtitleTargetLength(parent.Target[i]) <= 75 {
+			if subtitleTargetLength(text) <= subtitleDisplayLimit(input) && subtitleTargetLength(parent.Target[i]) <= subtitleDisplayLimit(input) {
 				continue
 			}
 			local := source
@@ -55,22 +55,12 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 			rewrite := attempt > 0
 			var requests []subtitleLengthSplitInput
 			for _, item := range pending {
-				local := input
-				local.PreserveFinalBoundaries = true
-				local.AllowLengthOverflow = true
-				local.MaxSourceChars, local.MaxTargetChars, local.MaxFullwidthChars = 75, 75, 37
-				local.Before, local.After, local.SemanticContext = nil, nil, nil
-				source := item.source
-				if rewrite {
-					source.TargetText = ""
-				}
-				local.Sentences = []pairedTranslationSource{source}
-				requests = append(requests, subtitleLengthSplitInput{pairedTranslationInput: local, ParentSource: item.parent.FullSource, ParentTarget: item.parent.FullTarget, ParentNLPHints: item.parent.NLPSourceHint, OriginalTarget: item.source.TargetText, DisplayTarget: min(input.MaxTargetChars, 75), MaxDisplayUnits: 75, MinSegments: max(2, (max(subtitleTargetLength(source.Text), subtitleTargetLength(item.source.TargetText))+74)/75), AllowTargetRewrite: rewrite, PreviousIssue: item.issue, MeasuredSourceHints: measuredSubtitleSourceHints(source.Text, input.MaxTargetChars)})
+				requests = append(requests, newSubtitleLengthSplitInput(input, item.source, rewrite, item.issue))
 			}
 			payload, _ := json.Marshal(struct {
 				Requests []subtitleLengthSplitInput `json:"requests"`
 			}{requests})
-			prompt := "任务：translation_length_split_batch\n" + subtitleLengthSplitMode(rewrite) + subtitleLengthSplitPrompt + "\n本次输入requests包含多个独立超长配对。逐条遵守各自父句及previous_issue，返回同一个sentences数组，使用各自sentences[0].sentence_id，不混淆ID，不挪动内容。只返回segments，不回显target_text。\n输入 JSON：\n" + string(payload)
+			prompt := withTranslationFillerPolicy("任务：translation_length_split_batch\n" + subtitleLengthSplitMode(rewrite) + subtitleLengthSplitPrompt + "\nEach request is an independent pair. Return all results in one sentences array using each request's sentences[0].sentence_id. Follow its previous_issue; never mix IDs or content. Return segments only, without target_text.\n输入 JSON：\n" + string(payload))
 			if len(prompt) > translationRequestBytes {
 				break
 			} // 超预算交回逐条恢复。
@@ -105,8 +95,8 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 				normalized := normalizeLengthSplitResponse(string(data), item.source, targetLang, rewrite)
 				parsed, err := t.parsePairedTranslation(normalized, requests[i].pairedTranslationInput, originLang, targetLang)
 				baseline := pairedSentence{Source: []string{item.source.Text}, Target: []string{item.source.TargetText}}
-				if err == nil && pairedFinalLengthIssue(parsed[0]) != nil && (len(parsed[0].Source) < 2 || !betterPairedLayout(parsed[0], baseline)) {
-					err = pairedFinalLengthIssue(parsed[0])
+				if err == nil && pairedFinalLengthIssueAtLimit(parsed[0], subtitleDisplayLimit(input)) != nil && (len(parsed[0].Source) < 2 || !betterPairedLayout(parsed[0], baseline, subtitleDisplayLimit(input))) {
+					err = pairedFinalLengthIssueAtLimit(parsed[0], subtitleDisplayLimit(input))
 				}
 				if err == nil && !validTranslationSentencePartsWithLimit(item.source.Text, parsed[0].Source, originLang, len(parsed[0].Source)) {
 					err = fmt.Errorf("切口拆开单词、专名或受保护文字")
@@ -124,7 +114,7 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 					}
 				}
 				if err != nil {
-					item.issue = subtitleTextPreview(err.Error(), 1400)
+					item.issue = subtitleTextPreview(err.Error(), 600)
 					continue
 				}
 				candidates[item.source.ID] = parsed[0]
@@ -136,7 +126,8 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 			}
 			next := make([]*longPairedWork, 0, len(pending))
 			for _, item := range pending {
-				if item.candidate == nil || pairedFinalLengthIssue(*item.candidate) != nil {
+				// 部分有效分段也立即保存，剩余超长子段交给逐条流程继续拆。
+				if item.candidate == nil {
 					next = append(next, item)
 				}
 			}
@@ -151,6 +142,9 @@ func (t *Translator) batchLongPairedSubtitles(ctx context.Context, input pairedT
 }
 
 func (t *Translator) reviewLongPairedBatch(ctx context.Context, input pairedTranslationInput, work []*longPairedWork, candidates map[string]pairedSentence) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	type reviewItem struct {
 		ID           string         `json:"sentence_id"`
 		Source       string         `json:"source_text"`
@@ -161,6 +155,8 @@ func (t *Translator) reviewLongPairedBatch(ctx context.Context, input pairedTran
 		Candidate    pairedSentence `json:"candidate"`
 	}
 	var items []reviewItem
+	var reviewWork []*longPairedWork
+	ids := make(map[string]bool)
 	for _, item := range work {
 		if candidate, ok := candidates[item.source.ID]; ok {
 			chunks := subtitleExactChunks(item.parent.FullTarget, item.parent.Target)
@@ -177,6 +173,8 @@ func (t *Translator) reviewLongPairedBatch(ctx context.Context, input pairedTran
 				continue
 			}
 			items = append(items, reviewItem{item.source.ID, item.source.Text, item.source.TargetText, item.parent.FullSource, item.parent.FullTarget, resultTarget, candidate})
+			reviewWork = append(reviewWork, item)
+			ids[item.source.ID] = true
 		}
 	}
 	if len(items) == 0 {
@@ -196,13 +194,27 @@ func (t *Translator) reviewLongPairedBatch(ctx context.Context, input pairedTran
 		Items          []reviewItem `json:"items"`
 	}{input.SourceLanguage, input.TargetLanguage, items}
 	prompt := "长度由程序单独检查并继续优化；不能仅因片段超过显示上限，就否决内容正确、逐段对应且切口自然的候选。Independently verify EACH subtitle item without rewriting. Check BOTH equivalent and acceptable. Verify resulting_parent_target_text against ALL parent_source_text and parent_target_text, not only the local pair: local repairs must not add a second translation of information already expressed by another cue, omit content, or leave contradictory order. equivalent: preserve all source meaning, facts, names, quantities, negation, degree, uncertainty, conditions, time, causality, shared components and terminology, with no omission/addition. Natural paraphrase and word-order changes are allowed; moving a condition alone does not change its logic—check the actual condition and result. acceptable: every source/target pair corresponds, cuts follow natural groups, and the whole target reads fluently. Complete purpose/condition/cause clauses may occupy successive cues; each cue need not stand alone. Reject internal breaks in words, names, idioms, modifier/head, subject/predicate, verb/preposition objects or coordinated quantities, dangling tails, mismatches and unnatural syntax. ‘都摆满了/部分读完的书’ and ‘出版社的/书’ are bad cuts. Recognize genuine speech repairs and interruptions: an already interrupted source phrase is not a newly introduced grammar break, but preserve its actual meaning. Correct full meaning does not excuse incorrect pair alignment. If uncertain, return false for the relevant check. Return each ID once as JSON: {\"reviews\":[{\"sentence_id\":\"ID\",\"equivalent\":true or false,\"acceptable\":true or false,\"reason\":\"specific evidence or problem\"}]}."
+	// 按 semanticJSON 最终实际发送的提示计算预算，保留完整核验正文，
+	// 超限则分批审校，不能让整批在请求模型之前被静默跳过。
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	fullPrompt := withTranslationFillerPolicy("任务：translation_length_batch_review\n" + prompt + "\n输入 JSON：\n" + string(data))
+	if len(fullPrompt) > translationRequestBytes && len(reviewWork) > 1 {
+		middle := len(reviewWork) / 2
+		if err := t.reviewLongPairedBatch(ctx, input, reviewWork[:middle], candidates); err != nil {
+			return err
+		}
+		return t.reviewLongPairedBatch(ctx, input, reviewWork[middle:], candidates)
+	}
 	ok, err := t.semanticJSON(ctx, "translation_length_batch_review", prompt, payload, "reviews", &output, func() bool {
 		if output.Reviews == nil || len(output.Reviews) != len(items) {
 			return false
 		}
 		seen := make(map[string]bool)
 		for _, review := range output.Reviews {
-			if _, exists := candidates[review.ID]; !exists || seen[review.ID] || review.Equivalent == nil || review.Acceptable == nil || strings.TrimSpace(review.Reason) == "" {
+			if !ids[review.ID] || seen[review.ID] || review.Equivalent == nil || review.Acceptable == nil || strings.TrimSpace(review.Reason) == "" {
 				return false
 			}
 			seen[review.ID] = true
@@ -225,11 +237,11 @@ func (t *Translator) reviewLongPairedBatch(ctx context.Context, input pairedTran
 				if *review.Equivalent && *review.Acceptable {
 					candidate := candidates[review.ID]
 					candidate.LayoutReviewed = true
-					candidate.LayoutFallback = pairedFinalLengthIssue(candidate) != nil
-					if item.candidate == nil || betterPairedLayout(candidate, *item.candidate) {
+					candidate.LayoutFallback = pairedFinalLengthIssueAtLimit(candidate, subtitleDisplayLimit(input)) != nil
+					if item.candidate == nil || betterPairedLayout(candidate, *item.candidate, subtitleDisplayLimit(input)) {
 						item.candidate = &candidate
 					}
-					if lengthErr := pairedFinalLengthIssue(*item.candidate); lengthErr != nil {
+					if lengthErr := pairedFinalLengthIssueAtLimit(*item.candidate, subtitleDisplayLimit(input)); lengthErr != nil {
 						item.issue = lengthErr.Error()
 					}
 				} else {
@@ -271,7 +283,7 @@ func saveLongPairedCandidates(input pairedTranslationInput, work []*longPairedWo
 		}
 		updated.FullTarget = strings.TrimSpace(strings.Join(chunks, ""))
 		updated.LayoutVersion, updated.LayoutTarget = pairedLayoutVersion, input.MaxTargetChars
-		updated.LayoutFallback = pairedFinalLengthIssue(updated) != nil
+		updated.LayoutFallback = pairedFinalLengthIssueAtLimit(updated, subtitleDisplayLimit(input)) != nil
 		sentences[id] = updated
 		if err := save(updated, !updated.LayoutFallback); err != nil {
 			return err

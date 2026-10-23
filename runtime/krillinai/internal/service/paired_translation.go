@@ -193,7 +193,7 @@ func fitPairedTranslationSemanticContext(input pairedTranslationInput) pairedTra
 func subtitleTargetLimit() int {
 	limit := config.Conf.App.MaxSentenceLength
 	if limit <= 0 {
-		limit = 50
+		limit = 60
 	}
 	return limit
 }
@@ -513,7 +513,7 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 		var layoutErr error
 		if input.PreserveFinalBoundaries {
 			if !input.AllowLengthOverflow {
-				layoutErr = pairedFinalLengthIssue(result[i])
+				layoutErr = pairedFinalLengthIssueAtLimit(result[i], subtitleDisplayLimit(input))
 			}
 			if layoutErr == nil {
 				for j := 0; j+1 < len(result[i].Source); j++ {

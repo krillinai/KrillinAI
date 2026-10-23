@@ -51,10 +51,27 @@ func TestLengthRepairKeepsBestVerifiedOverflowCandidate(t *testing.T) {
 				splits++
 				item := candidate
 				if splits > 1 {
+					var request subtitleLengthSplitInput
+					if err := semanticTestPayload(prompt, &request); err != nil {
+						return "", err
+					}
+					local := request.Sentences[0]
+					if local.Text == original.FullSource {
+						t.Fatal("已取得有效进展后不应再次发送完整父句")
+					}
+					item = pairedSentence{ID: original.ID, FullTarget: request.OriginalTarget, Source: []string{local.Text}, Target: []string{request.OriginalTarget}}
 					switch later {
-					case "compliant":
-						item.Source = append([]string{"And so, with Frank Rosenblatt back in the 1950s,", "this whole idea of a perceptron,", "when you understand the history behind it,", "sort of what he was trying to solve,"}, candidate.Source[2:]...)
-						item.Target = append([]string{"所以，回到20世纪50年代弗兰克·罗森布拉特", "提出感知机的历史，", "了解它的背景，", "以及他当时想解决的问题后，"}, candidate.Target[2:]...)
+					case "compliant", "rejected":
+						switch local.Text {
+						case candidate.Source[0]:
+							item.Source = []string{"And so, with Frank Rosenblatt back in the 1950s,", "this whole idea of a perceptron,"}
+							item.Target = []string{"所以，回到20世纪50年代弗兰克·罗森布拉特", "提出感知机的历史，"}
+						case candidate.Source[1]:
+							item.Source = []string{"when you understand the history behind it,", "sort of what he was trying to solve,"}
+							item.Target = []string{"了解它的背景，", "以及他当时想解决的问题后，"}
+						default:
+							t.Fatalf("误发已合格短段: %s", local.Text)
+						}
 					case "invalid":
 						return `{"sentences":[]}`, nil
 					case "request_error":
@@ -62,15 +79,12 @@ func TestLengthRepairKeepsBestVerifiedOverflowCandidate(t *testing.T) {
 					case "canceled":
 						cancel()
 						return "", context.Canceled
-					default:
-						item.Source = append([]string{strings.Join(candidate.Source[:2], " ")}, candidate.Source[2:]...)
-						item.Target = append([]string{strings.Join(candidate.Target[:2], "")}, candidate.Target[2:]...)
 					}
 				}
 				data, err := encodePairedTestResponse([]pairedSentence{item})
 				return string(data), err
 			})}
-			got, err := translator.repairLongPairedSubtitle(ctx, lengthSplitTestInput(original, 65), original,
+			got, err := translator.repairLongPairedSubtitle(ctx, lengthSplitTestInput(original, 75), original,
 				pairedTranslationSource{ID: "15", Text: original.FullSource, TargetText: original.FullTarget}, "en", "zh_cn")
 			if later == "canceled" {
 				if !errors.Is(err, context.Canceled) {
@@ -79,12 +93,12 @@ func TestLengthRepairKeepsBestVerifiedOverflowCandidate(t *testing.T) {
 				return
 			}
 			if later == "compliant" {
-				if err != nil || splits != 2 || reviews != 2 || pairedFinalLengthIssue(got) != nil || len(got.Source) != 7 || got.LayoutFallback {
+				if err != nil || splits != 3 || reviews != 3 || pairedFinalLengthIssue(got) != nil || len(got.Source) != 7 || got.LayoutFallback {
 					t.Fatalf("后续更优且达标的分段未被采用: %+v splits=%d reviews=%d err=%v", got, splits, reviews, err)
 				}
 				return
 			}
-			wantSplits := 3
+			wantSplits := 5
 			if later == "request_error" {
 				wantSplits = 2
 			}
@@ -164,7 +178,7 @@ func TestBatchLengthRepairRetainsEarlierVerifiedOverflow(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, parent := range parents {
-		if splits != 3 || !slices.Equal(parent.Source, candidate.Source) || !parent.LayoutFallback {
+		if splits != 1 || !slices.Equal(parent.Source, candidate.Source) || !parent.LayoutFallback {
 			t.Fatalf("批量重试丢失了已核验短分段: %+v splits=%d", parent, splits)
 		}
 	}
@@ -184,6 +198,16 @@ func TestExportRetainsOverflowSegmentsAndDistributesTimes(t *testing.T) {
 		}
 		if strings.HasPrefix(prompt, "任务：translation_length_split\n") {
 			splits++
+			var request subtitleLengthSplitInput
+			if err := semanticTestPayload(prompt, &request); err != nil {
+				return "", err
+			}
+			if splits > 1 {
+				if request.Sentences[0].Text == candidate.FullSource {
+					t.Fatal("导出重试不应丢弃已通过的局部结果")
+				}
+				return "", errors.New("后续拆分接口不可用")
+			}
 			item := candidate
 			item.ID = "1"
 			data, err := encodePairedTestResponse([]pairedSentence{item})
@@ -199,7 +223,7 @@ func TestExportRetainsOverflowSegmentsAndDistributesTimes(t *testing.T) {
 		{Index: 2, Timestamp: "00:02:13,520 --> 00:02:15,520", OriginLanguageSentence: texts[1]},
 	}
 	output, err := translator.BatchTranslateSrtBlocks(context.Background(), input, "en", "zh_cn", nil)
-	if err != nil || len(output) != 6 || splits != 3 {
+	if err != nil || len(output) != 6 || splits != 2 {
 		t.Fatalf("导出没有保留5条较短字幕: blocks=%+v splits=%d err=%v", output, splits, err)
 	}
 	var sources, targets []string

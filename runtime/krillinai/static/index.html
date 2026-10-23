@@ -1122,7 +1122,7 @@
                 <input
                   type="number"
                   id="max-sentence-length"
-                  value="100"
+                  value="60"
                   min="1"
                   max="200"
                   class="form-input"
@@ -1650,7 +1650,7 @@
           document.getElementById("translate-max-attempts").value =
             configData.app.translateMaxAttempts || 3;
           document.getElementById("max-sentence-length").value =
-            configData.app.maxSentenceLength || 100;
+            configData.app.maxSentenceLength || 60;
           document.getElementById("proxy").value = configData.app.proxy || "";
         }
 
@@ -1780,7 +1780,7 @@
               ) || 3,
             maxSentenceLength:
               parseInt(document.getElementById("max-sentence-length").value) ||
-              100,
+              60,
             proxy: document.getElementById("proxy").value,
           },
           server: {
