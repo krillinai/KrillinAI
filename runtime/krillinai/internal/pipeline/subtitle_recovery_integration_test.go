@@ -45,7 +45,7 @@ func TestSubtitleRecoveryIntegration(t *testing.T) {
 					content := []byte(`{"summary":"问候","terms":[]}`)
 					if strings.HasPrefix(prompt, "任务：translation_revision\n") {
 						content = []byte(`{"corrections":[]}`)
-					} else if strings.HasPrefix(prompt, "任务：translation_length_split\n") {
+					} else if strings.HasPrefix(prompt, "任务：translation_length_split\n") || strings.HasPrefix(prompt, "任务：translation_frozen_layout\n") {
 						// 显示配置变严格后会请求重拆；接口故障只保留现有译文，不记作初译。
 						layouts.Add(1)
 						http.Error(w, "length repair unavailable", http.StatusBadRequest)
@@ -101,7 +101,14 @@ func TestSubtitleRecoveryIntegration(t *testing.T) {
 						}
 					}
 					blocks, err := readSRTBlocks(filepath.Join(workdir, types.SubtitleTaskTargetLanguageSrtFileName))
-					if err != nil || len(blocks) != 1 || strings.Join(blocks[0].Lines, "\n") != target || blocks[0].Timestamp != "00:00:01,000 --> 00:00:03,000" {
+					var exported strings.Builder
+					for i, block := range blocks {
+						exported.WriteString(strings.Join(block.Lines, ""))
+						if i > 0 && strings.Split(blocks[i-1].Timestamp, " --> ")[1] != strings.Split(block.Timestamp, " --> ")[0] {
+							t.Fatalf("分段时间不连续: %+v", blocks)
+						}
+					}
+					if err != nil || len(blocks) == 0 || exported.String() != target || !strings.HasPrefix(blocks[0].Timestamp, "00:00:01,000 --> ") || !strings.HasSuffix(blocks[len(blocks)-1].Timestamp, " --> 00:00:03,000") {
 						t.Fatalf("最终导出内容或时间丢失: %+v err=%v", blocks, err)
 					}
 				}
@@ -122,7 +129,7 @@ func TestSubtitleRecoveryIntegration(t *testing.T) {
 	}
 }
 
-// 超长结果仍经过三次修正；耗尽后完整导出原译，续跑继续复用完整译文。
+// SRT 保留三次修正；VTT 使用两次冻结排版与程序分段，续跑均复用完整译文。
 func TestSubtitleFinalLengthRecoveryIntegration(t *testing.T) {
 	log.InitLogger()
 	previous := config.Conf
@@ -170,7 +177,7 @@ func TestSubtitleFinalLengthRecoveryIntegration(t *testing.T) {
 						return
 					}
 					segments := []any{map[string]string{"source": source, "target": target}}
-					if strings.HasPrefix(prompt, "任务：translation_length_split\n") {
+					if strings.HasPrefix(prompt, "任务：translation_length_split\n") || strings.HasPrefix(prompt, "任务：translation_frozen_layout\n") {
 						splits.Add(1)
 						if ready.Load() {
 							if input.Sentences[0].TargetText != target {
@@ -210,17 +217,26 @@ func TestSubtitleFinalLengthRecoveryIntegration(t *testing.T) {
 				return err
 			}
 			if err := run(); err != nil {
-				t.Fatalf("三次修正耗尽后应保留原译继续导出: %v", err)
+				t.Fatalf("修正预算耗尽后应保留原译继续导出: %v", err)
 			}
 			fallback, err := readSRTBlocks(filepath.Join(workdir, types.SubtitleTaskTargetLanguageSrtFileName))
-			if err != nil || len(fallback) != 1 || strings.Join(fallback[0].Lines, "") != target || splits.Load() != 3 {
-				t.Fatalf("未在三次后完整导出原译: output=%+v splits=%d err=%v", fallback, splits.Load(), err)
+			var exported strings.Builder
+			for _, block := range fallback {
+				exported.WriteString(strings.Join(block.Lines, ""))
+			}
+			expectedBlocks, expectedSplits, resumedSplits := 1, int32(3), int32(4)
+			if route == "vtt" {
+				// 冻结排版预算耗尽后，程序分段已经完成；续跑不再支付模型请求。
+				expectedBlocks, expectedSplits, resumedSplits = 2, 2, 2
+			}
+			if err != nil || len(fallback) != expectedBlocks || exported.String() != target || splits.Load() != expectedSplits {
+				t.Fatalf("未按预算完整导出原译: output=%+v splits=%d err=%v", fallback, splits.Load(), err)
 			}
 			ready.Store(true)
 			if err := run(); err != nil {
 				t.Fatal(err)
 			}
-			if translations.Load() != 1 || splits.Load() != 4 {
+			if translations.Load() != 1 || splits.Load() != resumedSplits {
 				t.Fatalf("续跑重复翻译或绕过检测: translations=%d splits=%d", translations.Load(), splits.Load())
 			}
 			origin, err := readSRTBlocks(filepath.Join(workdir, types.SubtitleTaskOriginLanguageSrtFileName))
