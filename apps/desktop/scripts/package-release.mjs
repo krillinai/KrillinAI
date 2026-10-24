@@ -222,10 +222,14 @@ const packageWithSigningEnvironment = async builderEnv => {
         sha256: font.webSha256.toLowerCase()
       };
     });
+  const sourceStatus = gitOutput(['status', '--porcelain', '--untracked-files=normal']);
+  if (officialBuild && sourceStatus.length > 0) {
+    throw new Error(`Official Desktop builds require a clean source tree:\n${sourceStatus}`);
+  }
   const manifest = {
     version: 1,
     commit: gitOutput(['rev-parse', 'HEAD']) || 'unknown',
-    dirty: gitOutput(['status', '--porcelain', '--untracked-files=normal']).length > 0,
+    dirty: sourceStatus.length > 0,
     generatedAt: new Date().toISOString(),
     platform,
     arch,

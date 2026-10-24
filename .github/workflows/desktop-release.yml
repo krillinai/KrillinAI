@@ -159,6 +159,9 @@ jobs:
             echo "::error::release Environment 缺少 macOS 签名 Secret：${missing[*]}"
             exit 1
           fi
+      - name: Preserve source line endings on Windows
+        if: matrix.platform == 'win32'
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - name: 验证并使用 macOS Command Line Tools
         if: matrix.platform == 'darwin'

@@ -15,6 +15,7 @@ import {
   closeSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdtempSync,
   openSync,
   readSync,
@@ -123,8 +124,12 @@ assertNoUnexpectedPythonRuntime();
 assertNoLocalData();
 assertSize('app.asar', appAsar, 80 * 1024 * 1024);
 assertSize('Daemon resources', daemonDir, 250 * 1024 * 1024);
-// Includes spaCy dependencies and the English md parser (~126 MiB).
-assertSize('Creator Runtime', creatorRuntimeDir, 512 * 1024 * 1024);
+// Includes spaCy, its English md parser, Python, Node, and pinned media tools.
+// Windows x64 measured 610 MiB; its media tools alone exceed arm64 by 71 MiB.
+// Intel macOS also ships larger x64 media tools and native Python libraries.
+const creatorRuntimeLimitMiB = targetPlatform === 'win32' ? 704
+  : targetPlatform === 'darwin' && targetArch === 'x64' ? 640 : 512;
+assertSize('Creator Runtime', creatorRuntimeDir, creatorRuntimeLimitMiB * 1024 * 1024);
 assertSize('Codex Runtime', codexRuntimeDir, 450 * 1024 * 1024);
 assertSize('Stickman assets', join(daemonDir, 'runtime', 'stickman-assets'), 16 * 1024 * 1024);
 assertSize('Desktop package', packageRoot, 1600 * 1024 * 1024);
@@ -1003,9 +1008,15 @@ function assertExists(path) {
 }
 
 function assertSize(label, path, maxBytes) {
-  const bytes = statSync(path).isDirectory() ? treeSize(path) : statSync(path).size;
+  const directory = statSync(path).isDirectory();
+  const bytes = directory ? treeSize(path) : statSync(path).size;
   if (bytes > maxBytes) {
-    throw new Error(`${label} is unexpectedly large: ${bytes} bytes`);
+    const components = directory ? Object.fromEntries(readdirSync(path).map(name => {
+      const child = join(path, name);
+      const childStat = lstatSync(child);
+      return [name, childStat.isDirectory() ? treeSize(child) : childStat.size];
+    })) : undefined;
+    throw new Error(`${label} is unexpectedly large: ${bytes} bytes (limit: ${maxBytes} bytes; components: ${JSON.stringify(components)})`);
   }
 }
 
