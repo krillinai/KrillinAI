@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { CreatorJson, CreatorRuntimeComponent } from '@opencreator/protocol';
 import { configuredOrDownloadedFile } from '../krillin/dependency-loader.js';
 import { spawnCreatorProcess } from '../process-tree.js';

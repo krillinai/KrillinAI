@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { apiError } from './errors.js';
 import { GatewayError } from '../gateway/client.js';
 import type { GatewayAccountService } from '../gateway/account-service.js';

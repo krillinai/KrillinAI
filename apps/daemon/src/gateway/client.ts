@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { GatewayModel, GatewayConnectionDiagnostics } from '@opencreator/protocol';
 import { isDirectTransport, isSupplierBase, supplierBases, type SupplierRegion } from './supplier.js';
 

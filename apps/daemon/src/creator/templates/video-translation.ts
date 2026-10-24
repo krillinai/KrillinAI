@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { CreatorTemplateDefinition } from './types.js';
 import { creatorSubtitleStyleSchema } from '../presets/module-schemas.js';
 import { validateTranslationOutputLanguage } from '../output-validation.js';

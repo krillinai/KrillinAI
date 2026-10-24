@@ -8,7 +8,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { accessSync, constants, mkdirSync, statSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
-import { z, ZodError } from 'zod';
+import { z, ZodError } from 'zod/v3';
 import type { OpenCreatorSettingsStore } from '../settings/store.js';
 import { apiError } from './errors.js';
 

@@ -24,7 +24,7 @@ import { rm, stat } from 'node:fs/promises';
 import { basename, extname, resolve, sep } from 'node:path';
 import type { Readable } from 'node:stream';
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { z, ZodError } from 'zod';
+import { z, ZodError } from 'zod/v3';
 import { creatorSubtitleStyleSchema } from '../creator/presets/module-schemas.js';
 import type { SubtitlePreviewService } from '../creator/krillin/subtitle-preview.js';
 import type { createSubtitleRenderService } from '../creator/krillin/subtitle-render.js';

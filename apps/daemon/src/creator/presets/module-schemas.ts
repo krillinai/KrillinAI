@@ -10,7 +10,7 @@ import {
   type CreatorPresetRequirements,
   type CreatorRuntimeWorkspace
 } from '@opencreator/protocol';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { CreatorPresetModuleDefinition } from './types.js';
 
 const colorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);

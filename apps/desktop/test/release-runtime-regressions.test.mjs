@@ -59,7 +59,7 @@ describe('Desktop release runtime regressions', () => {
       'cross-spawn': '7.0.6',
       fastify: '5.12.2',
       sharp: '0.35.5',
-      toml: '4.2.0',
+      toml: '5.0.1',
       yauzl: '3.4.0'
     });
     expect(daemonPackage.dependencies['@iarna/toml'])

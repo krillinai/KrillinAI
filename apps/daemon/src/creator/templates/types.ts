@@ -3,7 +3,7 @@ import type {
   CreatorJobStatus,
   CreatorJson
 } from '@opencreator/protocol';
-import type { ZodType } from 'zod';
+import type { ZodType } from 'zod/v3';
 import type { CreatorArtifact, CreatorJob, CreatorStageRun } from '@opencreator/protocol';
 import type { CreatorExecutorOutput } from '../executor.js';
 

@@ -7,7 +7,7 @@ import type {
   CreatorTtsProvider
 } from '@opencreator/protocol';
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { ZodError } from 'zod';
+import { ZodError } from 'zod/v3';
 import {
   CreatorServicesConfigStoreError,
   parseCreatorServicesConfig,

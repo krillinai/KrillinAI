@@ -4,7 +4,7 @@ import type {
   CreatorServicesCredentialField
 } from '@opencreator/protocol';
 import { createDefaultCreatorServicesConfig, migrateOpenAiImageModel } from '@opencreator/protocol';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import {
   readOpenCreatorConfig,
   updateOpenCreatorConfig

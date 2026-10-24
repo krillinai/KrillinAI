@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const runtimeManifestSchema = z.object({
   version: z.literal(1),

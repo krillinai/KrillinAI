@@ -12,7 +12,7 @@ import {
   writeFile
 } from 'node:fs/promises';
 import path from 'node:path';
-import { ZodError } from 'zod';
+import { ZodError } from 'zod/v3';
 import { creatorPresetModuleDefinitions, getCreatorPresetModuleDefinition } from './module-schemas.js';
 import { creatorPresetSourceManifestSchema, validatePresetPublicFields } from './schema.js';
 import { canonicalJson, sha256 } from './hash.js';

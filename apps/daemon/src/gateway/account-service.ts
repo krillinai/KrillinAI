@@ -2,7 +2,7 @@ import { gatewayModelIdMatches } from '@opencreator/protocol';
 import { isDirectTransport, type SupplierRegion } from './supplier.js';
 import { createHash } from 'node:crypto';
 import type { GatewayAccountState, GatewayActivationStage, GatewayBalanceSnapshot, GatewayBalanceState, GatewayModel, GatewayModelOperation, GatewayModelProbeOptions, PublicErrorFacts, ServiceSource } from '@opencreator/protocol';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { createGatewayConfigStore, type GatewayCredentials } from './config-store.js';
 import { accountSchema, bootstrapSchema, cachedModelUsePolicy, catalogSchema, GatewayError, type GatewayBootstrap, type GatewayClient, type GatewayDeviceGrant } from './client.js';
 import { officialModelPolicy, withModelCatalog, type OfficialModelAccess } from './model-access.js';

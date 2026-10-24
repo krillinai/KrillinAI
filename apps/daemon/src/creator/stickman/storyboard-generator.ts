@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { StickmanScriptSegment } from './script-generator.js';
 
 const shotSchema = z.object({

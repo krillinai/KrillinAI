@@ -1,5 +1,5 @@
 import type { WechatArticleImagePlanItem, WechatArticleTopic } from '@opencreator/protocol';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
 import {
   creatorServiceErrorInfo,

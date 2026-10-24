@@ -23,7 +23,7 @@
   "dependencies": {
     "@fastify/cors": "^11.0.1",
     "@iarna/toml": "2.2.5",
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "@opencreator/config": "workspace:*",
     "@opencreator/protocol": "workspace:*",
     "@opencreator/skill-market": "workspace:*",
@@ -41,10 +41,10 @@
     "pdf-parse": "1.1.1",
     "pdfkit": "^0.20.2",
     "sharp": "0.35.5",
-    "toml": "4.2.0",
+    "toml": "5.0.1",
     "yaml": "^2.8.1",
     "yauzl": "3.4.0",
-    "zod": "^3.25.76"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@remotion/bundler": "4.0.473",

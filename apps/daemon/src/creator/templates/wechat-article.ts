@@ -7,7 +7,7 @@ import {
   getWritingTemplate,
   normalizeWritingTemplateId
 } from '@opencreator/writing-templates';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { CreatorTemplateDefinition } from './types.js';
 
 const record = z.record(z.string(), z.unknown()) as never;

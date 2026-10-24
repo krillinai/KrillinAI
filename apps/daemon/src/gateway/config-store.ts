@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { deletePrivateJsonFile, readPrivateJsonFile, writePrivateJsonFile } from '../config/private-json-file.js';
 import { bootstrapCredentialsSchema, type GatewayBootstrap, type GatewayTokens } from './client.js';
 const modelAccessErrorSchema = z.enum(['auth_required', 'account_disabled', 'payment_review_required']);

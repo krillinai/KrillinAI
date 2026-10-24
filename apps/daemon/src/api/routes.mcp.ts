@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { McpManager } from '../codex/mcp/manager.js';
 import { isValidMcpName, validateMcpAddRequest } from '../codex/mcp/validator.js';
 import { apiError } from './errors.js';

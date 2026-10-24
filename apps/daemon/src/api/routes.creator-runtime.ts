@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { YtDlpUpdateManager } from '../creator/yt-dlp/update-manager.js';
 import { YtDlpUpdateError } from '../creator/yt-dlp/update-manager.js';
 import { apiError } from './errors.js';

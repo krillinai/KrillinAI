@@ -4,7 +4,7 @@ import {
 } from '@opencreator/config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const resourceSchema = z.object({
   path: z.string().min(1),

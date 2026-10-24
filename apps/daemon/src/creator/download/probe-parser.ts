@@ -4,7 +4,7 @@ import type {
   DownloadProbeFormat
 } from '@opencreator/protocol';
 import { supportedVideoSourcePlatform } from '@opencreator/protocol';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const formatSchema = z.object({
   format_id: z.string(),

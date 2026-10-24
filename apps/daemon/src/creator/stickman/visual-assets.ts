@@ -11,7 +11,7 @@ import type {
   CreatorVisualAssetRef,
   CreatorVisualAssetSummary
 } from '@opencreator/protocol';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const localizedTextSchema = z.object({
   zhCN: z.string().trim().min(1),

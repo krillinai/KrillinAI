@@ -2,7 +2,7 @@ import { gatewayModelIdMatches } from '@opencreator/protocol';
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { join } from 'node:path';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { gatewayModelOperations, gatewayModelCompatible, gatewayModelReady, isRetiredOpenAiImageModel, type GatewayModel, type GatewayModelAvailability, type GatewayModelOperation, type PublicErrorFacts } from '@opencreator/protocol';
 import { readPrivateJsonFile, writePrivateJsonFile } from '../config/private-json-file.js';
 import { catalogSchema, type GatewayBootstrap } from './client.js';

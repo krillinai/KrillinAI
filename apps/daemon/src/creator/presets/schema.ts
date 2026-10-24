@@ -4,7 +4,7 @@ import {
   type CreatorJson,
   type CreatorPresetRequirements
 } from '@opencreator/protocol';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const localeTextSchema = z.object({
   'zh-CN': z.string().trim().min(1).max(160),

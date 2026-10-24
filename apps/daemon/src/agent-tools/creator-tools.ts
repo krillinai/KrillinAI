@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type {
   AgentContextEnvelope,
   CreatorCommandRequest,

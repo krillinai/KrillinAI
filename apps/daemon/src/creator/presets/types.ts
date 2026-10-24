@@ -5,7 +5,7 @@ import type {
   CreatorPresetSummary,
   CreatorRuntimeWorkspace
 } from '@opencreator/protocol';
-import type { ZodType } from 'zod';
+import type { ZodType } from 'zod/v3';
 
 export type CreatorPresetLocale = 'zh-CN' | 'en-US';
 export type CreatorPresetStatus = 'draft' | 'published' | 'hidden';
