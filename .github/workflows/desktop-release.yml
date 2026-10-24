@@ -255,7 +255,7 @@ jobs:
           OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
           OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
       - name: 验证实际打包应用
-        run: pnpm --filter @opencreator/desktop e2e:package:smoke
+        run: pnpm --filter @opencreator/desktop ${{ matrix.name == 'macos-arm64' && 'e2e:package' || 'e2e:package:smoke' }}
       - name: 生成 KrillinAI Server 与 CLI 独立发布包
         run: pnpm krillinai:package
         env:

@@ -115,7 +115,7 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain("candidate-ready:");
     expect(releaseWorkflow).toContain("inputs.target == 'all'");
     expect(releaseWorkflow).toContain('e2e:package:smoke');
-    expect(releaseWorkflow).not.toContain("matrix.name == 'macos-arm64'");
+    expect(releaseWorkflow).toContain("matrix.name == 'macos-arm64' && 'e2e:package' || 'e2e:package:smoke'");
     expect(releaseWorkflow).toContain('opencreator-release-candidate-${{ steps.build-input.outputs.digest }}');
   });
 
