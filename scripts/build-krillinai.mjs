@@ -14,6 +14,7 @@ import {
 } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { downloadGoModules } from './download-go-modules.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const rootDir = resolve(dirname(scriptPath), '..');
@@ -42,7 +43,11 @@ const version = process.env.OPENCREATOR_VERSION?.trim()
   || JSON.parse(readFileSync(join(rootDir, 'apps', 'desktop', 'package.json'), 'utf8')).version;
 const sourceCommit = gitOutput(['rev-parse', 'HEAD']) || 'unknown';
 const sourceSha256 = hashSourceTree(sourceRoot);
-const buildRecipeSha256 = hashFile(scriptPath);
+const buildRecipeSha256 = createHash('sha256')
+  .update(readFileSync(scriptPath))
+  .update('\0')
+  .update(readFileSync(join(rootDir, 'scripts', 'download-go-modules.mjs')))
+  .digest('hex');
 const testOnly = process.argv.includes('--test-only');
 const runTests = testOnly || process.argv.includes('--test');
 const targets = [
@@ -55,6 +60,7 @@ if (!existsSync(join(sourceRoot, 'go.mod'))) {
 }
 
 if (runTests) {
+  prepareGoModules(nativeGoEnvironment());
   runGo(['test', './...'], nativeGoEnvironment());
 }
 if (testOnly) {
@@ -73,6 +79,7 @@ if (
 
 mkdirSync(binDir, { recursive: true });
 mkdirSync(artifactDir, { recursive: true });
+if (!runTests) prepareGoModules(targetGoEnvironment());
 
 const binaries = {};
 for (const targetBinary of targets) {
@@ -169,6 +176,10 @@ function runGo(args, env) {
     env: { ...process.env, ...env },
     stdio: 'inherit'
   });
+}
+
+function prepareGoModules(env) {
+  downloadGoModules({ cwd: sourceRoot, env: { ...process.env, ...env } });
 }
 
 function nativeGoEnvironment() {

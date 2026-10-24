@@ -214,7 +214,7 @@ jobs:
         with:
           path: |
             .runtime/build/krillinai/${{ matrix.platform }}-${{ matrix.arch }}
-          key: krillinai-build-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('scripts/build-krillinai.mjs', 'runtime/krillinai/**') }}
+          key: krillinai-build-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('scripts/build-krillinai.mjs', 'scripts/download-go-modules.mjs', 'runtime/krillinai/**') }}
       - run: pnpm install --frozen-lockfile
       - name: 生成 macOS 正式签名安装包
         if: matrix.platform == 'darwin'

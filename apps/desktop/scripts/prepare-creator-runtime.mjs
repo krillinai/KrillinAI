@@ -118,6 +118,7 @@ const buildRecord = {
   },
   integrationPatchSha256: hashFiles([
     join(rootDir, 'scripts', 'build-krillinai.mjs'),
+    join(rootDir, 'scripts', 'download-go-modules.mjs'),
     join(scriptDir, 'install-creator-runtime-dependencies.mjs'),
     join(scriptDir, 'creator-runtime-releases.mjs'),
     join(scriptDir, 'prepare-creator-runtime.mjs'),
