@@ -31,6 +31,10 @@ export type OfficialModelFailureReporter = (id: string, modality: GatewayModel['
 export type OfficialModelSuccessReporter = (id: string, modality: GatewayModel['modality'], operation: GatewayModelOperation) => Promise<void>;
 
 export async function errorFacts(response: Response, key: string, signal?: AbortSignal): Promise<PublicErrorFacts> {
+  return (await readUpstreamFailure(response, key, signal)).facts;
+}
+
+async function readUpstreamFailure(response: Response, key: string, signal?: AbortSignal) {
   const reader = response.body?.getReader();
   const chunks: Uint8Array[] = []; let size = 0;
   let payload: unknown;
@@ -44,7 +48,13 @@ export async function errorFacts(response: Response, key: string, signal?: Abort
     }
     if (size <= 16_384) payload = JSON.parse(Buffer.concat(chunks).toString('utf8').replaceAll(key, '[redacted]'));
   } catch {} finally { void reader?.cancel().catch(() => undefined); }
-  return creatorServiceFailureFacts(payload, undefined, { httpStatus: response.status, requestId: response.headers.get('x-request-id') ?? undefined });
+  const body = payload as { error?: { message?: unknown }; message?: unknown } | undefined;
+  const message = body?.error?.message ?? body?.message;
+  // Classify before public sanitization removes messages naming the upstream service.
+  const limitExceeded = response.status === 403 && typeof message === 'string' && /^Key limit exceeded\b/i.test(message);
+  return { limitExceeded, facts: creatorServiceFailureFacts(payload, undefined, {
+    httpStatus: response.status, requestId: response.headers.get('x-request-id') ?? undefined
+  }) };
 }
 
 function recordUpstreamMetadata(record: Receipt, value: unknown) {
@@ -177,8 +187,7 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
       if (updated && updated !== key) { modelKey = updated; result = await submit(modelKey); }
     }
     if (!result.ok) {
-      const facts = await errorFacts(result, modelKey, options.signal ?? undefined);
-      const limitExceeded = result.status === 403 && /^Key limit exceeded\b/i.test(facts.upstreamMessage ?? '');
+      const { facts, limitExceeded } = await readUpstreamFailure(result, modelKey, options.signal ?? undefined);
       throw new DirectUpstreamError(result.status === 401 ? 'model_auth_required' : result.status === 402 || limitExceeded ? 'credits_insufficient' : 'official_service_unavailable', result.status >= 400 && result.status < 500 ? result.status : 503, facts);
     }
     return result;

@@ -11,6 +11,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   writeFile
 } from 'node:fs/promises';
@@ -1341,7 +1342,7 @@ describe('creator download executor', () => {
       inputArtifacts: [await writeProbeArtifact(workdir, probe)]
     }));
 
-    expect(result.outputs[0]?.path).toBe(join(workdir, fileName));
+    expect(result.outputs[0]?.path).toBe(await realpath(join(workdir, fileName)));
     expect(result.outputs[0]?.metadata?.fileName).toBe(fileName);
     expect(JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8')))
       .toEqual(expect.arrayContaining(['--encoding', 'utf-8']));

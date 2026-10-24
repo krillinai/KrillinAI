@@ -88,8 +88,10 @@ describe('creator image generation', () => {
     expect(content.rawPayload.subarray(0, 4).toString('hex')).toBe('89504e47');
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(status.rawPayload.toString()).not.toContain('private-oauth-secret');
-    expect(await readFile(join(agentHome, 'auth.json'), 'utf8')).toBe(agentAuth);
-    expect(await readFile(join(agentHome, 'config.toml'), 'utf8')).toContain('agent-model');
+    const localAuth = await readFile(join(home, 'auth.json'), 'utf8');
+    expect(JSON.parse(localAuth)).toMatchObject({ auth_mode: 'chatgpt', tokens: { access_token: 'private-oauth-secret' } });
+    expect(await readFile(join(agentHome, 'auth.json'), 'utf8')).toBe(localAuth);
+    expect(await readFile(join(agentHome, 'config.toml'), 'utf8')).not.toContain('agent-model');
   });
 
   it('uses local API credentials and follows local login changes without falling back to the Agent', async () => {
@@ -107,6 +109,8 @@ describe('creator image generation', () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ data: [{ b64_json: image.toString('base64') }] }), { status: 200 }));
     vi.stubGlobal('fetch', fetchImpl);
     server = await buildServer({ token: 'secret', dataDir: tempDir, codexHome: agentHome, localCodexHome: home, codexBin: bin });
+    const initialRuntimeAuth = await readFile(join(agentHome, 'auth.json'), 'utf8');
+    expect(JSON.parse(initialRuntimeAuth)).toMatchObject({ auth_mode: 'apikey', OPENAI_API_KEY: 'local-api-secret' });
     const payload = { prompt: 'One orange cat', provider: 'codex-native', size: '1024x1024', quality: 'medium', count: 1 };
 
     const apiStatus = await request('GET', '/creator-services/image/codex/status');
@@ -137,7 +141,7 @@ describe('creator image generation', () => {
     expect((await request('GET', '/creator-services/image/codex/status')).json()).toMatchObject({ ready: false, executionMode: null });
     expect((await request('POST', '/image-generation/results', payload)).statusCode).toBe(409);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
-    expect(await readFile(join(agentHome, 'auth.json'), 'utf8')).toBe(agentAuth);
+    expect(await readFile(join(agentHome, 'auth.json'), 'utf8')).toBe(initialRuntimeAuth);
     expect(JSON.stringify([apiStatus.json(), nativeStatus.json(), apiResult.json(), nativeResult.json()])).not.toContain('secret');
   });
 

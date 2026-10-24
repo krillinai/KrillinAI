@@ -290,6 +290,7 @@ describe('creator api', () => {
         sourceType: 'url',
         sourceUrl: 'https://www.youtube.com/watch?v=job-control',
         targetLanguage: 'zh_cn',
+        skipVideoDownload: true,
         composeVideo: true,
         videoFormat: 'horizontal'
       }
@@ -1134,13 +1135,15 @@ async function waitForCreatorJob(
   jobId: string,
   predicate: (job: any) => boolean
 ): Promise<any> {
+  let lastJob: any;
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const response = await request('GET', `/creator/jobs/${jobId}`);
     const job = response.json().job;
+    lastJob = job;
     if (predicate(job)) return job;
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  throw new Error(`Timed out waiting for Creator job ${jobId}`);
+  throw new Error(`Timed out waiting for Creator job ${jobId}: ${JSON.stringify({ status: lastJob?.status, stages: lastJob?.stages })}`);
 }
 
 async function waitForApiApproval(jobId: string) {

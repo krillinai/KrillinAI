@@ -39,7 +39,7 @@ describe('local Codex provider', () => {
     expect(await readLocalCodexModelConfiguration({ codexHome: root, env: {} })).toEqual({ authentication: 'api_key', wireApi: 'responses',
       provider: { baseUrl: 'https://local.example/v1', apiKey: 'local-key', model: 'local-text-model' } });
     expect(await readLocalCodexProvider({ codexHome: root, env: {} })).toEqual({
-      baseUrl: 'https://local.example/v1', apiKey: 'local-key', model: 'gpt-image-1' });
+      baseUrl: 'https://local.example/v1', apiKey: 'local-key', model: 'gpt-image-2' });
   });
 
   it('honors an explicitly selected API mode even if an old OAuth token remains', async () => {
