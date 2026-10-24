@@ -41,7 +41,7 @@ func TestBatchTranslateSrtBlocksKeepsOriginalAfterReviewAndRepairExhaustion(t *t
 						return "invalid-json", nil
 					}
 					return `{"accepted_ids":[],"reason":"一本书改变了原文的大量藏书。"}`, nil
-				case strings.HasPrefix(prompt, "Task: translation_length_split\n"):
+				case strings.HasPrefix(prompt, "任务：translation_length_split\n"):
 					splits++
 					return `{"sentences":[]}`, nil
 				}
@@ -82,9 +82,15 @@ func TestSubtitleRepairBatchFailureKeepsOriginalsAndContinues(t *testing.T) {
 		input.Sentences = append(input.Sentences, pairedTranslationSource{ID: id, Text: text})
 		parents[id] = pairedSentence{ID: id, FullSource: text, FullTarget: "原来的译文。", Source: []string{text}, Target: []string{"原来的译文。"}}
 	}
-	calls, completed := 0, 0
-	translator := &Translator{chatCompleter: translationCompleterFunc(func(string) (string, error) {
-		calls++
+	batchCalls, singleCalls, completed := 0, 0, 0
+	translator := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
+		if strings.HasPrefix(prompt, "任务：translation_length_split_batch\n") {
+			batchCalls++
+		} else if strings.HasPrefix(prompt, "任务：translation_length_split\n") {
+			singleCalls++
+		} else {
+			t.Fatalf("未预期的修正请求：%s", prompt[:min(len(prompt), 80)])
+		}
 		return "", errors.New("修正服务不可用")
 	})}
 	err := translator.splitLongPairedSubtitles(context.Background(), input, parents, "en", "zh_cn", func(sentence pairedSentence, complete bool) error {
@@ -96,8 +102,8 @@ func TestSubtitleRepairBatchFailureKeepsOriginalsAndContinues(t *testing.T) {
 		}
 		return nil
 	})
-	if err != nil || completed != 3 || calls != 2 {
-		t.Fatalf("completed=%d calls=%d err=%v", completed, calls, err)
+	if err != nil || completed != 3 || batchCalls != 1 || singleCalls != 2 {
+		t.Fatalf("completed=%d batch=%d single=%d err=%v", completed, batchCalls, singleCalls, err)
 	}
 }
 

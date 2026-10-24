@@ -169,7 +169,9 @@ func TestHorizontalAssUsesCustomSubtitleStyle(t *testing.T) {
 	if !strings.Contains(ass, ",4,1.5,2,10,10,44,1") {
 		t.Fatalf("custom outline/margin missing:\n%s", ass)
 	}
-	if !strings.Contains(ass, `{\rMajor}{\an2}{\fad(120,180)\blur1}主字幕`) {
+	if strings.Count(ass, "Dialogue:") != 2 ||
+		!strings.Contains(ass, `{\rMajor}{\an2}{\fad(120,180)\blur1}{\1a&HFF&\2a&HFF&\3a&HFF&}主字幕`) ||
+		!strings.Contains(ass, `{\rMajor}{\an2}{\fad(120,180)\blur1}{\blur0\shad0}主字幕`) {
 		t.Fatalf("custom dialogue tags missing:\n%s", ass)
 	}
 }
@@ -383,7 +385,9 @@ func TestBilingualTranslationOnBottomKeepsSemanticStylesAndShadow(t *testing.T) 
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(string(data), `{\rMinor}{\an2}Source\N{\rMajor}{\an2}{\xshad-4\yshad6\blur2.5}Translation`) {
+			if strings.Count(string(data), "Dialogue:") != 2 ||
+				!strings.Contains(string(data), `{\rMinor}{\an2}{\1a&HFF&\2a&HFF&\3a&HFF&}Source\N{\rMajor}{\an2}{\xshad-4\yshad6\blur2.5}{\1a&HFF&\2a&HFF&\3a&HFF&}Translation`) ||
+				!strings.Contains(string(data), `{\rMinor}{\an2}{\blur0\shad0}Source\N{\rMajor}{\an2}{\xshad-4\yshad6\blur2.5}{\blur0\shad0}Translation`) {
 				t.Fatalf("subtitle roles or shadow reset order are wrong: %s", data)
 			}
 		})

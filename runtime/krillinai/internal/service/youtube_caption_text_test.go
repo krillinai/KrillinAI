@@ -34,7 +34,8 @@ func TestWordCaptionsPreserveDemonstratedHesitation(t *testing.T) {
 	for _, word := range words {
 		text = append(text, word.Text)
 	}
-	want := "And the second your explanation becomes uh um you know what you need to work on."
+	// 两个 um 都有完整时长，缺少短暂滚动 cue 的证据，不能仅按词相同删除。
+	want := "And the second your explanation becomes uh um um you know what you need to work on."
 	if strings.Join(text, " ") != want {
 		t.Fatalf("有实际含义的演示停顿丢失或重复: %q", strings.Join(text, " "))
 	}

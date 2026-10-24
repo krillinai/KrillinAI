@@ -79,7 +79,7 @@ func TestPairedTranslationRateLimitStopsAtConfiguredLimit(t *testing.T) {
 		calls++
 		return "", &openaiapi.APIError{HTTPStatusCode: http.StatusTooManyRequests}
 	})}
-	_, err := translator.translatePairedSentences(context.Background(), []string{"Hello."}, "en", "zh_cn", 50, 1, nil)
+	_, err := translator.requestTranslation(context.Background(), "translation request", 1024)
 	if translationRequestStatus(err) != http.StatusTooManyRequests || calls != 1 {
 		t.Fatalf("限流达到配置次数后没有退出: calls=%d error=%v", calls, err)
 	}
@@ -265,13 +265,14 @@ func TestPairedTranslationProgressDoesNotWaitForSlowEarlierBatch(t *testing.T) {
 	}
 }
 
-func TestPairedTranslationStopsBeforeCommittingFailedWindow(t *testing.T) {
+func TestPairedTranslationKeepsSuccessfulWindowsWhenOneFails(t *testing.T) {
 	previous := config.Conf
 	t.Cleanup(func() { config.Conf = previous })
 	config.Conf.App.TranslateParallelNum = 2
 	var mu sync.Mutex
 	calls := make(map[string]int)
-	translator := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
+	task := &types.SubtitleTask{}
+	translator := &Translator{checkpointDir: t.TempDir(), translationTask: task, chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
 		input, err := decodePairedTestInput(prompt)
 		if err != nil {
 			return "", err
@@ -287,8 +288,19 @@ func TestPairedTranslationStopsBeforeCommittingFailedWindow(t *testing.T) {
 	})}
 	commits := 0
 	result, err := translator.translatePairedSentences(context.Background(), []string{"One.", "Two.", "Three."}, "en", "zh_cn", 20, 1, func([]pairedSentence, int, int) error { commits++; return nil })
-	if err == nil || result != nil || calls["2"] != 1 || calls["3"] != 0 || commits != 0 {
+	if err != nil || len(result) != 3 || calls["1"] != 1 || calls["2"] != 1 || calls["3"] != 1 || commits != 3 {
 		t.Fatalf("calls=%v commits=%d error=%v", calls, commits, err)
+	}
+	for i, sentence := range result {
+		if sentence.ID != fmt.Sprint(i+1) || (sentence.TranslationFallbackReason != "") != (i == 1) {
+			t.Fatalf("成功句或失败标记丢失：%+v", result)
+		}
+	}
+	if result[1].FullTarget != "Two." || !strings.Contains(result[1].TranslationFallbackReason, "LLM disconnected") {
+		t.Fatalf("失败句未保留原文及原因：%+v", result[1])
+	}
+	if failures := task.TranslationFailures(); len(failures) != 1 || failures[0].SentenceID != "2" {
+		t.Fatalf("失败报告错误：%+v", failures)
 	}
 }
 
@@ -936,7 +948,8 @@ func TestAudioTranslationWorkerStopsOnUpstreamFailure(t *testing.T) {
 			if failure {
 				want = 1
 			}
-			if calls != want || splitCalls != 1 || (err != nil) != failure {
+			// 源文单元通过本地 NLP 整理，不再请求模型预分句。
+			if calls != want || splitCalls != 0 || (err != nil) != failure {
 				t.Fatalf("translation calls=%d want=%d split calls=%d error=%v", calls, want, splitCalls, err)
 			}
 		})
