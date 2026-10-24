@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -146,7 +147,7 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(screen.getByDisplayValue('你好')).toBeInTheDocument();
     expect(screen.getByDisplayValue('再见世界')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Hello world')).toBeInTheDocument();
-    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'text' } });
+    selectOption(within(find).getByRole('combobox'), 'text');
     fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'HELLO' } });
     expect(within(find).getByRole('status')).toHaveTextContent('1 / 1');
     fireEvent.click(within(find).getByRole('button', { name: '区分大小写' }));
@@ -174,14 +175,14 @@ describe('VideoTranslationResultWorkspace', () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: '查找与替换' }));
     const find = screen.getByRole('search');
-    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'text' } });
+    selectOption(within(find).getByRole('combobox'), 'text');
     fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'hi' } });
     const replacement = within(find).getByRole('textbox', { name: '替换为' });
     fireEvent.change(replacement, { target: { value: 'hi!' } });
     fireEvent.keyDown(replacement, { key: 'Enter' });
     expect(screen.getByDisplayValue('hi! hi')).toBeInTheDocument();
     expect(within(find).getByRole('status')).toHaveTextContent('2 / 2');
-    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'all' } });
+    selectOption(within(find).getByRole('combobox'), 'all');
     fireEvent.change(replacement, { target: { value: 'bye' } });
     fireEvent.click(within(find).getByRole('button', { name: '全部替换' }));
     expect(screen.getByDisplayValue('bye! bye')).toBeInTheDocument();

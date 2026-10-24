@@ -3334,5 +3334,9 @@
   "Save as template": "I-save bilang template",
   "Customize subtitle style": "I-customize ang estilo ng subtitle",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Wala pang naka-save na estilo. Ayusin ang estilo sa I-customize, pagkatapos ay piliin ang I-save bilang template.",
-  "Agent Mode": "Mode ng Agent"
+  "Agent Mode": "Mode ng Agent",
+  "Subtitle preview progress": "Progreso ng preview ng subtitle",
+  "Adjust timing": "Ayusin ang tiyempo",
+  "Enter the required credentials for the selected dubbing service to continue.": "Ilagay ang mga kinakailangang kredensyal para sa napiling serbisyo ng dubbing upang magpatuloy.",
+  "Save and continue composing": "I-save at magpatuloy sa pagbuo ng video"
 }

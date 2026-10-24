@@ -3334,5 +3334,9 @@
   "Save as template": "Şablon olarak kaydet",
   "Customize subtitle style": "Altyazı stilini özelleştir",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Henüz kayıtlı stil yok. Özelleştir bölümünde bir stili düzenleyip Şablon olarak kaydet seçeneğini seçin.",
-  "Agent Mode": "Agent Modu"
+  "Agent Mode": "Agent Modu",
+  "Subtitle preview progress": "Altyazı önizleme ilerlemesi",
+  "Adjust timing": "Zamanlamayı ayarla",
+  "Enter the required credentials for the selected dubbing service to continue.": "Devam etmek için seçilen dublaj hizmetinin gerekli kimlik bilgilerini girin.",
+  "Save and continue composing": "Kaydet ve videoyu oluşturmaya devam et"
 }

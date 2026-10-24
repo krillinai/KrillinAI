@@ -86,9 +86,9 @@ describe('dashboard CSS contracts', () => {
     expect(characterPicker[0]).toContain('margin-top: 16px;');
     expect(cssBlocks('.stickman-voice-settings + .stickman-tts-configuration')[0]).toContain('margin-top: 16px;');
     expect(cssBlocks('.creator-tool-field')[0]).toContain('gap: 8px;');
-    expect(cssBlocks('.video-translation-select-wrap select')[0]).toContain('padding-block: 0;');
-    expect(cssBlocks('.video-translation-select-wrap select')[0]).toContain('padding-inline: 12px 40px;');
-    expect(cssBlocks('.video-translation-select-wrap svg')[0]).toContain('inset-inline-end: 12px;');
+    expect(cssBlocks('.video-translation-select-wrap :is(select, .app-select-trigger)')[0]).toContain('padding-block: 0;');
+    expect(cssBlocks('.video-translation-select-wrap :is(select, .app-select-trigger)')[0]).toContain('padding-inline: 12px 40px;');
+    expect(cssBlocks('.video-translation-select-wrap > svg')[0]).toContain('inset-inline-end: 12px;');
   });
 
   it('keeps collaboration panels full-height beside the workspace at narrow widths', () => {
@@ -143,7 +143,7 @@ describe('dashboard CSS contracts', () => {
     expect(preview[0]).toContain('grid-template-rows: auto auto;');
     expect(preview[0]).toContain('align-content: start;');
     expect(player[0]).toContain('aspect-ratio: var(--subtitle-preview-aspect-ratio, 16 / 9);');
-    expect(overlay[0]).toContain('background: rgb(0 0 0 / 55%);');
+    expect(overlay[0]).toContain('background: transparent;');
     expect(overlay[0]).toContain('z-index: 1;');
     expect(media[0]).toContain('object-fit: cover;');
     expect(cues[0]).toContain('position: absolute;');

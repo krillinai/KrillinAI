@@ -3334,5 +3334,9 @@
   "Save as template": "ટેમ્પલેટ તરીકે સાચવો",
   "Customize subtitle style": "સબટાઇટલની શૈલી કસ્ટમાઇઝ કરો",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "હજી કોઈ શૈલી સાચવેલી નથી. કસ્ટમાઇઝ કરોમાં શૈલી બદલો, પછી ટેમ્પલેટ તરીકે સાચવો પસંદ કરો.",
-  "Agent Mode": "Agent મોડ"
+  "Agent Mode": "Agent મોડ",
+  "Subtitle preview progress": "સબટાઇટલ પૂર્વાવલોકનની પ્રગતિ",
+  "Adjust timing": "સમય ગોઠવો",
+  "Enter the required credentials for the selected dubbing service to continue.": "આગળ વધવા માટે પસંદ કરેલી ડબિંગ સેવા માટે જરૂરી ઓળખપત્રો દાખલ કરો.",
+  "Save and continue composing": "સાચવો અને વિડિયો બનાવવાનું ચાલુ રાખો"
 }

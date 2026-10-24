@@ -3334,5 +3334,9 @@
   "Save as template": "Αποθήκευση ως πρότυπο",
   "Customize subtitle style": "Προσαρμογή στυλ υποτίτλων",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Δεν υπάρχουν αποθηκευμένα στυλ ακόμη. Αλλάξτε ένα στυλ στην Προσαρμογή και επιλέξτε Αποθήκευση ως πρότυπο.",
-  "Agent Mode": "Λειτουργία Agent"
+  "Agent Mode": "Λειτουργία Agent",
+  "Subtitle preview progress": "Πρόοδος προεπισκόπησης υποτίτλων",
+  "Adjust timing": "Προσαρμογή χρονισμού",
+  "Enter the required credentials for the selected dubbing service to continue.": "Εισαγάγετε τα απαιτούμενα διαπιστευτήρια για την επιλεγμένη υπηρεσία μεταγλώττισης για να συνεχίσετε.",
+  "Save and continue composing": "Αποθήκευση και συνέχιση σύνθεσης βίντεο"
 }

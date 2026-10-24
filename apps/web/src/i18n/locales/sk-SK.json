@@ -3334,5 +3334,9 @@
   "Save as template": "Uložiť ako šablónu",
   "Customize subtitle style": "Prispôsobiť štýl titulkov",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Zatiaľ nemáte uložené štýly. Upravte štýl cez Prispôsobiť a potom vyberte Uložiť ako šablónu.",
-  "Agent Mode": "Režim Agent"
+  "Agent Mode": "Režim Agent",
+  "Subtitle preview progress": "Priebeh náhľadu titulkov",
+  "Adjust timing": "Upraviť časovanie",
+  "Enter the required credentials for the selected dubbing service to continue.": "Ak chcete pokračovať, zadajte požadované prihlasovacie údaje pre vybranú dabingovú službu.",
+  "Save and continue composing": "Uložiť a pokračovať v skladaní videa"
 }

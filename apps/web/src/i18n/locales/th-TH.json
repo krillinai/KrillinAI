@@ -3334,5 +3334,9 @@
   "Save as template": "บันทึกเป็นเทมเพลต",
   "Customize subtitle style": "ปรับแต่งสไตล์คำบรรยาย",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "ยังไม่มีสไตล์ที่บันทึกไว้ ปรับสไตล์ในปรับแต่ง แล้วเลือกบันทึกเป็นเทมเพลต",
-  "Agent Mode": "โหมด Agent"
+  "Agent Mode": "โหมด Agent",
+  "Subtitle preview progress": "ความคืบหน้าการแสดงตัวอย่างคำบรรยาย",
+  "Adjust timing": "ปรับเวลา",
+  "Enter the required credentials for the selected dubbing service to continue.": "ป้อนข้อมูลรับรองที่จำเป็นสำหรับบริการพากย์เสียงที่เลือกเพื่อดำเนินการต่อ",
+  "Save and continue composing": "บันทึกและสร้างวิดีโอต่อ"
 }

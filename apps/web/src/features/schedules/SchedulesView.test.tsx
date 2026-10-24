@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import type {
   CreateScheduleRequest,
   ScheduleDetailResponse,
@@ -115,7 +116,7 @@ describe('SchedulesView', () => {
     expect(screen.queryByLabelText('任务重叠时')).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('定时任务标题'), '每日简报');
     await user.type(screen.getByLabelText('任务内容'), '总结今天的项目进展');
-    await user.selectOptions(screen.getByLabelText('重复'), 'weekdays');
+    selectOption(screen.getByLabelText('重复'), 'weekdays');
     await user.click(screen.getByRole('button', { name: '执行时间' }));
     expect(screen.getByRole('dialog', { name: '选择执行时间' })).toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: '小时 08' }));

@@ -1,3 +1,4 @@
+import { selectOption } from '../test/select-option.js';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { userEvent } from '@testing-library/user-event';
@@ -165,8 +166,8 @@ describe('App', () => {
     await user.click(await screen.findByRole('button', { name: /AI 服务/ }));
     await user.click(await screen.findByRole('button', { name: '配置 Agent' }));
     await user.click(screen.getByRole('button', { name: '本地模式' }));
-    await user.selectOptions(await screen.findByRole('combobox', { name: '供应商' }), 'openai');
-    expect(screen.getByLabelText('模型名称')).toHaveValue('gpt-5.6-sol');
+    selectOption(await screen.findByRole('combobox', { name: '供应商' }), 'openai');
+    expect(screen.getByLabelText('模型名称')).toHaveValue('gpt-test');
     await user.type(screen.getByLabelText('API Key'), 'secret');
     await user.click(screen.getByRole('button', { name: '保存并开始使用' }));
     await waitFor(() => {
@@ -1469,13 +1470,11 @@ describe('App', () => {
       'https://www.youtube.com/watch?v=test'
     );
     await user.click(screen.getByRole('button', { name: '继续' }));
-    await user.click(screen.getByRole('button', { name: '继续' }));
     await user.click(within(
       screen.getByRole('region', { name: '视频翻译操作区' })
     ).getByRole('button', { name: '开始翻译' }));
     expect(screen.getByRole('heading', { name: '视频翻译项目' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('button', { name: '深度编辑' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '横屏字幕 1' })).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: '输入任务' })).not.toBeInTheDocument();
   });
 
@@ -1523,7 +1522,6 @@ describe('App', () => {
       lastModified: 123
     });
     await user.upload(screen.getByLabelText('Upload a local video'), file);
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await user.click(within(
       screen.getByRole('region', { name: 'Video translation workspace' })
@@ -8038,7 +8036,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '选择访问权限 完全访问权限' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '设置' }));
-    await user.selectOptions(
+    selectOption(
       await screen.findByRole('combobox', { name: '默认权限' }),
       'workspace-write'
     );
@@ -8138,7 +8136,7 @@ describe('App', () => {
       expect(fetchCalls.some(call => call.url.includes('purpose=conversation'))).toBe(true);
     });
 
-    await user.selectOptions(
+    selectOption(
       screen.getByRole('combobox', { name: '默认权限' }),
       'danger-full-access'
     );

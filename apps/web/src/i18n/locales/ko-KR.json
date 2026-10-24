@@ -3334,5 +3334,9 @@
   "Save as template": "템플릿으로 저장",
   "Customize subtitle style": "자막 스타일 사용자 지정",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "저장된 스타일이 없습니다. 사용자 지정에서 스타일을 조정한 다음 템플릿으로 저장을 선택하세요.",
-  "Agent Mode": "Agent 모드"
+  "Agent Mode": "Agent 모드",
+  "Subtitle preview progress": "자막 미리보기 진행 상황",
+  "Adjust timing": "타이밍 조정",
+  "Enter the required credentials for the selected dubbing service to continue.": "계속하려면 선택한 더빙 서비스에 필요한 인증 정보를 입력하세요.",
+  "Save and continue composing": "저장하고 영상 합성 계속"
 }

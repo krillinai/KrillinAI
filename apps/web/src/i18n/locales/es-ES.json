@@ -3334,5 +3334,9 @@
   "Save as template": "Guardar como plantilla",
   "Customize subtitle style": "Personalizar estilo de subtítulos",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Aún no hay estilos guardados. Ajusta un estilo en Personalizar y luego elige Guardar como plantilla.",
-  "Agent Mode": "Modo Agent"
+  "Agent Mode": "Modo Agent",
+  "Subtitle preview progress": "Progreso de la vista previa de subtítulos",
+  "Adjust timing": "Ajustar tiempos",
+  "Enter the required credentials for the selected dubbing service to continue.": "Introduce las credenciales necesarias para el servicio de doblaje seleccionado para continuar.",
+  "Save and continue composing": "Guardar y continuar componiendo el vídeo"
 }

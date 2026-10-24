@@ -419,14 +419,14 @@ describe('app CSS visual contracts', () => {
     );
   });
 
-  it('keeps the schedule select chevron inside the native select click target', () => {
+  it('keeps the schedule select chevron inside the select click target', () => {
     const control = schedulesCssBlock('.schedule-select-control');
-    const select = schedulesCssBlock('.schedule-select-control select');
-    const chevron = schedulesCssBlock('.schedule-select-control svg');
+    const select = schedulesCssBlock('.schedule-select-control :is(select, .app-select-trigger)');
+    const chevron = schedulesCssBlock('.schedule-select-control > svg');
 
     expect(control).toContain('position: relative;');
     expect(schedulesCss).toMatch(
-      /\.schedule-select-control select,\s*\.schedule-setting-input,\s*\.schedule-time-input\s*\{[^}]*width:\s*100%;/
+      /\.schedule-select-control :is\(select, \.app-select-trigger\),\s*\.schedule-setting-input,\s*\.schedule-time-input\s*\{[^}]*width:\s*100%;/
     );
     expect(select).toContain('padding-right: 24px;');
     expect(chevron).toContain('position: absolute;');

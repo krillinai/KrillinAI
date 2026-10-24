@@ -3334,5 +3334,9 @@
   "Save as template": "Tallenna mallina",
   "Customize subtitle style": "Mukauta tekstitystyyliä",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Ei vielä tallennettuja tyylejä. Muokkaa tyyliä kohdassa Mukauta ja valitse sitten Tallenna mallina.",
-  "Agent Mode": "Agent-tila"
+  "Agent Mode": "Agent-tila",
+  "Subtitle preview progress": "Tekstityksen esikatselun edistyminen",
+  "Adjust timing": "Säädä ajoitusta",
+  "Enter the required credentials for the selected dubbing service to continue.": "Jatka antamalla valitun dubbauspalvelun vaatimat tunnistetiedot.",
+  "Save and continue composing": "Tallenna ja jatka videon koostamista"
 }

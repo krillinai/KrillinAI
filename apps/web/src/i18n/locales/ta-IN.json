@@ -3334,5 +3334,9 @@
   "Save as template": "வார்ப்புருவாகச் சேமி",
   "Customize subtitle style": "வசன பாணியைத் தனிப்பயனாக்கு",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "சேமித்த பாணிகள் இன்னும் இல்லை. தனிப்பயனாக்கு பகுதியில் பாணியை மாற்றி, வார்ப்புருவாகச் சேமி என்பதைத் தேர்ந்தெடுக்கவும்.",
-  "Agent Mode": "Agent பயன்முறை"
+  "Agent Mode": "Agent பயன்முறை",
+  "Subtitle preview progress": "வசன முன்னோட்ட முன்னேற்றம்",
+  "Adjust timing": "நேரத்தைச் சரிசெய்",
+  "Enter the required credentials for the selected dubbing service to continue.": "தொடர, தேர்ந்தெடுக்கப்பட்ட பின்னணிக் குரல் சேவைக்குத் தேவையான சான்றுகளை உள்ளிடவும்.",
+  "Save and continue composing": "சேமித்து காணொளி உருவாக்கத்தைத் தொடரவும்"
 }

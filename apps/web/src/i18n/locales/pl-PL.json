@@ -3334,5 +3334,9 @@
   "Save as template": "Zapisz jako szablon",
   "Customize subtitle style": "Dostosuj styl napisów",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Nie ma jeszcze zapisanych stylów. Zmień styl w Dostosuj, a następnie wybierz Zapisz jako szablon.",
-  "Agent Mode": "Tryb Agent"
+  "Agent Mode": "Tryb Agent",
+  "Subtitle preview progress": "Postęp podglądu napisów",
+  "Adjust timing": "Dostosuj czas",
+  "Enter the required credentials for the selected dubbing service to continue.": "Aby kontynuować, wprowadź wymagane dane uwierzytelniające wybranej usługi dubbingu.",
+  "Save and continue composing": "Zapisz i kontynuuj składanie filmu"
 }

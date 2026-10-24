@@ -3241,7 +3241,6 @@ export default function VideoTranslationWorkspace(props: {
       setWorkspacePhase('result');
       setResultTab('subtitles');
       setSubtitleImmersive(true);
-      setDraftBaseVersion(undefined);
       setResultNotice(isRegeneration
         ? stageId === undefined
           ? l(

@@ -3334,5 +3334,9 @@
   "Save as template": "Simpan sebagai templat",
   "Customize subtitle style": "Sesuaikan gaya sari kata",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Belum ada gaya disimpan. Laraskan gaya dalam Sesuaikan, kemudian pilih Simpan sebagai templat.",
-  "Agent Mode": "Mod Agent"
+  "Agent Mode": "Mod Agent",
+  "Subtitle preview progress": "Kemajuan pratonton sari kata",
+  "Adjust timing": "Laraskan masa",
+  "Enter the required credentials for the selected dubbing service to continue.": "Masukkan kelayakan yang diperlukan untuk perkhidmatan alih suara yang dipilih untuk meneruskan.",
+  "Save and continue composing": "Simpan dan teruskan penggabungan video"
 }

@@ -3334,5 +3334,9 @@
   "Save as template": "Зберегти як шаблон",
   "Customize subtitle style": "Налаштувати стиль субтитрів",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Збережених стилів ще немає. Змініть стиль через «Налаштувати», а потім виберіть «Зберегти як шаблон».",
-  "Agent Mode": "Режим Agent"
+  "Agent Mode": "Режим Agent",
+  "Subtitle preview progress": "Перебіг попереднього перегляду субтитрів",
+  "Adjust timing": "Налаштувати час",
+  "Enter the required credentials for the selected dubbing service to continue.": "Щоб продовжити, введіть необхідні облікові дані вибраного сервісу озвучування.",
+  "Save and continue composing": "Зберегти та продовжити збирання відео"
 }

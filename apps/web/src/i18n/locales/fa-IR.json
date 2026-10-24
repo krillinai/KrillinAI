@@ -3334,5 +3334,9 @@
   "Save as template": "ذخیره به‌عنوان الگو",
   "Customize subtitle style": "سفارشی‌سازی سبک زیرنویس",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "هنوز سبکی ذخیره نشده است. سبک را در «سفارشی‌سازی» تنظیم کنید، سپس «ذخیره به‌عنوان الگو» را انتخاب کنید.",
-  "Agent Mode": "حالت Agent"
+  "Agent Mode": "حالت Agent",
+  "Subtitle preview progress": "پیشرفت پیش‌نمایش زیرنویس",
+  "Adjust timing": "تنظیم زمان‌بندی",
+  "Enter the required credentials for the selected dubbing service to continue.": "برای ادامه، اطلاعات احراز هویت موردنیاز سرویس دوبله انتخاب‌شده را وارد کنید.",
+  "Save and continue composing": "ذخیره و ادامه ساخت ویدیو"
 }

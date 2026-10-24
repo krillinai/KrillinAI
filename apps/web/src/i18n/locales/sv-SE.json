@@ -3334,5 +3334,9 @@
   "Save as template": "Spara som mall",
   "Customize subtitle style": "Anpassa undertextstil",
   "No saved styles yet. Adjust a style in Customize, then choose Save as template.": "Inga sparade stilar ännu. Justera en stil under Anpassa och välj sedan Spara som mall.",
-  "Agent Mode": "Agent-läge"
+  "Agent Mode": "Agent-läge",
+  "Subtitle preview progress": "Förlopp för undertextförhandsvisning",
+  "Adjust timing": "Justera timing",
+  "Enter the required credentials for the selected dubbing service to continue.": "Ange de autentiseringsuppgifter som krävs för den valda dubbningstjänsten för att fortsätta.",
+  "Save and continue composing": "Spara och fortsätt sätta samman videon"
 }
