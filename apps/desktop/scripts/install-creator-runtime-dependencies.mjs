@@ -91,16 +91,27 @@ function readCachedYtDlpRelease() {
 
 function readReleaseText(url) {
   const args = [
-    '--fail', '--silent', '--show-error', '--location',
+    '--fail-with-body', '--silent', '--show-error', '--location',
     '--retry', '3', '--connect-timeout', '20', '--max-time', '60',
     '--header', 'Cache-Control: no-cache'
   ];
+  let input;
+  if (new URL(url).origin === 'https://api.github.com') {
+    const token = process.env.GH_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim();
+    if (token) {
+      if (/[\r\n]/.test(token)) throw new Error('Invalid GitHub API token');
+      // Keep credentials out of process arguments and command failure messages.
+      args.push('--config', '-');
+      input = `header = ${JSON.stringify(`Authorization: Bearer ${token}`)}\n`;
+    }
+  }
   if (proxy) args.push('--proxy', proxy);
   args.push(url);
   return execFileSync('curl', args, {
     cwd: rootDir,
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit'],
+    input,
+    stdio: ['pipe', 'pipe', 'inherit'],
     maxBuffer: 4 * 1024 * 1024
   });
 }

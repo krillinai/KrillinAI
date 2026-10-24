@@ -238,6 +238,7 @@ jobs:
           fi
           exit "$release_status"
         env:
+          GH_TOKEN: ${{ github.token }}
           OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
           OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
           CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
@@ -250,6 +251,7 @@ jobs:
         if: matrix.platform == 'win32'
         run: pnpm desktop:dist
         env:
+          GH_TOKEN: ${{ github.token }}
           OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
           OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
       - name: 验证实际打包应用

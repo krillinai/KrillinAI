@@ -108,6 +108,8 @@ describe('Creator Runtime dependency updates', () => {
     vi.stubEnv('OPENCREATOR_DESKTOP_OFFLINE', '0');
     vi.stubEnv('OPENCREATOR_DOWNLOAD_PROXY', '');
     vi.stubEnv('OPENCREATOR_YT_DLP_PATH', '');
+    vi.stubEnv('GH_TOKEN', '');
+    vi.stubEnv('GITHUB_TOKEN', '');
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     run = vi.fn((command, args) => {
       expect(command).toBe('curl');
@@ -138,6 +140,42 @@ describe('Creator Runtime dependency updates', () => {
   });
 
   const install = () => import('../scripts/install-creator-runtime-dependencies.mjs');
+
+  it.each([
+    ['ghs_test_primary', 'ghs_test_fallback', 'ghs_test_primary'],
+    ['', 'ghs_test_fallback', 'ghs_test_fallback']
+  ])('authenticates GitHub API discovery without exposing credentials in curl arguments (%#)', async (ghToken, githubToken, expected) => {
+    vi.stubEnv('GH_TOKEN', ghToken);
+    vi.stubEnv('GITHUB_TOKEN', githubToken);
+    await install();
+    const [, args, options] = run.mock.calls[0];
+    expect(args.at(-1)).toBe(latestUrl);
+    expect(args).toContain('--fail-with-body');
+    expect(args).toEqual(expect.arrayContaining(['--config', '-']));
+    expect(args.join(' ')).not.toContain(expected);
+    expect(options.input).toBe(`header = "Authorization: Bearer ${expected}"\n`);
+    expect(options.stdio[0]).toBe('pipe');
+    for (const [, downloadArgs, downloadOptions] of run.mock.calls.slice(1)) {
+      expect(downloadArgs.join(' ')).not.toContain(expected);
+      expect(downloadOptions.input).toBeUndefined();
+    }
+  });
+
+  it('does not send the API token to a release checksum download', async () => {
+    vi.stubEnv('GH_TOKEN', 'ghs_test_api_only');
+    const release = metadata();
+    delete release.assets[0].digest;
+    run.mockImplementationOnce(() => JSON.stringify(release))
+      .mockImplementationOnce((command, args, options) => {
+        expect(command).toBe('curl');
+        expect(args.at(-1)).toBe(`${repository}/releases/download/${newVersion}/SHA2-256SUMS`);
+        expect(args.join(' ')).not.toContain('ghs_test_api_only');
+        expect(options.input).toBeUndefined();
+        return `${asset().sha256}  yt-dlp\n`;
+      });
+    await install();
+    expect(readFileSync(join(root, 'yt-dlp'), 'utf8')).toBe(contents(newVersion));
+  });
 
   it('updates a populated cache and records the verified release for each invocation', async () => {
     for (const version of [newVersion, '2026.10.11.233141']) {
