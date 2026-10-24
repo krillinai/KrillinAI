@@ -13,7 +13,7 @@ afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { rec
 const domestic = 'https://api.chatanywhere.tech/v1';
 const overseas = 'https://api.chatanywhere.org/v1';
 const whisper: GatewayModel = { id: 'whisper-1', modality: 'transcription', capabilities: ['transcription_text', 'subtitle_timestamps'] };
-const image: GatewayModel = { id: 'gpt-image-1', modality: 'image', capabilities: ['generate', 'edit'], imageOptions: { maxImages: 1, maxReferences: 16, aspectRatios: ['3:2'], resolutions: ['1K'] } };
+const image: GatewayModel = { id: 'gpt-image-2', modality: 'image', capabilities: ['generate', 'edit'], imageOptions: { maxImages: 1, maxReferences: 16, aspectRatios: ['3:2'], resolutions: ['1K'] } };
 async function fixture(fetcher: typeof fetch, baseUrl = domestic, recover?: Parameters<typeof createDirectTransport>[2]) {
   const root = await mkdtemp(join(tmpdir(), 'oc-chatanywhere-')); roots.push(root);
   return { transport: createDirectTransport(root, fetcher, recover), input: { account: 'a', baseUrl, key: 'private-ca', method: 'POST', contentType: 'application/json', identity: 'one', fingerprint: 'fingerprint', signal: AbortSignal.timeout(5000) } };

@@ -211,6 +211,44 @@ describe('bundled Runtime official gateway boundary', () => {
     expect(f.requests.every(request => request.headers.authorization === 'Bearer test-official-key-a')).toBe(true);
     if (toolType === 'custom') expect(readFileSync(join(f.root, 'chat-bridge.txt'), 'utf8')).toBe('bridge ready\n');
   }, 30_000);
+  it.each(['function', 'custom'])('executes interleaved unindexed %s calls through the Chat bridge', async toolType => {
+    const f = await fixture((res, requests) => {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      const name = toolType === 'custom' ? 'apply_patch' : 'exec_command';
+      const args = ['a', 'b'].map(suffix => toolType === 'custom'
+        ? JSON.stringify({ input: `*** Begin Patch\n*** Add File: ${join(f.root, `interleaved-${suffix}.txt`)}\n+bridge ${suffix}\n*** End Patch` })
+        : JSON.stringify({ cmd: 'pwd', max_output_tokens: 100 }));
+      const split = Math.floor(args[0]!.length / 2);
+      const calls = [
+        { id: 'call_a', function: { name, arguments: args[0]!.slice(0, split) } },
+        { id: 'call_b', function: { name, arguments: args[1]!.slice(0, split) } },
+        { id: 'call_a', function: { arguments: args[0]!.slice(split, split + 1) } },
+        { function: { arguments: args[0]!.slice(split + 1) } },
+        { id: 'call_b', function: { arguments: args[1]!.slice(split) } }
+      ];
+      const choices = requests.length === 1
+        ? [...calls.map(call => ({ delta: { tool_calls: [call] } })), { delta: {}, finish_reason: 'tool_calls' }]
+        : [{ delta: { content: 'gateway ready' }, finish_reason: 'stop' }];
+      res.end(choices.map(choice => `data: ${JSON.stringify({ choices: [choice] })}\n\n`).join('') + 'data: [DONE]\n\n');
+    }, true, 'https://api.88api.ai/v1', true);
+    expect((await f.run().result).turnStatus).toBe('completed');
+    expect(f.requests).toHaveLength(2);
+    const messages = f.requests[1]!.body.messages as Array<{
+      role: string; tool_call_id?: string; content?: string;
+      tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+    }>;
+    const calls = messages.flatMap(message => message.tool_calls ?? []);
+    expect(calls.map(call => ({ id: call.id, name: call.function.name }))).toEqual([
+      { id: 'call_a', name: toolType === 'custom' ? 'apply_patch' : 'exec_command' },
+      { id: 'call_b', name: toolType === 'custom' ? 'apply_patch' : 'exec_command' }
+    ]);
+    expect(calls.every(call => typeof JSON.parse(call.function.arguments) === 'object')).toBe(true);
+    const results = messages.filter(message => message.role === 'tool');
+    expect(results.map(result => result.tool_call_id).sort()).toEqual(['call_a', 'call_b']);
+    if (toolType === 'custom') {
+      for (const suffix of ['a', 'b']) expect(readFileSync(join(f.root, `interleaved-${suffix}.txt`), 'utf8')).toBe(`bridge ${suffix}\n`);
+    } else expect(results.every(result => result.content?.includes(f.root))).toBe(true);
+  }, 30_000);
   it('uses only the official key for Responses streaming and leaves no auth.json', async () => {
     const f = await fixture(res => complete(res, [message]));
     const result = await f.run().result;

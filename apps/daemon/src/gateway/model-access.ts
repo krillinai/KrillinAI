@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { gatewayModelOperations, gatewayModelCompatible, gatewayModelReady, type GatewayModel, type GatewayModelAvailability, type GatewayModelOperation, type PublicErrorFacts } from '@opencreator/protocol';
+import { gatewayModelOperations, gatewayModelCompatible, gatewayModelReady, isRetiredOpenAiImageModel, type GatewayModel, type GatewayModelAvailability, type GatewayModelOperation, type PublicErrorFacts } from '@opencreator/protocol';
 import { readPrivateJsonFile, writePrivateJsonFile } from '../config/private-json-file.js';
 import { catalogSchema, type GatewayBootstrap } from './client.js';
 import { imageModelsSchema, officialCatalogModels, openRouterModelSchema, videoModelsSchema } from './openrouter-model-catalog.js';
@@ -44,9 +44,10 @@ export function modelAccessGroup(model: GatewayModel): string | undefined {
 
 export function officialModelPolicy(models: GatewayModel[]) {
   // Account catalog availability does not override OpenCreator's adapter compatibility.
-  return models.filter(model => model.catalogSchema === 2 || (model.vendor?.toLowerCase() !== 'anthropic' && !/^claude-/i.test(model.id) && modelAccessGroup(model) !== 'anthropic'
+  return models.filter(model => !(model.modality === 'image' && isRetiredOpenAiImageModel(model.id))
+    && (model.catalogSchema === 2 || (model.vendor?.toLowerCase() !== 'anthropic' && !/^claude-/i.test(model.id) && modelAccessGroup(model) !== 'anthropic'
     && !model.id.endsWith(':batch')
-    && !(model.modality === 'text' && modelAccessGroup(model) === 'openrouter')));
+    && !(model.modality === 'text' && modelAccessGroup(model) === 'openrouter'))));
 }
 
 export function withModelCatalog(bootstrap: GatewayBootstrap, models: GatewayModel[]): GatewayBootstrap {

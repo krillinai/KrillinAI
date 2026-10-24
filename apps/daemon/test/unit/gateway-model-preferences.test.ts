@@ -4,6 +4,13 @@ import { migrateModelPreferences, resolveModelPreferences } from '../../src/gate
 
 const text = (id: string): GatewayModel => ({ id, modality: 'text', capabilities: ['responses', 'chat', 'tools'], status: 'ready' });
 
+it('removes retired image selections and follows the replacement for an old default', () => {
+  const models: GatewayModel[] = ['gpt-image-1', 'gpt-image-2'].map(id => ({ id, modality: 'image', capabilities: ['generate'] }));
+  expect(resolveModelPreferences(models, { image: 'gpt-image-1' }, { image: 'gpt-image-1' }))
+    .toMatchObject({ models: [models[1]], selected: { image: 'gpt-image-2' }, manual: {}, changed: true });
+  expect(resolveModelPreferences([models[0]!], { image: 'gpt-image-1' }, {}).selected).not.toHaveProperty('image');
+});
+
 it('migrates old automatic defaults and merges duplicate purposes while retaining distinct manual choices', () => {
   expect(migrateModelPreferences({ text: 'gpt-4o-mini', textProcessing: 'chat-only', subtitle: 'whisper-1', image: 'gpt-image-1' }, { text: 'gpt-6.1-sol' })).toEqual({});
   expect(migrateModelPreferences({ text: 'gpt-5.4', image: 'my-image', transcription: 'plain-asr', subtitle: 'my-timestamp-asr' }, {}))

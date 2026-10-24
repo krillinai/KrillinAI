@@ -335,7 +335,7 @@ export function createDefaultCreatorServicesConfig(): CreatorServicesConfig {
       openai: {
         baseUrl: '',
         apiKey: '',
-        model: 'gpt-image-1'
+        model: 'gpt-image-2'
       },
       jimeng: {
         baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',

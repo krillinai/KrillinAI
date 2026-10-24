@@ -129,17 +129,17 @@ it.each([400, 422, 429])('records a definitive gateway %s rejection despite a tr
 it('forwards Creator text, image, speech and subtitles through the gateway with native image parameters', async () => {
   const app = Fastify();
   const models = [...bootstrap.models,
-    { id: 'gpt-image-1', modality: 'image' as const, capabilities: ['generate', 'edit'], imageOptions: { maxImages: 1, maxReferences: 1, aspectRatios: ['3:2'], resolutions: ['1K'] } },
+    { id: 'gpt-image-2', modality: 'image' as const, capabilities: ['generate', 'edit'], imageOptions: { maxImages: 1, maxReferences: 1, aspectRatios: ['3:2'], resolutions: ['1K'] } },
     { id: 'tts-1', modality: 'speech' as const, capabilities: ['speech'], voices: ['alloy'] },
     { id: 'whisper-1', modality: 'transcription' as const, capabilities: ['transcription_text', 'subtitle_timestamps'] }];
   const credentials = { accountId: bootstrap.account.id, transport: 'gateway' as const, modelKey: 'device-access-token', keyVersion: 'device-v1', bindingVersion: bootstrap.bindingVersion,
-    baseUrl: bootstrap.baseUrl, models, defaults: { text: 'gpt-4o-mini', image: 'gpt-image-1', speech: 'tts-1', transcription: 'whisper-1' } };
+    baseUrl: bootstrap.baseUrl, models, defaults: { text: 'gpt-4o-mini', image: 'gpt-image-2', speech: 'tts-1', transcription: 'whisper-1' } };
   const fetcher = vi.fn<typeof fetch>(async (url, options) => {
     expect(String(url)).toMatch(/^https:\/\/gateway\.example\/v1\//);
     expect(new Headers(options?.headers).get('authorization')).toBe('Bearer device-access-token');
     expect(new Headers(options?.headers).get('idempotency-key')).toBeTruthy();
     if (String(url).endsWith('/images/generations')) {
-      expect(JSON.parse(String(options?.body))).toMatchObject({ model: 'gpt-image-1', size: '1536x1024', n: 1 });
+      expect(JSON.parse(String(options?.body))).toMatchObject({ model: 'gpt-image-2', size: '1536x1024', n: 1 });
       expect(String(options?.body)).not.toContain('aspect_ratio');
       expect(new Headers(options?.headers).get('prefer')).toBe('respond-async');
       return Response.json({ requestId: 'ocreq_gateway_image', state: 'submitting' }, { status: 202 });
@@ -161,7 +161,7 @@ it('forwards Creator text, image, speech and subtitles through the gateway with 
     expect(config.llm.apiKey).not.toBe('device-access-token');
     for (const [operation, payload, extra, status] of [
       ['responses', { model: 'gpt-4o-mini', input: 'Hello' }, {}, 200],
-      ['images/generations', { model: 'gpt-image-1', prompt: 'Circle', aspect_ratio: '3:2', resolution: '1K' }, { prefer: 'respond-async' }, 202],
+      ['images/generations', { model: 'gpt-image-2', prompt: 'Circle', aspect_ratio: '3:2', resolution: '1K' }, { prefer: 'respond-async' }, 202],
       ['audio/speech', { model: 'tts-1', input: 'Hello', voice: 'alloy' }, {}, 200]
     ] as const) {
       const result = await app.inject({ method: 'POST', url: `/internal/krillin-llm/gateway/v1/${operation}`, headers: { Authorization: `Bearer ${config.llm.apiKey}`, ...extra }, payload });

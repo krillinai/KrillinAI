@@ -523,7 +523,7 @@ describe('CreatorServicesSettingsView', () => {
     expect(screen.queryByLabelText('模型')).not.toBeInTheDocument();
     await user.click(screen.getByRole('combobox', { name: '服务商' }));
     await user.click(screen.getByRole('option', { name: 'GPT Image' }));
-    expect(screen.getByLabelText('模型')).toHaveValue('gpt-image-1');
+    expect(screen.getByLabelText('模型')).toHaveValue('gpt-image-2');
     await user.click(screen.getByRole('combobox', { name: '服务商' }));
     await user.click(screen.getByRole('option', { name: '可灵' }));
     expect(screen.getByLabelText('Access Key')).toHaveAttribute('type', 'password');

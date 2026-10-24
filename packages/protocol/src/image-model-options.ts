@@ -10,6 +10,16 @@ const standardRatios = ['1:1', '3:2', '2:3', '4:3', '3:4', '4:5', '5:4', '16:9',
 const geminiRatios = [...standardRatios, '21:9'];
 const wideGeminiRatios = [...geminiRatios, '1:4', '4:1', '1:8', '8:1'];
 
+export function isRetiredOpenAiImageModel(model: string): boolean {
+  return /(?:^|\/)gpt-image-1(?:$|-)/i.test(model.trim());
+}
+
+export function migrateOpenAiImageModel(model: string): string {
+  if (!isRetiredOpenAiImageModel(model)) return model;
+  const id = model.trim();
+  return `${id.slice(0, id.lastIndexOf('/') + 1)}gpt-image-2`;
+}
+
 /** Manual provider contracts. Official services must use their own catalog metadata.
  * Sources: ai.google.dev/gemini-api/docs/image-generation, openai/openai-openapi,
  * volcengine.com/docs/82379/1541523, app.klingai.com/global/dev/document-api.
@@ -34,7 +44,7 @@ export function imageModelOptions(provider: ImageGenerationProvider, model = '')
   if (provider === 'openai') {
     const qualities = ['low', 'medium', 'high', ...(/^gpt-image-2\.5-(?:sunburst|flare)/.test(id) ? ['xhigh', 'max'] : []), 'auto'];
     if (/^gpt-image-2(?:$|[.-])/.test(id)) return { aspectRatios: standardRatios, resolutions: ['1K', '2K'], qualities };
-    if (/^gpt-image-1(?:$|[.-])/.test(id) || id === 'chatgpt-image-latest') return { aspectRatios: ['1:1', '3:2', '2:3'], qualities };
+    if (/^gpt-image-1\.5(?:$|-)/.test(id) || id === 'chatgpt-image-latest') return { aspectRatios: ['1:1', '3:2', '2:3'], qualities };
   }
   return {};
 }

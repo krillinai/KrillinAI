@@ -84,6 +84,16 @@ function usage(value: Item | undefined) {
     input_tokens_details: { cached_tokens: value?.prompt_tokens_details?.cached_tokens ?? 0 }, output_tokens_details: { reasoning_tokens: value?.completion_tokens_details?.reasoning_tokens ?? 0 } };
 }
 
+// Unindexed fragments with an ID resume that call even when parallel calls interleave.
+// A new ID or a name without an ID starts a call; bare arguments resume the last updated call.
+function unindexedCallSlot(calls: Map<number, Item>, call: Item, lastIndex: number): number {
+  if (call.id) {
+    for (const [index, current] of calls) if (current.id === call.id) return index;
+  }
+  if (!calls.size) return 0;
+  return call.id || call.function?.name ? Math.max(...calls.keys()) + 1 : lastIndex;
+}
+
 export async function chatToResponses(response: Response, tools: Map<string, Tool>, model: unknown): Promise<Response> {
   const id = `resp_${randomUUID()}`; const created = Math.floor(Date.now() / 1000);
   const envelope = (output: Item[], status = 'completed', tokenUsage?: Item) => ({ id, object: 'response', created_at: created, status, model, output, usage: usage(tokenUsage), error: null });
@@ -100,6 +110,7 @@ export async function chatToResponses(response: Response, tools: Map<string, Too
   if (!response.body) throw new GatewayError('invalid_gateway_response');
   const reader = response.body.getReader(); const decoder = new TextDecoder(); const encoder = new TextEncoder();
   const output: Item[] = []; const calls = new Map<number, Item>();
+  let lastCallIndex = 0;
   let buffer = ''; let text = ''; let message: Item | undefined; let tokenUsage: Item | undefined; let finish: string | undefined; let sequence = 0; let receivedBytes = 0;
   const event = (type: string, fields: Item) => encoder.encode(`event: ${type}\ndata: ${JSON.stringify({ type, sequence_number: sequence++, ...fields })}\n\n`);
   async function* events() {
@@ -134,11 +145,13 @@ export async function chatToResponses(response: Response, tools: Map<string, Too
           yield event('response.output_text.delta', { item_id: message.id, output_index: 0, content_index: 0, delta: delta.content });
         }
         for (const call of delta.tool_calls ?? []) {
-          const index = call.index ?? 0; const current = calls.get(index) ?? { id: '', function: { name: '', arguments: '' } };
-          if (call.id) current.id += call.id;
+          const index = typeof call.index === 'number' ? call.index : unindexedCallSlot(calls, call, lastCallIndex);
+          const current = calls.get(index) ?? { id: '', function: { name: '', arguments: '' } };
+          if (call.id && call.id !== current.id) current.id += call.id;
           if (call.function?.name) current.function.name += call.function.name;
           if (call.function?.arguments) current.function.arguments += call.function.arguments;
           calls.set(index, current);
+          lastCallIndex = index;
         }
         if (choice.finish_reason) finish = choice.finish_reason;
       }
