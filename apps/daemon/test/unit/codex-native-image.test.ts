@@ -163,7 +163,7 @@ describe('Codex authentication dispatch and readiness', () => {
 
   it('does not require a CLI or probe for the existing API path', async () => {
     const checkNativeCapability = vi.fn();
-    await expect(inspectCodexImageRuntime({ codexHome: home, readProvider: async () => ({ baseUrl: 'https://images.example.test/v1', apiKey: 'api-secret', model: 'gpt-image-1' }), checkNativeCapability })).resolves.toMatchObject({ authentication: 'api_key', ready: true, executionMode: 'api' });
+    await expect(inspectCodexImageRuntime({ codexHome: home, readProvider: async () => ({ baseUrl: 'https://images.example.test/v1', apiKey: 'api-secret', model: 'gpt-image-2' }), checkNativeCapability })).resolves.toMatchObject({ authentication: 'api_key', ready: true, executionMode: 'api' });
     expect(checkNativeCapability).not.toHaveBeenCalled();
   });
 

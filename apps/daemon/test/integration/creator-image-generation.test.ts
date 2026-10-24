@@ -259,7 +259,7 @@ describe('creator image generation', () => {
       status: 'completed',
       metadata: {
         provider: 'openai',
-        model: 'gpt-image-1',
+        model: 'gpt-image-2',
         imageSize: '1536x1024',
         quality: 'high',
         resultVersion: 1

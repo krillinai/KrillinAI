@@ -1,3 +1,5 @@
+import { isRetiredOpenAiImageModel } from './image-model-options.js';
+
 export type ServiceSource = 'manual' | 'gateway';
 export const gatewayModelOperations = ['responses', 'chat/completions', 'images/generations', 'images/edits', 'audio/speech', 'audio/transcriptions', 'video/jobs'] as const;
 export type GatewayModelOperation = typeof gatewayModelOperations[number];
@@ -47,12 +49,15 @@ export function gatewayModelSupports(model: GatewayModel, purpose: GatewayModelP
   return model.modality === purpose && (purpose !== 'text' || model.capabilities.includes('responses'));
 }
 export function gatewayModelCompatible(model: GatewayModel): boolean {
+  if (model.modality === 'image' && isRetiredOpenAiImageModel(model.id)) return false;
   if (model.vendor?.toLowerCase() === 'anthropic' || /^(?:anthropic\/|claude-)/i.test(model.id)) return false;
   if (model.modality === 'text') return model.capabilities.includes('responses') && model.capabilities.includes('chat');
   if (model.modality === 'transcription') return model.capabilities.includes('subtitle_timestamps');
   return true;
 }
-export function gatewayModelReady(model: GatewayModel): boolean { return !model.status || model.status === 'ready'; }
+export function gatewayModelReady(model: GatewayModel): boolean {
+  return !(model.modality === 'image' && isRetiredOpenAiImageModel(model.id)) && (!model.status || model.status === 'ready');
+}
 export type GatewayConnectionDiagnostics = {
   path: string;
   reason: 'timeout' | 'network' | 'http' | 'invalid_response';

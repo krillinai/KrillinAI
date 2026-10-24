@@ -4,7 +4,7 @@ import type {
   ImageGenerationAsset
 } from '@opencreator/protocol';
 import type { PublicErrorFacts } from '@opencreator/protocol';
-import { imageModelOptions, imageModelPixelSize, imageSizeAspectRatio, publicErrorKindForCode, sanitizePublicErrorFacts } from '@opencreator/protocol';
+import { imageModelOptions, imageModelPixelSize, imageSizeAspectRatio, migrateOpenAiImageModel, publicErrorKindForCode, sanitizePublicErrorFacts } from '@opencreator/protocol';
 import {
   LocalCodexProviderError,
   type LocalCodexProvider
@@ -222,8 +222,9 @@ async function generateOpenAiImages(
   const provider = providerOverride
     ?? (request.provider === 'jimeng' ? config.image.jimeng : config.image.openai);
   if (!provider.apiKey.trim()) missingConfig(request.provider);
-  const model = provider.model.trim()
-    || (request.provider === 'jimeng' ? 'doubao-seedream-4-0-250828' : 'gpt-image-1');
+  const configuredModel = provider.model.trim()
+    || (request.provider === 'jimeng' ? 'doubao-seedream-4-0-250828' : 'gpt-image-2');
+  const model = !official && request.provider !== 'jimeng' ? migrateOpenAiImageModel(configuredModel) : configuredModel;
   const parameters = official ? undefined : manualImageParameters(request, request.provider === 'codex-native' ? 'openai' : request.provider, model);
   const endpoint = openAiImageEndpoint(
     provider.baseUrl,

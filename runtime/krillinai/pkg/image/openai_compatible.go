@@ -12,6 +12,16 @@ import (
 
 const defaultOpenAIImageBaseURL = "https://api.openai.com/v1"
 
+func MigrateOpenAIImageModel(model string) string {
+	id := strings.TrimSpace(model)
+	prefix := strings.LastIndex(id, "/") + 1
+	slug := strings.ToLower(id[prefix:])
+	if slug == "gpt-image-1" || strings.HasPrefix(slug, "gpt-image-1-") {
+		return id[:prefix] + "gpt-image-2"
+	}
+	return model
+}
+
 type GenerateRequest struct {
 	Prompt string
 	Size   string
@@ -36,7 +46,7 @@ func NewOpenAICompatibleClient(baseURL, apiKey, model string) *OpenAICompatibleC
 	return &OpenAICompatibleClient{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		apiKey:     apiKey,
-		model:      model,
+		model:      MigrateOpenAIImageModel(model),
 		httpClient: http.DefaultClient,
 	}
 }
@@ -51,7 +61,8 @@ func (c *OpenAICompatibleClient) Generate(ctx context.Context, req GenerateReque
 		"prompt": req.Prompt,
 		"size":   size,
 	}
-	if !strings.HasPrefix(c.model, "gpt-image-") {
+	slug := c.model[strings.LastIndex(c.model, "/")+1:]
+	if !strings.HasPrefix(strings.ToLower(slug), "gpt-image-") {
 		body["response_format"] = "b64_json"
 	}
 	data, err := json.Marshal(body)

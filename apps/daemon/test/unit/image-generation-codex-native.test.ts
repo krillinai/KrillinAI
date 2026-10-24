@@ -44,11 +44,12 @@ describe('codex-native provider dispatch', () => {
       }
     });
 
-    expect(result).toMatchObject({ model: 'gpt-image-1' });
+    expect(result).toMatchObject({ model: 'gpt-image-2' });
     expect(result.contents[0]).toMatchObject({ content: png, mime: 'image/png' });
     expect(fetchImpl).toHaveBeenCalledWith(
       new URL('https://forward.example.test/v1/images/generations'),
       expect.objectContaining({
+        body: expect.stringContaining('"model":"gpt-image-2"'),
         headers: expect.objectContaining({ Authorization: 'Bearer local-codex-secret' })
       })
     );

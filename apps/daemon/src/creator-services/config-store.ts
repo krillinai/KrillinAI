@@ -3,7 +3,7 @@ import type {
   CreatorServicesConfigResponse,
   CreatorServicesCredentialField
 } from '@opencreator/protocol';
-import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, migrateOpenAiImageModel } from '@opencreator/protocol';
 import { z } from 'zod';
 import {
   readOpenCreatorConfig,
@@ -66,6 +66,9 @@ const volcengineAsrSchema = z.object({
   baseUrl: boundedString(2048)
 }).strict();
 const creatorServicesDefaults = createDefaultCreatorServicesConfig();
+const openAiImageSchema = openAiCompatibleSchema.extend({
+  model: boundedString(128).transform(migrateOpenAiImageModel)
+}).strict();
 const imageConfigDefault = creatorServicesDefaults.image;
 const videoConfigDefault = creatorServicesDefaults.video;
 const llmConfigSchema = openAiCompatibleSchema.extend({
@@ -77,7 +80,7 @@ const llmConfigSchema = openAiCompatibleSchema.extend({
 }));
 const imageConfigSchema = z.object({
   provider: z.enum(['openai', 'jimeng', 'kling', 'gemini', 'codex-native']),
-  openai: openAiCompatibleSchema,
+  openai: openAiImageSchema,
   jimeng: openAiCompatibleSchema,
   kling: klingAiSchema,
   gemini: openAiCompatibleSchema,
@@ -85,7 +88,7 @@ const imageConfigSchema = z.object({
 }).strict();
 const legacyImageConfigSchema = z.object({
   provider: z.literal('openai-compatible'),
-  openai: openAiCompatibleSchema
+  openai: openAiImageSchema
 }).strict().transform(value => ({
   ...structuredClone(imageConfigDefault),
   provider: 'openai' as const,

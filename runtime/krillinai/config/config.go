@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"krillin-ai/log"
+	pkgimage "krillin-ai/pkg/image"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -224,7 +225,7 @@ var Conf = Config{
 	Image: Image{
 		Provider: "openai-compatible",
 		Openai: OpenaiCompatibleConfig{
-			Model: "gpt-image-1",
+			Model: "gpt-image-2",
 		},
 	},
 }
@@ -315,6 +316,7 @@ func LoadConfig() bool {
 			log.GetLogger().Error("加载配置文件失败", zap.Error(err))
 			return false
 		}
+		Conf.Image.Openai.Model = pkgimage.MigrateOpenAIImageModel(Conf.Image.Openai.Model)
 		return true
 	}
 }

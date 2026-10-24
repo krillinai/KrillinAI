@@ -44,6 +44,11 @@ async function fixture(models: GatewayModel[]) {
     setCatalogIDs(ids: string[]) { catalogIDs = ids; }, setCatalogReply(reply: typeof catalogReply) { catalogReply = reply; } };
 }
 
+it('excludes retired image models even when the supplier advertises them', () => {
+  const models: GatewayModel[] = ['gpt-image-1', 'openai/gpt-image-1', 'gpt-image-2'].map(id => ({ id, modality: 'image', capabilities: ['generate'] }));
+  expect(officialModelPolicy(models).map(model => model.id)).toEqual(['gpt-image-2']);
+});
+
 it('retains unsupported Anthropic, router and batch filtering', () => {
   expect(modelAccessGroup(text('~openai/gpt-6-sol'))).toBe('openai');
   expect(modelAccessGroup(text('openai/gpt-oss-20b'))).toBe('openai-oss');

@@ -49,6 +49,22 @@ describe('image generation API', () => {
     if (model === 'gemini-2.5-flash-image') expect(body.generationConfig.imageConfig).not.toHaveProperty('imageSize');
   });
 
+  it.each([false, true])('replaces a saved retired model in outgoing image requests (edit=%s)', async edit => {
+    const config = createDefaultCreatorServicesConfig();
+    config.image.openai = { baseUrl: 'https://images.example.test/v1', apiKey: 'test-key', model: 'gpt-image-1' };
+    const content = Buffer.from('image');
+    const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => Response.json({ data: [{ b64_json: content.toString('base64') }] }));
+    const generated = await generateImageContents({ prompt: 'A city', provider: 'openai', size: '1024x1024', quality: 'medium', count: 1 }, config,
+      { fetchImpl, ...(edit ? { referenceImages: [{ content, mime: 'image/png' as const }] } : {}) });
+    expect(generated.model).toBe('gpt-image-2');
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe(`https://images.example.test/v1/images/${edit ? 'edits' : 'generations'}`);
+    const body = fetchImpl.mock.calls[0]?.[1]?.body;
+    if (edit) {
+      const form = await new Request('http://localhost', { method: 'POST', headers: fetchImpl.mock.calls[0]?.[1]?.headers, body }).formData();
+      expect(form.get('model')).toBe('gpt-image-2');
+    } else expect(JSON.parse(String(body)).model).toBe('gpt-image-2');
+  });
+
   it('rejects unsupported model parameters before making a paid request', async () => {
     const config = createDefaultCreatorServicesConfig();
     config.image.gemini.apiKey = 'test-key';
@@ -133,7 +149,7 @@ describe('image generation API', () => {
     expect(generated.statusCode).toBe(201);
     expect(generated.json().result).toMatchObject({
       id: 'image_result_1234',
-      model: 'gpt-image-1',
+      model: 'gpt-image-2',
       imageSize: '1024x1024',
       quality: 'high',
       count: 1,
@@ -141,7 +157,7 @@ describe('image generation API', () => {
     });
     expect(String(fetchImpl.mock.calls[0]?.[0])).toBe('https://images.example.test/v1/images/generations');
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({
-      model: 'gpt-image-1',
+      model: 'gpt-image-2',
       prompt: 'A quiet studio portrait',
       size: '1024x1024',
       quality: 'high',
@@ -193,7 +209,7 @@ describe('image generation API', () => {
     expect(generated.statusCode).toBe(201);
     expect(generated.json().result).toMatchObject({
       provider: 'codex-native',
-      model: 'gpt-image-1',
+      model: 'gpt-image-2',
       images: [{ mime: 'image/png', size: image.length }]
     });
     expect(String(fetchMock.mock.calls[0]?.[0]))

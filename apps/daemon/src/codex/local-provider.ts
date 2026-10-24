@@ -1,4 +1,5 @@
 import { parse } from '@iarna/toml';
+import { migrateOpenAiImageModel } from '@opencreator/protocol';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -116,7 +117,7 @@ async function readJson(path: string, strict = false): Promise<Record<string, un
 }
 
 function imageModel(textModel: string): string {
-  return /^gpt-image-/i.test(textModel) ? textModel : 'gpt-image-1';
+  return /^gpt-image-/i.test(textModel) ? migrateOpenAiImageModel(textModel) : 'gpt-image-2';
 }
 
 function readRecord(value: unknown): Record<string, TomlValue> | undefined {
