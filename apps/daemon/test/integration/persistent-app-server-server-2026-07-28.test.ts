@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import {
   chmodSync,
+  existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -28,6 +30,88 @@ afterEach(async () => {
 });
 
 describe('persistent app-server server integration', () => {
+  it('runs Creator turns with current local credentials and follows provider changes without losing the thread', async () => {
+    const fixture = await createFixture({ followLocalConfiguration: true });
+    // Startup must repair the copy before the first assistant request.
+    expect(readFileSync(join(tempDir, 'codex-home', 'config.toml'), 'utf8'))
+      .toContain('base_url = "https://current.example/v1"');
+    expect(existsSync(join(tempDir, 'codex-home', 'auth.json'))).toBe(false);
+    const created = await server!.inject({
+      method: 'POST', url: '/creator/jobs', headers: { authorization: 'Bearer secret' },
+      payload: { projectId: 'creator-local-config', templateId: 'video-download' }
+    });
+    expect(created.statusCode).toBe(201);
+    const jobId = created.json().job.id;
+    const sendTurn = () => server!.inject({
+      method: 'POST', url: `/creator/jobs/${jobId}/agent-turns`,
+      headers: { authorization: 'Bearer secret' }, payload: { message: 'Reply ok without tools.' }
+    });
+    expect((await sendTurn()).statusCode).toBe(200);
+    writeFileSync(join(tempDir, 'local-codex', 'config.toml'), localConfiguration('https://changed.example/v1'));
+    expect((await sendTurn()).statusCode).toBe(200);
+    const turns = fixture.readMessages().filter(message => message.method === 'turn/start');
+    expect(turns).toHaveLength(2);
+    expect(turns[1]!.pid).not.toBe(turns[0]!.pid);
+    const spawns = turns.map(turn => fixture.readSpawns().find(spawn => spawn.pid === turn.pid)!);
+    expect(spawns[0]).toMatchObject({ codexHome: join(tempDir, 'codex-home'), hasAuth: false });
+    expect(spawns[0]!.configuration).toContain('base_url = "https://current.example/v1"');
+    expect(spawns[1]!.configuration).toContain('base_url = "https://changed.example/v1"');
+    expect(fixture.readMessages().some(message => message.pid === turns[1]!.pid && message.method === 'thread/resume')).toBe(true);
+  });
+
+  it('repairs runtime configuration after a failed Creator turn and resumes only on a new request', async () => {
+    const fixture = await createFixture({ followLocalConfiguration: true });
+    const created = await server!.inject({
+      method: 'POST', url: '/creator/jobs', headers: { authorization: 'Bearer secret' },
+      payload: { projectId: 'creator-config-recovery', templateId: 'video-download' }
+    });
+    expect(created.statusCode).toBe(201);
+    const jobId = created.json().job.id;
+    const sendTurn = (message: string) => server!.inject({
+      method: 'POST', url: `/creator/jobs/${jobId}/agent-turns`,
+      headers: { authorization: 'Bearer secret' }, payload: { message }
+    });
+    expect((await sendTurn('Reply ok without tools.')).statusCode).toBe(200);
+    writeFileSync(join(tempDir, 'codex-home', 'config.toml'), localConfiguration('https://drifted.example/v1'));
+
+    const failed = await sendTurn('simulate-config-failure');
+    expect(failed.statusCode).toBe(502);
+    expect(failed.json().error.issue).toMatchObject({
+      code: 'creator_codex_config_resynced',
+      publicFacts: { kind: 'configuration', provider: 'codex', upstreamMessage: 'Provider rejected the test model.' }
+    });
+    expect(readFileSync(join(tempDir, 'codex-home', 'config.toml'), 'utf8'))
+      .toContain('base_url = "https://current.example/v1"');
+    expect(fixture.readMessages().filter(message => message.method === 'turn/start')).toHaveLength(2);
+    expect(readFileSync(join(tempDir, 'local-codex', 'config.toml'), 'utf8'))
+      .toBe(localConfiguration('https://current.example/v1'));
+
+    expect((await sendTurn('Retry without tools.')).statusCode).toBe(200);
+    const turns = fixture.readMessages().filter(message => message.method === 'turn/start');
+    expect(turns).toHaveLength(3);
+    expect(turns[2]!.pid).not.toBe(turns[1]!.pid);
+    const threadStarts = fixture.readMessages().filter(message => message.method === 'thread/start');
+    expect(threadStarts).toHaveLength(1);
+    expect(fixture.readMessages()).toContainEqual(expect.objectContaining({
+      pid: turns[2]!.pid, method: 'thread/resume',
+      params: expect.objectContaining({ threadId: `codex-thread-${turns[0]!.pid}` })
+    }));
+    expect(fixture.readSpawns().find(spawn => spawn.pid === turns[2]!.pid)?.configuration)
+      .toContain('base_url = "https://current.example/v1"');
+  });
+
+  it('keeps the app available and the existing runtime configuration intact when local configuration is invalid', async () => {
+    await createFixture({ followLocalConfiguration: true, localConfiguration: 'invalid = [' });
+    expect(readFileSync(join(tempDir, 'codex-home', 'config.toml'), 'utf8')).toContain('stale-model');
+    expect(readFileSync(join(tempDir, 'codex-home', 'auth.json'), 'utf8')).toContain('stale-test-key');
+    const created = await server!.inject({
+      method: 'POST', url: '/creator/jobs', headers: { authorization: 'Bearer secret' },
+      payload: { projectId: 'creator-invalid-config', templateId: 'video-download' }
+    });
+    expect(created.statusCode).toBe(201);
+    expect(readFileSync(join(tempDir, 'local-codex', 'config.toml'), 'utf8')).toBe('invalid = [');
+  });
+
   it('enables one persistent manual app-server by default', async () => {
     const fixture = await createFixture();
     const threadId = await createThread();
@@ -236,7 +320,7 @@ describe('persistent app-server server integration', () => {
 });
 
 async function createFixture(
-  input: { persistentAppServerEnabled?: boolean } = {}
+  input: { persistentAppServerEnabled?: boolean; followLocalConfiguration?: boolean; localConfiguration?: string } = {}
 ): Promise<{
   readSpawns(): Array<Record<string, unknown>>;
   readMessages(): Array<Record<string, unknown>>;
@@ -244,6 +328,13 @@ async function createFixture(
 }> {
   tempDir = mkdtempSync(join(tmpdir(), 'opencreator-persistent-server-'));
   const fakeCodex = createFakeAppServer(tempDir);
+  if (input.followLocalConfiguration) {
+    mkdirSync(join(tempDir, 'local-codex'));
+    mkdirSync(join(tempDir, 'codex-home'));
+    writeFileSync(join(tempDir, 'local-codex', 'config.toml'), input.localConfiguration ?? localConfiguration('https://current.example/v1'));
+    writeFileSync(join(tempDir, 'codex-home', 'config.toml'), 'model = "stale-model"\n');
+    writeFileSync(join(tempDir, 'codex-home', 'auth.json'), '{"OPENAI_API_KEY":"stale-test-key"}');
+  }
   const capabilities = createUnknownCapabilityMatrix();
   capabilities.appServer = true;
   capabilities.appServerApprovals = true;
@@ -252,6 +343,7 @@ async function createFixture(
     dataDir: tempDir,
     codexBin: fakeCodex,
     codexHome: join(tempDir, 'codex-home'),
+    ...(input.followLocalConfiguration ? { localCodexHome: join(tempDir, 'local-codex') } : {}),
     capabilities,
     resumeCapabilityVerified: true,
     persistentAppServerEnabled: input.persistentAppServerEnabled,
@@ -328,6 +420,18 @@ async function getRun(runId: string): Promise<Record<string, unknown>> {
   return response.json() as Record<string, unknown>;
 }
 
+function localConfiguration(baseUrl: string): string {
+  return [
+    'model = "local-model"',
+    'model_provider = "custom"',
+    '[model_providers.custom]',
+    `base_url = "${baseUrl}"`,
+    'requires_openai_auth = false',
+    'experimental_bearer_token = "local-test-key"',
+    ''
+  ].join('\n');
+}
+
 function createFakeAppServer(dir: string): string {
   const bin = join(dir, 'fake-server-codex.js');
   writeFileSync(bin, `#!/usr/bin/env node
@@ -336,7 +440,9 @@ const readline = require('node:readline');
 const spawnLog = ${JSON.stringify(join(dir, 'spawns.ndjson'))};
 const messageLog = ${JSON.stringify(join(dir, 'messages.ndjson'))};
 const releaseSchedule = ${JSON.stringify(join(dir, 'release-schedule'))};
-fs.appendFileSync(spawnLog, JSON.stringify({ pid: process.pid, args: process.argv.slice(2) }) + '\\n');
+const configPath = process.env.CODEX_HOME + '/config.toml';
+const configuration = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8').split('\\n').filter(line => line.startsWith('model =') || line.startsWith('base_url =')).join('\\n') : '';
+fs.appendFileSync(spawnLog, JSON.stringify({ pid: process.pid, args: process.argv.slice(2), codexHome: process.env.CODEX_HOME, configuration, hasAuth: fs.existsSync(process.env.CODEX_HOME + '/auth.json') }) + '\\n');
 const rl = readline.createInterface({ input: process.stdin });
 const send = value => process.stdout.write(JSON.stringify(value) + '\\n');
 let sequence = 0;
@@ -346,6 +452,14 @@ rl.on('line', line => {
   fs.appendFileSync(messageLog, JSON.stringify({ pid: process.pid, ...message }) + '\\n');
   if (message.method === 'initialize') {
     send({ id: message.id, result: { userAgent: 'fake' } });
+    return;
+  }
+  if (message.method === 'skills/extraRoots/set') {
+    send({ id: message.id, result: {} });
+    return;
+  }
+  if (message.method === 'skills/list') {
+    send({ id: message.id, result: { data: [{ skills: [{ name: 'opencreator-runtime' }] }] } });
     return;
   }
   if (message.method === 'thread/read') {
@@ -370,6 +484,10 @@ rl.on('line', line => {
       send({ method: 'turn/completed', params: { threadId: currentThreadId, turn: { id: turnId, status: 'completed' } } });
     };
     const prompt = message.params.input?.[0]?.text || '';
+    if (prompt.includes('simulate-config-failure')) {
+      send({ method: 'turn/completed', params: { threadId: currentThreadId, turn: { id: turnId, status: 'failed', error: { message: 'Provider rejected the test model.' } } } });
+      return;
+    }
     if (prompt.includes('hold-schedule')) {
       const timer = setInterval(() => {
         if (!fs.existsSync(releaseSchedule)) return;

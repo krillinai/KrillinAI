@@ -8,19 +8,15 @@ import (
 	"fmt"
 	"krillin-ai/config"
 	"krillin-ai/internal/types"
-	"krillin-ai/log"
 	"krillin-ai/pkg/util"
-	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
+	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
 
-	openaiapi "github.com/sashabaranov/go-openai"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,10 +27,25 @@ var pairedTranslationPrompt string
 var pairedTranslationRetry string
 
 type pairedSentence struct {
-	ID         string   `json:"sentence_id"`
-	FullTarget string   `json:"target_text"`
-	Target     []string `json:"target_segments"`
-	Source     []string `json:"source_segments"`
+	TranslationFallbackReason string                     `json:"translation_fallback_reason,omitempty"`
+	OmittedHesitation         bool                       `json:"omitted_nonsemantic_hesitation,omitempty"`
+	SegmentState              *segmentedTranslationState `json:"segment_translation,omitempty"`
+	ID                        string                     `json:"sentence_id"`
+	DraftTarget               string                     `json:"draft_target_text,omitempty"`
+	RevisionVersion           string                     `json:"revision_version,omitempty"`
+	FullSource                string                     `json:"source_text,omitempty"`
+	FullTarget                string                     `json:"target_text"`
+	LayoutBaseTarget          string                     `json:"layout_base_target,omitempty"`
+	LayoutAttempts            int                        `json:"layout_attempts,omitempty"`
+	LayoutApproximate         bool                       `json:"layout_approximate,omitempty"`
+	NLPSourceHint             []string                   `json:"nlp_segments_hint,omitempty"`
+	Target                    []string                   `json:"target_segments"`
+	Source                    []string                   `json:"source_segments"`
+	LayoutReviewed            bool                       `json:"layout_reviewed,omitempty"`
+	LayoutVersion             int                        `json:"layout_version,omitempty"`
+	LayoutTarget              int                        `json:"layout_target,omitempty"`
+	LayoutFallback            bool                       `json:"layout_fallback,omitempty"`
+	SemanticReviewed          bool                       `json:"semantic_reviewed,omitempty"`
 }
 
 type pairedTranslationOutput struct {
@@ -42,9 +53,32 @@ type pairedTranslationOutput struct {
 }
 
 type pairedTranslationOutputSentence struct {
-	ID         string                     `json:"sentence_id"`
-	FullTarget string                     `json:"target_text"`
-	Segments   []pairedTranslationSegment `json:"segments"`
+	ID           string                     `json:"sentence_id"`
+	FullTarget   string                     `json:"target_text"`
+	Segments     []pairedTranslationSegment `json:"segments"`
+	textConflict bool
+}
+
+// Some providers return the complete translation as text. Accept that alias
+// only when it is unambiguous; a conflicting item must not discard its peers.
+func (s *pairedTranslationOutputSentence) UnmarshalJSON(data []byte) error {
+	type outputSentence pairedTranslationOutputSentence
+	var value struct {
+		outputSentence
+		Target *string `json:"target_text"`
+		Text   *string `json:"text"`
+	}
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*s = pairedTranslationOutputSentence(value.outputSentence)
+	if value.Target != nil {
+		s.FullTarget = *value.Target
+	} else if value.Text != nil {
+		s.FullTarget = *value.Text
+	}
+	s.textConflict = value.Target != nil && value.Text != nil && strings.TrimSpace(*value.Target) != strings.TrimSpace(*value.Text)
+	return nil
 }
 
 type pairedTranslationSegment struct {
@@ -55,32 +89,48 @@ type pairedTranslationSegment struct {
 func flattenPairedSentences(sentences []pairedSentence) []*TranslatedItem {
 	var items []*TranslatedItem
 	for _, sentence := range sentences {
+		first := len(items)
 		for i, source := range sentence.Source {
+			if sentence.OmittedHesitation || sentence.SegmentState != nil && sentence.Target[i] == "" {
+				continue
+			}
 			items = append(items, &TranslatedItem{OriginText: strings.TrimSpace(source), TranslatedText: strings.TrimSpace(sentence.Target[i])})
+		}
+		if sentence.LayoutVersion >= frozenPairedLayoutVersion && len(items)-first > 1 {
+			items[first].DisplayGroupSize = len(items) - first
 		}
 	}
 	return items
 }
 
 type pairedTranslationInput struct {
-	SourceLanguage    string                    `json:"source_language"`
-	TargetLanguage    string                    `json:"target_language"`
-	MaxTargetChars    int                       `json:"max_target_display_units"`
-	MaxSourceChars    int                       `json:"max_source_display_units"`
-	MaxFullwidthChars int                       `json:"max_fullwidth_chars"`
-	Sentences         []pairedTranslationSource `json:"sentences"`
+	PreserveFinalBoundaries bool `json:"-"`
+	// 最终重拆可暂存仅长度超标的候选，完整性与切口检查仍须执行。
+	AllowLengthOverflow bool                             `json:"-"`
+	SourceLanguage      string                           `json:"source_language"`
+	TargetLanguage      string                           `json:"target_language"`
+	MaxTargetChars      int                              `json:"max_target_display_units"`
+	MaxSourceChars      int                              `json:"max_source_display_units"`
+	MaxFullwidthChars   int                              `json:"max_fullwidth_chars"`
+	Sentences           []pairedTranslationSource        `json:"sentences"`
+	SemanticContext     *translationBatchSemanticContext `json:"semantic_context,omitempty"`
+	Before              []string                         `json:"context_before,omitempty"`
+	After               []string                         `json:"context_after,omitempty"`
 }
 
 type pairedTranslationSource struct {
-	ID         string   `json:"sentence_id"`
-	Text       string   `json:"text"`
-	SourceHint []string `json:"source_segments_hint,omitempty"`
-	Before     []string `json:"context_before"`
-	After      []string `json:"context_after"`
+	FailureReason string   `json:"-"`
+	ID            string   `json:"sentence_id"`
+	Text          string   `json:"text"`
+	SourceHint    []string `json:"source_segments_hint,omitempty"`
+	NLPSourceHint []string `json:"nlp_segments_hint,omitempty"`
+	Before        []string `json:"context_before,omitempty"`
+	After         []string `json:"context_after,omitempty"`
+	TargetText    string   `json:"target_text,omitempty"`
 }
 
 const (
-	translationSentenceBytes = 1024
+	translationSentenceBytes = 800
 	translationRequestBytes  = 16000
 	translationOutputBudget  = 6500 // 为 8192 token 响应留出 JSON 和纠错余量。
 )
@@ -90,53 +140,105 @@ type budgetedChatCompleter interface {
 }
 
 func pairedTranslationResponseBudget(text string, limit int) int {
-	return 4*len(text) + (3*subtitleTargetLength(text)/limit+1)*48
+	return 4*len(text) + (3*subtitleTargetLength(text)/max(40, limit)+1)*48
 }
 
-func buildPairedTranslationBatches(texts []string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int) ([]pairedTranslationInput, error) {
+func buildPairedTranslationBatches(texts []string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	return buildPairedTranslationBatchesWithNLP(texts, nil, originLang, targetLang, limit, batchSize, plans...)
+}
+
+func buildPairedTranslationBatchesWithNLP(texts []string, hints [][]string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	return buildPairedTranslationBatchesWithGroups(texts, hints, nil, originLang, targetLang, limit, batchSize, plans...)
+}
+
+func buildPairedTranslationBatchesWithGroups(texts []string, hints [][]string, groups []int, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	return buildPairedTranslationBatchesWithOptions(texts, hints, groups, originLang, targetLang, limit, batchSize, false, plans...)
+}
+
+func buildPairedTranslationBatchesForMode(texts []string, hints [][]string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, semanticUnits bool, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	return buildPairedTranslationBatchesWithOptions(texts, hints, nil, originLang, targetLang, limit, batchSize, semanticUnits, plans...)
+}
+
+func buildPairedTranslationBatchesWithOptions(texts []string, hints [][]string, groups []int, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, semanticUnits bool, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	if len(groups) != 0 && len(groups) != len(texts) {
+		return nil, fmt.Errorf("源文意群与原句组数量不一致")
+	}
+	if len(hints) != 0 && len(hints) != len(texts) {
+		return nil, fmt.Errorf("NLP边界建议与完整句数量不一致")
+	}
+	for i, parts := range hints {
+		if len(parts) == 0 || len(parts) == 1 && !subtitleSegmentsPreserveText(texts[i], parts) ||
+			len(parts) > 1 && !validTranslationSentencePartsWithLimit(texts[i], parts, originLang, len(parts)) {
+			return nil, fmt.Errorf("第%d句NLP边界建议未完整覆盖原文或边界不安全", i+1)
+		}
+	}
+	var plan *translationSemanticPlan
+	if len(plans) > 0 {
+		plan = plans[0]
+	}
 	var batches []pairedTranslationInput
+	if semanticUnits {
+		batchSize = min(batchSize, 10)
+	}
+	contextFor := translationBatchContext
+	if semanticUnits {
+		contextFor = translationUnitBatchContext
+	}
 	for start := 0; start < len(texts); {
 		input := pairedTranslationInput{
 			SourceLanguage: types.GetStandardLanguageName(originLang), TargetLanguage: types.GetStandardLanguageName(targetLang),
 			MaxSourceChars: limit, MaxTargetChars: limit, MaxFullwidthChars: limit / 2,
 		}
 		outputBudget := 0
+		sourceChars := 0
 		for i := start; i < min(len(texts), start+batchSize); i++ {
+			chars := utf8.RuneCountInString(texts[i]) + 1
+			if semanticUnits && i > start && sourceChars+chars > 600 {
+				break
+			}
 			source := pairedTranslationSource{ID: strconv.Itoa(i + 1), Text: texts[i]}
-			if subtitleTargetLength(source.Text) > limit {
-				var err error
-				source.SourceHint, err = splitSubtitleSourceHint(source.Text, limit)
-				if err != nil {
-					return nil, err
-				}
+			if len(hints) > 0 && len(hints[i]) > 1 {
+				source.NLPSourceHint = hints[i]
+			} else if subtitleTargetLength(source.Text) > limit {
+				// 分段建议不是提交翻译的前置条件，极小长度设置也不能阻止翻译。
+				source.SourceHint, _ = splitSubtitleSourceHint(source.Text, limit)
 			}
-			// 上下文独立限长，避免相邻超长句重新扩大请求。
-			for j := max(0, i-2); j < i; j++ {
-				parts, _ := splitSubtitleText(texts[j], func(s string) bool { return len(s) <= 256 })
-				if len(parts) > 0 {
-					source.Before = append(source.Before, parts[len(parts)-1])
-				}
-			}
-			for j := i + 1; j < min(len(texts), i+3); j++ {
-				parts, _ := splitSubtitleText(texts[j], func(s string) bool { return len(s) <= 256 })
-				if len(parts) > 0 {
-					source.After = append(source.After, parts[0])
-				}
-			}
-			estimate := pairedTranslationResponseBudget(texts[i], limit)
+
+			estimate := 2*len(texts[i]) + 128
 			input.Sentences = append(input.Sentences, source)
+			input.Before, input.After = contextFor(texts, start, i+1)
+			input.SemanticContext = plan.forSources(input.Sentences)
+			input = fitPairedTranslationSemanticContext(input)
 			payload, err := json.Marshal(input)
 			if err != nil {
 				return nil, err
 			}
-			if len(payload)+len(pairedTranslationPrompt)+6000 > translationRequestBytes || outputBudget+estimate > translationOutputBudget {
+			if len(payload)+len(translationContentPrompt)+2500 > translationRequestBytes || outputBudget+estimate > translationOutputBudget {
 				input.Sentences = input.Sentences[:len(input.Sentences)-1]
+				input.Before, input.After = contextFor(texts, start, i)
+				input.SemanticContext = plan.forSources(input.Sentences)
+				input = fitPairedTranslationSemanticContext(input)
 				break
 			}
 			outputBudget += estimate
+			sourceChars += chars
 		}
 		if len(input.Sentences) == 0 {
 			return nil, fmt.Errorf("第%d句超过翻译请求预算，无法安全提交", start+1)
+		}
+		end := start + len(input.Sentences)
+		if len(groups) > 0 && end < len(texts) && groups[end] == groups[end-1] {
+			// 尽量把尾部尚未放全的原句组移到下一批；超大单组仍按预算拆批。
+			cut := end - 1
+			for cut > start && groups[cut-1] == groups[end] {
+				cut--
+			}
+			if cut > start {
+				input.Sentences = input.Sentences[:cut-start]
+				input.Before, input.After = translationBatchContext(texts, start, cut)
+				input.SemanticContext = plan.forSources(input.Sentences)
+				input = fitPairedTranslationSemanticContext(input)
+			}
 		}
 		start += len(input.Sentences)
 		batches = append(batches, input)
@@ -144,11 +246,26 @@ func buildPairedTranslationBatches(texts []string, originLang, targetLang types.
 	return batches, nil
 }
 
-// 原文和译文使用相同的单行显示上限。
+func fitPairedTranslationSemanticContext(input pairedTranslationInput) pairedTranslationInput {
+	fits := func() bool {
+		payload, _ := json.Marshal(input)
+		return len(payload)+len(translationContentPrompt)+2500 <= translationRequestBytes
+	}
+	if !fits() {
+		input.SemanticContext = compactTranslationSemanticContext(input.SemanticContext)
+	}
+	if len(input.Sentences) == 1 && !fits() {
+		// 额外语境不能让原本能提交的单句失败；译后仍使用完整计划审校术语。
+		input.SemanticContext = nil
+	}
+	return input
+}
+
+// 原文和译文使用相同的单行显示目标。
 func subtitleTargetLimit() int {
 	limit := config.Conf.App.MaxSentenceLength
 	if limit <= 0 {
-		limit = 50
+		limit = 60
 	}
 	return limit
 }
@@ -167,158 +284,262 @@ func hasSubtitleContent(text string) bool {
 }
 
 func (t *Translator) translatePairedSentences(ctx context.Context, texts []string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, onBatch func([]pairedSentence, int, int) error, onProgress ...func(completed, total int)) ([]pairedSentence, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if limit < 1 || batchSize < 1 {
 		return nil, fmt.Errorf("目标长度和批次大小必须大于0")
 	}
-	var protected []string
-	var inputSentences []string
-	for _, text := range texts {
-		inputSentences = append(inputSentences, splitTranslationSentences(text)...)
+	if (t.segmentTranslation || t.semanticSourceUnits) && t.nlpRuntime == nil {
+		local := *t
+		local.nlpRuntime = newTranslationNLPRuntime(ctx)
+		defer local.nlpRuntime.close()
+		t = &local
 	}
-	for _, text := range inputSentences {
-		parts, err := splitTranslationSentenceForBudget(strings.Join(strings.Fields(text), " "), min(translationSentenceBytes, max(32, limit*16)))
+	var err error
+	var plan *translationSemanticPlan
+	var hints [][]string
+	var sourceUnits []translationSourceUnit
+	t.translationProgress.prepare(0, "正在整理原文翻译单元")
+	if t.preparedTranslation != nil {
+		texts, plan = t.preparedTranslation.Texts, t.preparedTranslation.Plan
+		hints = t.preparedTranslation.NLPHints
+		sourceUnits = t.preparedTranslation.SourceUnits
+	} else {
+		if t.semanticSourceUnits {
+			texts, err = t.prepareSemanticTranslationUnits(ctx, texts, originLang)
+			if err != nil {
+				return nil, err
+			}
+		} else if t.sourceSegmentation && !t.segmentTranslation {
+			prepared, prepareErr := t.prepareSourceTranslation(ctx, texts, originLang)
+			if prepareErr != nil {
+				return nil, prepareErr
+			}
+			texts, sourceUnits = prepared.Texts, prepared.SourceUnits
+		} else {
+			texts, err = t.prepareTranslationSentences(ctx, texts, originLang)
+			if err != nil {
+				return nil, err
+			}
+			hints, err = t.prepareTranslationNLPHints(ctx, texts, originLang)
+			if err != nil {
+				return nil, err
+			}
+		}
+		t.translationProgress.prepare(len(texts), "正在整理字幕语境")
+		t.translationProgress.prepared(40)
+		plan, err = t.prepareTranslationSemanticPlan(ctx, texts, originLang, targetLang)
 		if err != nil {
 			return nil, err
 		}
-		protected = append(protected, parts...)
 	}
-	texts = protected
-	inputs, err := buildPairedTranslationBatches(texts, originLang, targetLang, limit, batchSize)
+	t.translationProgress.prepare(len(texts), "正在恢复已有翻译结果")
+	t.translationProgress.prepared(100)
+	inputs, err := buildPairedTranslationBatchesWithOptions(texts, hints, sourceUnitGroups(sourceUnits), originLang, targetLang, limit, batchSize, t.semanticSourceUnits, plan)
 	if err != nil {
 		return nil, err
 	}
-	var progressMu sync.Mutex
-	completed := 0
-	reportCompleted := func(count int) {
-		progressMu.Lock()
-		defer progressMu.Unlock()
-		completed += count
-		for _, report := range onProgress {
-			if report != nil && len(texts) > 0 {
-				report(completed, len(texts))
+	if t.semanticSourceUnits && len(t.subtitleTimings) > 0 {
+		local := *t
+		local.subtitleSourceOffsets = make(map[string]int, len(texts))
+		position := 0
+		for i, text := range texts {
+			local.subtitleSourceOffsets[strconv.Itoa(i+1)] = position
+			position += utf8.RuneCountInString(compactSubtitleText(text))
+		}
+		t = &local
+	}
+	if t.segmentTranslation {
+		inputs = segmentTranslationBatches(inputs, texts, plan)
+	}
+	for _, input := range inputs {
+		if input.SemanticContext == nil && plan.forSources(input.Sentences) != nil {
+			t.translationNotice("部分字幕的额外语境超出请求预算，已使用局部上下文翻译，并保留译后术语检查")
+			break
+		}
+	}
+	checkpoint, err := t.openTranslationCheckpoint(texts, originLang, targetLang, plan)
+	if err != nil {
+		return nil, err
+	}
+	var mu sync.Mutex
+	resolved := make(map[string]pairedSentence)
+	committed := 0
+	committedInputs := 0
+	report := func() {
+		for _, callback := range onProgress {
+			if callback != nil && len(texts) > 0 {
+				callback(len(resolved), len(texts))
 			}
 		}
 	}
-	reportCompleted(0)
-	translateBatch := func(ctx context.Context, input pairedTranslationInput) ([]pairedSentence, error) {
-		start, _ := strconv.Atoi(input.Sentences[0].ID)
-		end := start + len(input.Sentences) - 1
-		payload, err := json.Marshal(input)
-		if err != nil {
+	// 检查点独立于按顺序提交的旧回调，后面的成功句不会因前句出错而丢失。
+	save := func(sentence pairedSentence, complete bool) error {
+		mu.Lock()
+		defer mu.Unlock()
+		if complete && t.semanticSourceUnits && !sentence.OmittedHesitation {
+			if err := pairedFinalLengthIssueAtLimit(sentence, limit); err != nil {
+				return err
+			}
+		}
+		if err := checkpoint.save(sentence); err != nil {
+			return err
+		}
+		if complete {
+			if _, exists := resolved[sentence.ID]; !exists {
+				resolved[sentence.ID] = sentence
+				report()
+			}
+		}
+		t.translationProgress.saved(sentence, complete)
+		return nil
+	}
+	commit := func() error {
+		mu.Lock()
+		defer mu.Unlock()
+		for committedInputs < len(inputs) {
+			var batch []pairedSentence
+			for _, source := range inputs[committedInputs].Sentences {
+				sentence, exists := resolved[source.ID]
+				if !exists {
+					return nil
+				}
+				batch = append(batch, sentence)
+			}
+			committed += len(batch)
+			committedInputs++
+			if onBatch != nil {
+				if err := onBatch(batch, committed, len(texts)); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	// 明确只有无语义犹豫音的父句由本地处理。保留源文证据，导出时
+	// 消费原文位置但不创建空字幕；也不发送模型来编造非空译文。
+	var translationInputs []pairedTranslationInput
+	for _, input := range inputs {
+		remaining := input
+		remaining.Sentences = nil
+		for _, source := range input.Sentences {
+			if nonSemanticHesitationOnly(source.Text, originLang) {
+				sentence := pairedSentence{ID: source.ID, FullSource: source.Text, Source: []string{source.Text}, Target: []string{""}, OmittedHesitation: true}
+				if err := save(sentence, true); err != nil {
+					return nil, err
+				}
+			} else {
+				remaining.Sentences = append(remaining.Sentences, source)
+			}
+		}
+		if len(remaining.Sentences) > 0 {
+			translationInputs = append(translationInputs, remaining)
+		}
+	}
+	if err := commit(); err != nil {
+		return nil, err
+	}
+	if t.segmentTranslation {
+		if err := t.runSegmentedInputs(ctx, translationInputs, checkpoint, originLang, targetLang, save, commit); err != nil {
 			return nil, err
 		}
-		replacer := strings.NewReplacer("{{MAX_TARGET_CHARS}}", strconv.Itoa(limit), "{{MAX_FULLWIDTH_CHARS}}", strconv.Itoa(limit/2))
-		basePrompt := replacer.Replace(pairedTranslationPrompt)
-		if t.filterNonSemanticFillers {
-			basePrompt += "\n启用语气词过滤：仅译文可以忽略 um、uh、ah 等没有实际语义的填充词；原文仍须原样完整保留。Yes/No、否定、可能性、时间和其他有含义的词不能省略。\n"
+		result := make([]pairedSentence, len(texts))
+		for i := range result {
+			result[i] = resolved[strconv.Itoa(i+1)]
 		}
-		basePrompt += "\n输入 JSON：\n" + string(payload)
-		prompt := basePrompt
-		var batch []pairedSentence
-		requestFailures := 0
-		maxTokens := 1024
-		for _, sentence := range input.Sentences {
-			maxTokens += pairedTranslationResponseBudget(sentence.Text, limit)
-		}
-		maxTokens = min(8192, max(2048, maxTokens))
-		budgeted, supportsBudget := t.chatCompleter.(budgetedChatCompleter)
-		for attempt := 0; attempt < 3; {
-			if err = ctx.Err(); err != nil {
-				return nil, err
-			}
-			var response string
-			if supportsBudget {
-				response, err = budgeted.ChatCompletionContextWithMaxTokens(ctx, prompt, maxTokens)
-			} else {
-				response, err = chatCompletionWithContext(ctx, t.chatCompleter, prompt)
-			}
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			if isTransientTranslationRequestError(err) {
-				if requestFailures >= max(1, config.Conf.App.TranslateMaxAttempts)-1 {
-					break
+		return t.finishTranslationResult(ctx, result, checkpoint)
+	}
+	var pending []pairedTranslationInput
+	for _, input := range translationInputs {
+		remaining := input
+		remaining.Sentences = nil
+		recoveredSentences := make(map[string]pairedSentence)
+		for _, source := range input.Sentences {
+			if cached, exists := checkpoint.sentences[source.ID]; exists {
+				var recovered pairedSentence
+				var ok bool
+				if t.segmentTranslation {
+					recovered, ok = t.recoverSegmentedSentence(cached, source, originLang, targetLang)
+				} else {
+					recovered, ok = t.recoverPairedSentence(cached, source, originLang, targetLang)
 				}
-				delay := time.Second << min(requestFailures, 4)
-				requestFailures++
-				log.GetLogger().Warn("字幕翻译接口临时失败，退避后重试", zap.Int("start_sentence", start), zap.Int("end_sentence", end), zap.Int("request_retry", requestFailures), zap.Duration("delay", delay), zap.Error(err))
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				case <-time.After(delay):
+				if ok {
+					t.translationProgress.saved(recovered, false)
+					if recovered.LayoutFallback && (!t.semanticSourceUnits || recovered.LayoutBaseTarget == "") {
+						recovered.LayoutVersion = 0
+					}
+					recoveredSentences[source.ID] = recovered
+					continue
 				}
-				continue
 			}
-			attempt++
-			if supportsBudget && err != nil && strings.Contains(err.Error(), "llm_translation_truncated") && maxTokens < 8192 {
-				maxTokens = min(8192, maxTokens*2)
-				log.GetLogger().Warn("字幕翻译响应截断，增加输出预算后重试", zap.Int("max_tokens", maxTokens), zap.Int("attempt", attempt))
-				continue
-			}
-			if err == nil {
-				batch, err = t.parsePairedTranslation(response, input, originLang, targetLang)
-				if err == nil {
-					break
-				}
-				log.GetLogger().Warn("字幕配对本地检查未通过", zap.Int("start_sentence", start), zap.Int("end_sentence", end), zap.Int("attempt", attempt), zap.Error(err))
-				feedback := strings.NewReplacer("{{ISSUES}}", subtitleTextPreview(err.Error(), 3500), "{{PREVIOUS_RESPONSE}}", subtitleTextPreview(response, 1000)).Replace(pairedTranslationRetry)
-				prompt = basePrompt + "\n\n" + replacer.Replace(feedback) + fmt.Sprintf("\n本次是第%d/3次请求。必须按上面的具体错误重新生成，不能再次照抄错误结果。", attempt+1)
-			}
+			remaining.Sentences = append(remaining.Sentences, source)
 		}
-		if err != nil {
-			return nil, fmt.Errorf("句子%d-%d翻译失败: %w", start, end, err)
+		if err := t.completeSemanticBatch(ctx, input, recoveredSentences, plan, originLang, targetLang, save); err != nil {
+			return nil, err
 		}
-		return batch, nil
+		if len(remaining.Sentences) > 0 {
+			pending = append(pending, remaining)
+		}
+	}
+	report()
+	if err := commit(); err != nil {
+		return nil, err
+	}
+	var deferred []pairedTranslationInput
+	var rateLimited atomic.Bool
+	workerTranslator := *t
+	workerTranslator.onRateLimit = func() {
+		if rateLimited.CompareAndSwap(false, true) {
+			t.translationNotice("翻译服务暂时限流，后续请求已降低为串行处理")
+		}
 	}
 	parallel := translationParallelism()
-	var result []pairedSentence
-	done := 0
-	for start := 0; start < len(inputs); {
-		count := min(parallel, len(inputs)-start)
-		batches := make([][]pairedSentence, count)
+	for start := 0; start < len(pending); {
+		if rateLimited.Load() {
+			parallel = 1
+		}
+		count := min(parallel, len(pending)-start)
+		retry := make([]pairedTranslationInput, count)
 		group, batchCtx := errgroup.WithContext(ctx)
 		for i := range count {
-			input := inputs[start+i]
 			group.Go(func() error {
-				batch, err := translateBatch(batchCtx, input)
-				if err == nil {
-					batches[i] = batch
-					reportCompleted(len(batch))
-				}
-				return err
+				var batchErr error
+				retry[i], batchErr = workerTranslator.translateSemanticBatch(batchCtx, pending[start+i], plan, originLang, targetLang, save)
+				return batchErr
 			})
 		}
 		if err := group.Wait(); err != nil {
 			return nil, err
 		}
-		// 检查点和时间轴按原顺序提交，并将未提交结果限制在一个并发窗口内。
-		for _, batch := range batches {
-			if err := ctx.Err(); err != nil {
-				return nil, err
+		for _, input := range retry {
+			if len(input.Sentences) > 0 {
+				deferred = append(deferred, input)
 			}
-			done += len(batch)
-			result = append(result, batch...)
-			if onBatch != nil {
-				if err := onBatch(batch, done, len(texts)); err != nil {
-					return nil, err
-				}
-			}
+		}
+		if err := commit(); err != nil {
+			return nil, err
 		}
 		start += count
 	}
-	return result, nil
-}
-
-func isTransientTranslationRequestError(err error) bool {
-	var apiError *openaiapi.APIError
-	var requestError *openaiapi.RequestError
-	status := 0
-	if errors.As(err, &apiError) {
-		status = apiError.HTTPStatusCode
-	} else if errors.As(err, &requestError) {
-		status = requestError.HTTPStatusCode
+	// 初译的三次预算已在内容阶段耗尽。其他句先保存完成，不能重新开始无限恢复。
+	if len(deferred) > 0 {
+		var missing []string
+		for _, input := range deferred {
+			for _, source := range input.Sentences {
+				missing = append(missing, source.ID)
+			}
+		}
+		return nil, fmt.Errorf("句子%s初译已用尽%d次尝试，仍未取得可用翻译文本；检查点和其他字幕已保存", strings.Join(missing, ","), translationMaxAttempts)
 	}
-	return status == http.StatusTooManyRequests || status >= 500 && status < 600
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	result := make([]pairedSentence, len(texts))
+	for i := range result {
+		result[i] = resolved[strconv.Itoa(i+1)]
+	}
+	return t.finishTranslationResult(ctx, result, checkpoint)
 }
 
 func (t *Translator) parsePairedTranslation(response string, input pairedTranslationInput, originLang, targetLang types.StandardLanguageCode) ([]pairedSentence, error) {
@@ -332,6 +553,9 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 	var result []pairedSentence
 	var issues []error
 	for i, item := range output.Sentences {
+		if item.textConflict {
+			issues = append(issues, fmt.Errorf("句子%s的target_text与text冲突", item.ID))
+		}
 		sentence := pairedSentence{ID: item.ID, FullTarget: item.FullTarget}
 		for _, segment := range item.Segments {
 			sentence.Source = append(sentence.Source, segment.Source)
@@ -339,6 +563,8 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 		}
 		result = append(result, sentence)
 		original := input.Sentences[i]
+		result[len(result)-1].FullSource = original.Text
+		result[len(result)-1].NLPSourceHint = original.NLPSourceHint
 		if sentence.ID != original.ID {
 			issues = append(issues, fmt.Errorf("句子ID或顺序错误：收到%q，要求%q", sentence.ID, original.ID))
 			continue
@@ -365,12 +591,6 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 			if hasSubtitleLineBreak(source) || hasSubtitleLineBreak(target) {
 				issues = append(issues, fmt.Errorf("句子%s第%d对存在换行，必须为单行", sentence.ID, j+1))
 			}
-			if length := subtitleTargetLength(source); length > input.MaxTargetChars {
-				issues = append(issues, fmt.Errorf("句子%s第%d段原文%q计%d显示单位，超过硬上限%d；该段至少拆成%d段，请参考source_segments_hint重新配对原译片段，禁止再次返回此超长片段", sentence.ID, j+1, source, length, input.MaxTargetChars, (length+max(1, input.MaxTargetChars)-1)/max(1, input.MaxTargetChars)))
-			}
-			if length := subtitleTargetLength(target); length > input.MaxTargetChars {
-				issues = append(issues, fmt.Errorf("句子%s第%d段译文%q计%d字符，超过硬上限%d（汉字和全角字符计2，英文、数字、半角标点和空格计1）；该段至少拆成%d段，再将对应原文切成相同段数，不删减内容", sentence.ID, j+1, target, length, input.MaxTargetChars, (length+max(1, input.MaxTargetChars)-1)/max(1, input.MaxTargetChars)))
-			}
 		}
 		if !subtitleSegmentsHaveSafeBoundaries(sentence.Source) || !subtitleSegmentsHaveSafeBoundaries(sentence.Target) {
 			issues = append(issues, fmt.Errorf("句子%s在字素簇内部切分，必须保留组合字符、连接符、Emoji和文字方向控制字符", sentence.ID))
@@ -378,39 +598,54 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 		if !subtitleSegmentsPreserveText(original.Text, sentence.Source) {
 			issues = append(issues, fmt.Errorf("句子%s原文覆盖错误，存在改写、遗漏、重复、乱序或段内词间空格变化。仅译文可以调整语序，segments的source只能在以下正确原文中插入分割边界，禁止移动任何词或修改段内空格。正确原文=%q；错误的原文拼接=%q。请丢弃该句错误的source分段，直接从正确原文按顺序重新切成%d段", sentence.ID, original.Text, strings.Join(sentence.Source, " "), len(sentence.Target)))
 		}
-		// 检查完整句子，允许其中的专名片段保持原样及跨片段调整语序。
-		if !t.isTranslationValid(original.Text, sentence.FullTarget, originLang, targetLang) {
-			issues = append(issues, fmt.Errorf("句子%s没有有效目标语言译文或原样返回了整句原文", sentence.ID))
+		// 只检查完整文本可用性及排版时译文冻结，不以语言特征否定已有初译。
+		if !hasUsableTranslation(sentence.FullTarget) || sourceTranslationChanged(original, sentence.FullTarget) {
+			issues = append(issues, fmt.Errorf("句子%s缺少可用翻译文本或修改了冻结译文", sentence.ID))
 		}
 	}
 	if len(issues) > 0 {
 		return nil, errors.Join(issues...)
 	}
-	// 整句放得下一行时撤销模型多余的切分，不增加翻译请求。
 	for i, sentence := range result {
-		if len(sentence.Target) <= 1 {
-			continue
+		item := pairedTranslationOutputSentence{ID: sentence.ID, FullTarget: sentence.FullTarget}
+		for j := range sentence.Source {
+			item.Segments = append(item.Segments, pairedTranslationSegment{Source: sentence.Source[j], Target: sentence.Target[j]})
 		}
-		if !canJoinPairedTargetSegments(sentence.Target, targetLang) {
-			continue
+		if !input.PreserveFinalBoundaries {
+			item, _ = optimizePairedLayout(item, sentence.FullSource, input.MaxTargetChars, sentence.NLPSourceHint)
 		}
-		target := joinPairedTargetSegments(sentence.Target, targetLang)
-		if subtitleTargetLength(target) <= input.MaxTargetChars && subtitleTargetLength(input.Sentences[i].Text) <= input.MaxTargetChars {
-			result[i].Source = []string{input.Sentences[i].Text}
-			result[i].Target = []string{target}
+		result[i].Source, result[i].Target = nil, nil
+		for _, pair := range item.Segments {
+			result[i].Source = append(result[i].Source, pair.Source)
+			result[i].Target = append(result[i].Target, pair.Target)
 		}
-	}
-	for _, sentence := range result {
-		for j := 0; j+1 < len(sentence.Source); j++ {
-			if subtitleBoundarySplitsSubject(sentence.Source[j], sentence.Source[j+1], input.MaxTargetChars) ||
-				subtitleBoundarySplitsSubject(sentence.Target[j], sentence.Target[j+1], input.MaxTargetChars) {
-				issues = append(issues, fmt.Errorf("句子%s第%d与%d段拆开了主语和谓语；请将悬在上一段末尾的主语移到下一段，并同步调整原译配对。优先完整意群，不要为了均衡长度保留生硬边界", sentence.ID, j+1, j+2))
+		result[i].LayoutVersion, result[i].LayoutTarget = pairedLayoutVersion, input.MaxTargetChars
+		// 最终重拆使用独立意群复核，允许调用方暂存仅长度超标的候选；
+		// 软长度的短片段启发式不能再次回并这些边界。
+		var layoutErr error
+		if input.PreserveFinalBoundaries {
+			if !input.AllowLengthOverflow {
+				layoutErr = pairedFinalLengthIssueAtLimit(result[i], subtitleDisplayLimit(input))
 			}
+			if layoutErr == nil {
+				for j := 0; j+1 < len(result[i].Source); j++ {
+					if subtitleBoundaryLeavesComplement(result[i].Source[j]) || subtitleBoundaryLeavesComplement(result[i].Target[j]) {
+						layoutErr = fmt.Errorf("句子%s第%d段在需要宾语的补语标记后断开，必须移动切口或重组父句", result[i].ID, j+1)
+						break
+					}
+				}
+			}
+		} else {
+			layoutErr = pairedLayoutIssue(result[i], input.MaxTargetChars)
+		}
+		if err := layoutErr; err != nil {
+			issues = append(issues, err)
 		}
 	}
 	if len(issues) > 0 {
 		return nil, errors.Join(issues...)
 	}
+
 	return result, nil
 }
 
@@ -520,9 +755,13 @@ func subtitlePositionTime(spans []subtitleTimingSpan, position int, ending bool)
 	return span.start + (span.end-span.start)*int64(max(0, position-span.from))/int64(span.to-span.from)
 }
 
-// BatchTranslateSrtBlocks 按完整句子翻译，以两侧单行长度重新生成成对字幕和共享时间轴。
+// BatchTranslateSrtBlocks 按已准备的源文单元合批翻译，生成成对字幕和共享时间轴。
 // 有词级时间时沿用词时间；仅有 cue 时间时在原 cue 内按原文字符位置估算边界。
 func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util.SrtBlock, originLang, targetLang string, taskPtr *types.SubtitleTask, wordTimings ...[]VttWord) ([]*util.SrtBlock, error) {
+	local := *t
+	local.translationTask = taskPtr
+	local.translationProgress = newTranslationWorkProgress(taskPtr.ReportTranslationWorkProgress)
+	t = &local
 	var texts []string
 	var spans []subtitleTimingSpan
 	position := 0
@@ -542,20 +781,27 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 	}
 	// cue 是时间边界，不是语义句界；先连起全文，让同一分句器看到跨 cue 的缩写和姓名。
 	if len(texts) > 0 {
-		texts = []string{strings.Join(texts, " ")}
+		if t.segmentTranslation {
+			// 无空格语言的cue边界不能在词中插入空格；嵌入的拉丁词仍保留分隔。
+			texts = []string{joinPairedTargetSegments(texts, types.StandardLanguageCode(originLang))}
+		} else {
+			texts = []string{strings.Join(texts, " ")}
+		}
 	}
 	if len(wordTimings) > 0 && len(wordTimings[0]) > 0 {
-		var err error
-		spans, err = subtitleWordTimingSpans(wordTimings[0], strings.Join(texts, ""))
+		wordSpans, err := subtitleWordTimingSpans(wordTimings[0], strings.Join(texts, ""))
 		if err != nil {
-			return nil, err
+			t.translationNotice("词级时间无法完整匹配，已保留全部字幕并改用原字幕时间区间")
+		} else {
+			spans = wordSpans
 		}
 	}
 	batchSize := config.Conf.App.VttBatchSize
 	if batchSize <= 0 {
 		batchSize = 10
 	}
-	batchSize = min(3, batchSize)
+	// 批次由模型预算限制，不再把已配置的批次强行缩为三个父句。
+	t.subtitleTimings = spans
 	paired, err := t.translatePairedSentences(ctx, texts, types.StandardLanguageCode(originLang), types.StandardLanguageCode(targetLang), subtitleTargetLimit(), batchSize, nil, taskPtr.SetTranslationProgress)
 	if err != nil {
 		if len(blocks) > 0 {
@@ -566,12 +812,30 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 	var output []*util.SrtBlock
 	position = 0
 	for _, sentence := range paired {
+		if t.semanticSourceUnits && !sentence.OmittedHesitation {
+			timelines, err := frozenDisplayTimelines(sentence.Source, sentence.Target, spans, position)
+			if err != nil {
+				return nil, fmt.Errorf("句子%s: %w", sentence.ID, err)
+			}
+			for i, source := range sentence.Source {
+				output = append(output, &util.SrtBlock{
+					Index: len(output) + 1, Timestamp: timelines[i], OriginLanguageSentence: strings.TrimSpace(source), TargetLanguageSentence: strings.TrimSpace(sentence.Target[i]),
+				})
+				position += subtitleRuneLength(source)
+			}
+			continue
+		}
+		sentenceStart, outputStart := position, len(output)
+		invalidTiming := false
 		for i, source := range sentence.Source {
 			start := subtitlePositionTime(spans, position, false)
 			position += utf8.RuneCountInString(compactSubtitleText(source))
 			end := subtitlePositionTime(spans, position, true)
+			if sentence.OmittedHesitation || sentence.SegmentState != nil && sentence.Target[i] == "" {
+				continue
+			}
 			if end <= start {
-				return nil, fmt.Errorf("分段后第%d条字幕时间无效", len(output)+1)
+				invalidTiming = true
 			}
 			output = append(output, &util.SrtBlock{
 				Index:                  len(output) + 1,
@@ -579,6 +843,29 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 				OriginLanguageSentence: strings.TrimSpace(source),
 				TargetLanguageSentence: strings.TrimSpace(sentence.Target[i]),
 			})
+		}
+		if invalidTiming {
+			// 合并回退也只显示有内容的片段；被省略发声仍占用其源位置。
+			var visibleSources []string
+			for i, source := range sentence.Source {
+				if sentence.Target[i] != "" {
+					visibleSources = append(visibleSources, source)
+				}
+			}
+			start, end := subtitlePositionTime(spans, sentenceStart, false), subtitlePositionTime(spans, position, true)
+			if end <= start {
+				return nil, fmt.Errorf("句子%s没有可用的字幕时间区间", sentence.ID)
+			}
+			output = append(output[:outputStart], &util.SrtBlock{Index: outputStart + 1, Timestamp: formatSRTTimeline(start, end), OriginLanguageSentence: joinPairedTargetSegments(visibleSources, types.StandardLanguageCode(originLang)), TargetLanguageSentence: sentence.FullTarget})
+			t.translationNotice(fmt.Sprintf("第%s句分段时间不足，已合并为完整句字幕继续处理", sentence.ID))
+		}
+	}
+	if len(output) == 0 {
+		return nil, fmt.Errorf("字幕只有无语义犹豫音，没有需要翻译的正文")
+	}
+	if t.semanticSourceUnits {
+		if err := validateFrozenDisplayBlocks(output, subtitleTargetLimit()); err != nil {
+			return nil, err
 		}
 	}
 	return output, nil

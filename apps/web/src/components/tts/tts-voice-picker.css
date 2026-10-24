@@ -94,14 +94,27 @@
   padding: 6px;
   box-sizing: border-box;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface-popover);
   box-shadow: var(--shadow-popover);
   color: var(--text);
+  font-family: var(--font);
   font-size: 13px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
+
+.tts-voice-menu.is-searchable { display: flex; flex-direction: column; overflow: hidden; }
+.tts-voice-menu-search { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 5px 8px 10px; margin-bottom: 5px; border-bottom: 1px solid var(--border-hairline); color: var(--muted); }
+.tts-voice-menu-search > svg { flex-shrink: 0; }
+.tts-voice-menu-search input { width: 100%; min-width: 0; height: 28px; padding: 0; border: 0; border-radius: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; }
+.tts-voice-menu-search input:focus-visible { outline: 0; box-shadow: none; }
+.tts-voice-menu-search input::placeholder { color: var(--muted); }
+.is-searchable .tts-voice-menu-options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.is-searchable .tts-voice-option { min-height: 36px; padding: 8px 10px; box-sizing: border-box; }
+.is-searchable .tts-voice-option-text { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.is-searchable .tts-voice-option-text > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tts-voice-menu-empty { padding: 22px 10px; color: var(--muted); text-align: center; }
 
 .tts-voice-menu-group {
   padding: 8px 8px 4px;
@@ -124,7 +137,7 @@
 }
 
 .tts-voice-option[aria-selected="true"] {
-  background: color-mix(in srgb, var(--text) 9%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .tts-voice-option > svg {
@@ -192,6 +205,31 @@
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+}
+
+.tts-voice-preview-language {
+  grid-column: 1 / -1;
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tts-voice-preview-language > span { font-weight: 600; }
+
+.tts-voice-preview-language .tts-voice-select {
+  height: 44px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.tts-voice-preview-language small {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--subtle);
 }
 
 .tts-voice-picker-custom input {

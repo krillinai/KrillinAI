@@ -1,4 +1,4 @@
-.tts-voice-picker.is-library { display: block; container: tts-library / inline-size; }
+.tts-voice-picker.is-library { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; container: tts-library / inline-size; }
 .tts-voice-library-entry { display: grid; gap: 8px; min-width: 0; }
 .tts-voice-library-entry > span { color: var(--muted); font-size: 12px; font-weight: 600; }
 .tts-voice-library-trigger { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); text-align: start; }
@@ -32,7 +32,7 @@
 .tts-voice-library-search:focus-within { border-color: var(--border-strong); outline: 2px solid var(--state-focus-ring); outline-offset: 2px; }
 .tts-voice-library-filters { flex: 2 1 420px; display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .tts-voice-library-filters .native-select { flex: 1; min-width: 120px; }
-.tts-voice-library-filters select { height: 40px; padding-block: 0; padding-inline-start: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; text-overflow: ellipsis; }
+.tts-voice-library-filters :is(select, .app-select-trigger) { height: 40px; padding-block: 0; padding-inline-start: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; text-overflow: ellipsis; }
 .tts-voice-library-categories { display: flex; flex-wrap: wrap; gap: 6px; }
 .tts-voice-library-categories button { min-height: 30px; padding: 4px 12px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted); font-size: 12px; }
 .tts-voice-library-categories button:hover:enabled { color: var(--text); background: var(--state-hover-bg); }
@@ -53,13 +53,14 @@
 .tts-voice-library-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
 .tts-voice-library-name > bdi { min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .tts-voice-library-name > small { max-width: 100%; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.tts-voice-library-description { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; }
 .tts-voice-library-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .tts-voice-library-tags > span { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 7px; border-radius: 4px; background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--muted); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
 .tts-voice-library-tags > .tts-voice-library-recommended { color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tts-voice-library-check { flex-shrink: 0; display: grid; place-items: center; width: 18px; color: var(--accent-strong); }
 .tts-voice-library-empty { display: grid; justify-items: center; align-content: center; gap: 10px; min-height: 112px; color: var(--muted); font-size: 13px; text-align: center; }
 .tts-voice-library-empty > button { padding: 5px 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); }
-.tts-voice-library button:focus-visible, .tts-voice-library select:focus-visible { outline: 2px solid var(--state-focus-ring); outline-offset: 2px; }
+.tts-voice-library button:focus-visible, .tts-voice-library :is(select, .app-select-trigger):focus-visible { outline: 2px solid var(--state-focus-ring); outline-offset: 2px; }
 .tts-voice-library :disabled { cursor: not-allowed; }
 .tts-voice-library button:disabled { opacity: .5; }
 .tts-voice-picker.is-library > .tts-voice-picker-custom { margin-top: 12px; }
@@ -72,6 +73,6 @@
 }
 @media (pointer: coarse) {
   .tts-voice-library-refresh, .tts-voice-library-search > button, .tts-voice-library-categories button { min-width: 44px; min-height: 44px; }
-  .tts-voice-library-search, .tts-voice-library-filters select { min-height: 44px; }
+  .tts-voice-library-search, .tts-voice-library-filters :is(select, .app-select-trigger) { min-height: 44px; }
   .tts-voice-library-search input { font-size: 16px; }
 }

@@ -65,7 +65,7 @@
   height: 40px;
 }
 .video-generation-provider-picker .native-select { margin-inline-start: 54px; }
-.video-generation-provider-picker .native-select select {
+.video-generation-provider-picker .native-select :is(select, .app-select-trigger) {
   height: 28px;
   min-height: 28px;
   padding-block: 0; padding-inline: 0 32px;
@@ -152,7 +152,7 @@
 }
 .video-generation-settings-grid .creator-tool-field > span { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
 .video-generation-settings-grid .creator-tool-field > span > svg { flex-shrink: 0; }
-.video-generation-settings-grid .native-select select { height: 44px; background: var(--surface); }
+.video-generation-settings-grid .native-select :is(select, .app-select-trigger) { height: 44px; background: var(--surface); }
 .video-generation-submit-row { display: flex; justify-content: flex-end; margin-top: 16px; }
 .video-generation-submit-row > button { min-width: 144px; min-height: 44px; justify-content: center; }
 .video-generation-composer :disabled { cursor: not-allowed; }

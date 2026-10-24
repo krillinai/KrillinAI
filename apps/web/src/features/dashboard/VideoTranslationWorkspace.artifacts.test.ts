@@ -7,10 +7,20 @@ import {
   subtitleCuesFromArtifact,
   subtitleCuesWithSource,
   videoTranslationRegenerationStage,
+  videoTranslationReportNotice,
   videoArtifactsForResultVersion
 } from './VideoTranslationWorkspace.js';
 
 describe('video translation result artifact selection', () => {
+  it('shows persisted partial and layout results when reopening a version', () => {
+    const l = (zh: string) => zh;
+    const base = { id: 'translated', kind: 'target_subtitle', version: 1 };
+    expect(videoTranslationReportNotice(artifact({ ...base, metadata: { translationStatus: 'partial', translationFailedCount: 2 } }), l))
+      .toContain('2 条字幕尚未翻译');
+    expect(videoTranslationReportNotice(artifact({ ...base, metadata: { translationStatus: 'layout_pending' } }), l))
+      .toContain('保留完整译文');
+    expect(videoTranslationReportNotice(artifact({ ...base, metadata: { translationStatus: 'complete' } }), l)).toBe('');
+  });
   it('fills missing version settings with the current setup defaults while retaining explicit choices', () => {
     const subtitle = artifact({ id: 'subtitles', kind: 'target_subtitle', version: 1, metadata: { resultVersion: 1, cues: [] } });
     const original = { ...snapshot(1, { target_subtitle: [subtitle.id] }, [subtitle.id]), state: {} };

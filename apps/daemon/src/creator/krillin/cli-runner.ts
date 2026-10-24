@@ -5,6 +5,7 @@ import type {
   CreatorJson,
   CreatorServicesConfig
 } from '@opencreator/protocol';
+import { gatewayModelIdMatches, gatewayTranslationFlashModel, normalizeSubtitleRenderCues, type SubtitleRenderCueInput } from '@opencreator/protocol';
 import type { CreatorExecutorInput } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
 import { sha256CreatorFile } from '../file-hash.js';
@@ -32,6 +33,7 @@ export type KrillinResultArtifact = {
   mimeType?: string;
   size?: number;
   sha256?: string;
+  metadata?: Record<string, CreatorJson>;
 };
 
 type KrillinCliResponse = {
@@ -40,6 +42,7 @@ type KrillinCliResponse = {
   task_id?: string;
   outputs?: Record<string, string>;
   warnings?: string[];
+  translation_failures?: Array<{ sentence_id: string; source_text: string; reason: string }>;
   error?: {
     kind?: string;
     code?: string;
@@ -79,12 +82,14 @@ export class KrillinCliError extends Error {
     const signatureRequired = douyinFailure && /Douyin request signature is required/i.test(message);
     const sessionRequired = douyinFailure && /fresh cookies|Douyin browser identity was rejected/i.test(message);
     const status = sessionRequired || signatureRequired ? /http error\s+(\d{3})\b/i.exec(message) : null;
+    const outputRejected = /\bstatus code:\s*400\b/i.test(message)
+      && /Requested output exceeds the gateway limit of \d+ tokens/.test(message);
     this.publicFacts = sanitizePublicErrorFacts({
-      kind: signatureRequired ? 'unsupported' : sessionRequired ? 'unauthorized' : /^prepare_(?:media|audio_fallback)_failed$/.test(code)
+      kind: outputRejected ? 'http-rejected' : signatureRequired ? 'unsupported' : sessionRequired ? 'unauthorized' : /^prepare_(?:media|audio_fallback)_failed$/.test(code)
         && /bilibili risk control (?:rejected the media request|blocked media extraction)/i.test(message)
         ? 'http-rejected' : publicErrorKindForCode(code) ?? 'unknown', provider: 'krillinai',
-      upstreamCode: code, upstreamMessage: message,
-      ...(status === null ? {} : { httpStatus: Number(status[1]) })
+      upstreamCode: outputRejected ? 'output_too_large' : code, upstreamMessage: message,
+      ...(outputRejected ? { httpStatus: 400 } : status === null ? {} : { httpStatus: Number(status[1]) })
     });
   }
 }
@@ -129,9 +134,21 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
     ytDlpRuntime: input.ytDlpRuntime
   });
   const cliConfig = stageConfig(input.config, krillinCliStageId(input.stage.stageRun.stageId), input.options);
+  const officialBinding = gatewayCreatorBinding(input.config);
+  const officialTextModel = officialBinding?.catalog?.find(model => (
+    model.modality === 'text' && gatewayModelIdMatches(model.id, cliConfig.llm.model)
+  ));
+  const flash = input.stage.job.templateId === 'video-translation'
+    && krillinCliStageId(input.stage.stageRun.stageId) === 'subtitle'
+    ? gatewayTranslationFlashModel(officialBinding?.catalog ?? []) : undefined;
+  const llmFallback = officialBinding && flash && !gatewayModelIdMatches(flash.id, cliConfig.llm.model) ? {
+    baseUrl: officialBinding.baseUrl, apiKey: officialBinding.apiKey,
+    model: flash.id, modelName: flash.name ?? flash.id
+  } : undefined;
   await writeFile(
     join(configDir, 'config.toml'),
-    createKrillinConfigToml(cliConfig, input.llmOverride, gatewayCreatorBinding(input.config)?.models.transcription),
+    createKrillinConfigToml(cliConfig, input.llmOverride, officialBinding?.models.transcription,
+      officialTextModel?.name === undefined ? undefined : { id: cliConfig.llm.model, name: officialTextModel.name }, llmFallback),
     { mode: 0o600 }
   );
   await writeFile(join(dependencyBin, '.yt-dlp-last-check'), new Date().toISOString(), { mode: 0o600 });
@@ -152,6 +169,37 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
     stylePath,
     input.source
   );
+  if (args[0] === 'render-horizontal' || args[0] === 'render-vertical') {
+    const kind = args[0] === 'render-vertical' ? 'vertical_subtitle' : 'target_subtitle';
+    const source = input.stage.inputArtifacts.find(artifact => artifact.kind === kind)
+      ?? input.stage.inputArtifacts.find(artifact => artifact.kind === 'target_subtitle');
+    const readCues = (artifact: typeof source): SubtitleRenderCueInput[] => {
+      const value = artifact?.metadata.renderCues ?? artifact?.metadata.cues;
+      if (!Array.isArray(value)) return [];
+      return value.flatMap(cue => cue && typeof cue === 'object' && !Array.isArray(cue)
+        && typeof cue.start === 'string' && typeof cue.end === 'string' && typeof cue.text === 'string'
+        ? [{ start: cue.start, end: cue.end, text: cue.text, ...(typeof cue.sourceText === 'string' ? { sourceText: cue.sourceText } : {}) }] : []);
+    };
+    let cues = readCues(source);
+    const target = input.stage.inputArtifacts.find(artifact => artifact.kind === 'target_subtitle');
+    if (source?.kind === 'target_subtitle') {
+      const originals = readCues(input.stage.inputArtifacts.find(artifact => artifact.kind === 'source_subtitle'));
+      cues = cues.map((cue, index) => ({ ...cue, sourceText: cue.sourceText ?? originals[index]?.text }));
+    }
+    if (cues.length > 0) {
+      const snapshot = source?.metadata.settingsSnapshot;
+      const position = snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) && snapshot.subtitlePosition === 'bottom' ? 'bottom' : 'top';
+      const documentPath = join(configDir, 'subtitle-document.json');
+      await writeFile(documentPath, JSON.stringify({
+        bilingual: booleanOption(input.options, 'bilingual', false), subtitlePosition: booleanOption(input.options, 'bilingualTop', true) ? 'top' : 'bottom',
+        majorTitle: args[0] === 'render-vertical' ? stringOption(input.options, 'verticalTitle') : undefined,
+        minorTitle: args[0] === 'render-vertical' ? stringOption(input.options, 'verticalSubtitle') : undefined,
+        cues: normalizeSubtitleRenderCues({ cues, legacyMixed: source?.kind === 'vertical_subtitle' && !Array.isArray(source.metadata.renderCues),
+          targetPosition: position, targetCues: readCues(target) })
+      }), { mode: 0o600 });
+      args.push('--subtitle-document', documentPath);
+    }
+  }
   input.stage.reportProgress({
     krillinMode: 'cli',
     providerStatus: 'running',
@@ -168,6 +216,7 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
         resourceRoot: cliResourceRoot,
         dependencyBin,
         ytDlpRuntime: input.ytDlpRuntime,
+        nlpPython: resolveKrillinNlpPython(input.resourceRoot, input.manifest),
         reportProgress: progress => input.stage.reportProgress(progress),
         signal: input.stage.signal
       });
@@ -187,10 +236,18 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
       response = recovered;
     }
     const artifacts = await collectArtifacts(input, response);
+    const translationReport = args[0] === 'subtitle' ? krillinTranslationReport(response) : {};
     input.stage.reportProgress({
       krillinMode: 'cli',
       providerStatus: 'succeeded',
       percent: 100,
+      phase: 'completed',
+      ...translationReport,
+      ...(translationReport.translationStatus === 'partial'
+        ? { message: `Translation finished with ${translationReport.translationFailedCount} untranslated items` }
+        : translationReport.translationStatus === 'layout_pending'
+        ? { message: 'Translation finished; some subtitle layouts need adjustment' }
+        : {}),
       completedOutputKinds: artifacts.map(artifact => artifact.kind)
     });
     return artifacts;
@@ -364,6 +421,7 @@ function executeCli(input: {
   resourceRoot: string;
   dependencyBin: string;
   ytDlpRuntime?: YtDlpRuntime;
+  nlpPython?: string;
   reportProgress(progress: Record<string, CreatorJson>): void;
   signal: AbortSignal;
 }): Promise<KrillinCliResponse> {
@@ -375,7 +433,8 @@ function executeCli(input: {
         input.runtimeBin,
         input.resourceRoot,
         input.dependencyBin,
-        input.ytDlpRuntime
+        input.ytDlpRuntime,
+        input.nlpPython
       ),
       stdio: ['ignore', 'pipe', 'pipe']
     }, input.signal);
@@ -449,10 +508,26 @@ async function collectArtifacts(
       relativePath: relative(input.jobsRoot, path).replaceAll('\\', '/'),
       mimeType: mimeType(path),
       size: info.size,
-      sha256: await sha256CreatorFile(path, input.stage.signal)
+      sha256: await sha256CreatorFile(path, input.stage.signal),
+      ...(kind === 'target_subtitle' || kind === 'bilingual_subtitle' || kind === 'vertical_subtitle'
+        ? { metadata: krillinTranslationReport(response) } : {})
     });
   }
   return result;
+}
+
+export function krillinTranslationReport(response: Pick<KrillinCliResponse, 'warnings' | 'translation_failures'>): Record<string, CreatorJson> {
+  const warnings = (response.warnings ?? []).filter(value => typeof value === 'string' && value.trim());
+  const failures = (response.translation_failures ?? []).filter(value => value && typeof value.sentence_id === 'string'
+    && typeof value.source_text === 'string' && typeof value.reason === 'string');
+  return {
+    translationStatus: failures.length > 0 ? 'partial'
+      : warnings.some(value => value.startsWith('字幕排版待调整：')) ? 'layout_pending' : 'complete',
+    translationFailedCount: failures.length,
+    translationLayoutPending: warnings.some(value => value.startsWith('字幕排版待调整：')),
+    translationFailures: failures.map(value => ({ sentenceId: value.sentence_id, sourceText: value.source_text, reason: value.reason })),
+    translationWarnings: warnings
+  };
 }
 
 export function outputMappings(stageId: string): Array<[string, string]> {
@@ -487,7 +562,8 @@ export function createKrillinCliEnvironment(
   runtimeBin: string,
   resourceRoot: string,
   dependencyBin: string,
-  ytDlpRuntime?: YtDlpRuntime
+  ytDlpRuntime?: YtDlpRuntime,
+  nlpPython?: string
 ): NodeJS.ProcessEnv {
   const names = process.platform === 'win32'
     ? ['SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA']
@@ -509,6 +585,7 @@ export function createKrillinCliEnvironment(
     KRILLINAI_RESOURCE_ROOT: resourceRoot,
     KRILLINAI_OFFLINE_DEPENDENCIES: '1',
     OPENCREATOR_KRILLINAI_CLI: '1',
+    ...(nlpPython === undefined ? {} : { KRILLINAI_NLP_PYTHON: nlpPython }),
     ...(ytDlpRuntime === undefined
       ? {}
       : {
@@ -516,6 +593,15 @@ export function createKrillinCliEnvironment(
           KRILLINAI_YT_DLP_PREFIX_ARGS: JSON.stringify(ytDlpRuntime.prefixArgs)
         })
   };
+}
+
+export function resolveKrillinNlpPython(resourceRoot: string, manifest: KrillinRuntimeManifest): string | undefined {
+  if (manifest.nlp === undefined) return undefined;
+  const executable = manifest.nlp.executable;
+  if (!manifest.resources.some(resource => resource.path === executable && resource.kind === 'executable')) {
+    throw new CreatorExecutorError('dependency_not_packaged', 'Missing manifest-pinned NLP Python');
+  }
+  return resolveInside(resourceRoot, executable);
 }
 
 function consumeProgressLines(

@@ -1,3 +1,4 @@
+import { changeControl } from '../../test/select-option.js';
 import type { VideoMetadataResponse } from '@opencreator/protocol';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -29,11 +30,11 @@ describe('Bilibili part selector localization', () => {
     ]) {
       fireEvent.click(screen.getByRole('button', { name: language }));
       expect(screen.getByRole('combobox', { name: label })).toHaveValue('3');
-      expect(screen.getByRole('option', { name: 'P3 · 原视频第三集' })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: label })).toHaveTextContent('P3 · 原视频第三集');
       expect(screen.getByText(text => text.startsWith(count!))).toBeVisible();
     }
     expect(onSelect).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '2' } });
+    changeControl(screen.getByRole('combobox'), { target: { value: '2' } });
     expect(onSelect).toHaveBeenCalledExactlyOnceWith(2);
   });
 

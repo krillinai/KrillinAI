@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -19,18 +20,37 @@ const RESIZE_KEY_STEP = 32;
 export default function CreatorResizableLayout(props: {
   workspace: ReactNode;
   agentPanel: ReactNode;
+  agentPanelRequest?: { key: number; stageRunId?: string };
   className?: string;
 }) {
   const l = useLocalizedCopy();
   const layoutRef = useRef<HTMLDivElement>(null);
   const [workspaceWidth, setWorkspaceWidth] = useState<number>();
   const [mobilePane, setMobilePane] = useState<'workspace' | 'agent'>('workspace');
+  const focusedRequestRef = useRef<number>();
   const session = useOptionalCreatorSession();
   const latestIssueId = session?.issues.filter(issue => issue.status === 'open').at(-1)?.id;
 
   useEffect(() => {
     if (latestIssueId !== undefined) setMobilePane('agent');
   }, [latestIssueId]);
+
+  useLayoutEffect(() => {
+    if (props.agentPanelRequest !== undefined) setMobilePane('agent');
+  }, [props.agentPanelRequest]);
+
+  useLayoutEffect(() => {
+    const request = props.agentPanelRequest;
+    if (!request || mobilePane !== 'agent' || focusedRequestRef.current === request.key) return;
+    const panel = layoutRef.current?.querySelector<HTMLElement>('.creator-collaboration-panel');
+    if (!panel) return;
+    const stage = [...panel.querySelectorAll<HTMLElement>('[data-stage-run-id]')]
+      .find(element => element.dataset.stageRunId === request.stageRunId);
+    const target = stage ?? panel;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    focusedRequestRef.current = request.key;
+  }, [props.agentPanelRequest, mobilePane]);
 
   function widthBounds() {
     const rect = layoutRef.current?.getBoundingClientRect();

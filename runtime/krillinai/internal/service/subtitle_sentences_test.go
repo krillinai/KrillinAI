@@ -36,7 +36,7 @@ func TestTranslationSentenceBoundaries(t *testing.T) {
 		{"空输入", " \n\t ", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := splitTranslationSentences(tc.text)
+			got := splitTranslationSentences(tc.text, "en")
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("分句=%q，期望=%q", got, tc.want)
 			}
@@ -44,7 +44,7 @@ func TestTranslationSentenceBoundaries(t *testing.T) {
 				t.Fatalf("分句改变了原文: %q", got)
 			}
 			for _, sentence := range got {
-				if repeated := splitTranslationSentences(sentence); len(repeated) != 1 || repeated[0] != sentence {
+				if repeated := splitTranslationSentences(sentence, "en"); len(repeated) != 1 || repeated[0] != sentence {
 					t.Fatalf("重复分句改变边界: %q -> %q", sentence, repeated)
 				}
 			}

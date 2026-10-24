@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
   AddCodexMcpRequest,
@@ -384,7 +385,7 @@ export function McpEditor(props: {
         </label>
         <label>
           <span>{l("传输方式", "Transmission method")}</span>
-          <select
+          <AppSelect
             aria-label={l("传输方式", "Transmission method")}
             value={transport}
             onChange={event => setTransport(event.target.value as typeof transport)}
@@ -392,7 +393,7 @@ export function McpEditor(props: {
             <option value="stdio">stdio</option>
             <option value="http" disabled={props.capabilities?.mcpAddUrl !== true}>HTTP</option>
             <option value="sse" disabled={props.capabilities?.mcpAddUrl !== true}>SSE</option>
-          </select>
+          </AppSelect>
         </label>
         {transport === 'stdio' ? (
           <>

@@ -88,6 +88,61 @@ function PendingHarness() {
 }
 
 describe('CreatorSessionStore', () => {
+  it('merges simultaneous task model choices and flushes the complete selection before starting', async () => {
+    let current = job(0, { officialModels: { video: 'saved-video' } });
+    let session!: ReturnType<typeof useCreatorSession>;
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: { patch?: object } }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch } };
+      return { job: current };
+    });
+    function Models() { session = useCreatorSession(); return <output>{JSON.stringify(session.state.officialModels)}</output>; }
+    render(<CreatorSessionProvider initialJob={current} service={{ applyAction, runAgentTurn: vi.fn() } as never}><Models /></CreatorSessionProvider>);
+    await act(async () => {
+      session.updateDraft({ officialModels: { text: 'task-text' } });
+      session.updateDraft({ officialModels: { image: 'task-image' } });
+      session.updateDraft({ officialModels: { speech: 'task-speech' } });
+      session.updateDraft({ officialModels: { transcription: 'task-transcription' } });
+      await session.applyAction({ action: 'run-stage', input: { stageId: 'subtitle' } });
+    });
+    expect(current.state.officialModels).toEqual({ video: 'saved-video', text: 'task-text', image: 'task-image', speech: 'task-speech', transcription: 'task-transcription' });
+    expect(applyAction.mock.calls.map(([, request]) => request.action)).toEqual(['update-settings', 'run-stage']);
+    expect(session.state.officialModels).toEqual(current.state.officialModels);
+  });
+
+  it('retains newer download progress when an older control response, snapshot or SSE event arrives', async () => {
+    const stage: CreatorStageRun = {
+      id: 'download_1', jobId: 'job_1', stageId: 'download', executor: 'download', status: 'running',
+      dispatchStatus: 'claimed', claimOwner: null, claimExpiresAt: null, attempt: 1, idempotencyKey: null,
+      scopeKey: null, inputFingerprint: null, progress: { phase: 'downloading', percent: 42, downloadProgressSequence: 3 },
+      errorCode: null, errorMessage: null, startedAt: null, finishedAt: null
+    };
+    const initial = { ...job(2, {}), templateId: 'video-download', status: 'running' as const, stages: [stage] };
+    let session!: ReturnType<typeof useCreatorSession>;
+    let emit!: (event: CreatorEventEnvelope) => void;
+    let resolveControl!: (value: unknown) => void;
+    const controlDownload = vi.fn(() => new Promise(resolve => { resolveControl = resolve; }));
+    function SnapshotHarness() { session = useCreatorSession(); return <Harness />; }
+    render(<CreatorSessionProvider initialJob={initial} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn(),
+      getJob: vi.fn(async () => ({ job: initial })),
+      subscribeJobEvents: vi.fn((_id, onEvent) => { emit = onEvent; return { close: vi.fn() }; }), controlDownload
+    } as never}><SnapshotHarness /></CreatorSessionProvider>);
+    await waitFor(() => expect(emit).toBeDefined());
+    let controlWork!: Promise<void>;
+    await act(async () => { controlWork = session.controlDownload!(stage.id, 'resume'); });
+    const latest = { ...stage, progress: { ...stage.progress, downloadProgressSequence: 6, percent: 48 } };
+    const event = (incoming: CreatorStageRun): CreatorEventEnvelope => ({ id: `download:${incoming.progress.downloadProgressSequence}`,
+      jobId: initial.id, revision: 2, kind: 'stage_progress', payload: { stage: incoming as never }, createdAt: initial.updatedAt });
+    act(() => emit(event(latest)));
+    act(() => emit(event({ ...stage, progress: { ...stage.progress, downloadControl: 'paused', downloadProgressSequence: 4 } })));
+    act(() => session.applyRemoteSnapshot(initial));
+    await act(async () => {
+      resolveControl({ job: { ...initial, stages: [{ ...stage, progress: { ...stage.progress, downloadProgressSequence: 5 } }] }, stage, control: 'resumed' });
+      await controlWork;
+    });
+    expect(session.job.stages[0]).toEqual(latest);
+    expect(session.job.stages[0]!.progress.downloadControl).not.toBe('paused');
+  });
+
   it('does not overwrite a failed job with a delayed successful action response', async () => {
     let resolveAction!: (value: { job: CreatorJob }) => void;
     const applyAction = vi.fn(() => new Promise<{ job: CreatorJob }>(resolve => { resolveAction = resolve; }));

@@ -1,0 +1,407 @@
+[
+  {
+    "id": "sans-bilingual",
+    "size": [
+      640,
+      360
+    ],
+    "assIdentical": true,
+    "fontCount": 1,
+    "compileMs": 351.00325,
+    "loadMs": 604.404583,
+    "renderMs": 965.3169170000001,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        261,
+        267,
+        378,
+        321
+      ],
+      "right": [
+        261,
+        267,
+        378,
+        321
+      ],
+      "meanChannelError": 1.2422412346921659,
+      "pixels": 3974
+    },
+    "encoded": {
+      "left": [
+        260,
+        266,
+        378,
+        321
+      ],
+      "right": [
+        261,
+        267,
+        378,
+        321
+      ],
+      "meanChannelError": 9.99660210669385,
+      "pixels": 3924
+    }
+  },
+  {
+    "id": "serif-shadow",
+    "size": [
+      1280,
+      720
+    ],
+    "assIdentical": true,
+    "fontCount": 1,
+    "compileMs": 48.58891700000004,
+    "loadMs": 649.3264160000008,
+    "renderMs": 170.78312499999993,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        466,
+        579,
+        795,
+        663
+      ],
+      "right": [
+        471,
+        579,
+        795,
+        660
+      ],
+      "meanChannelError": 3.1328028222114503,
+      "pixels": 24756
+    },
+    "encoded": {
+      "left": [
+        464,
+        578,
+        797,
+        664
+      ],
+      "right": [
+        471,
+        579,
+        795,
+        660
+      ],
+      "meanChannelError": 7.242429117233058,
+      "pixels": 24865
+    }
+  },
+  {
+    "id": "rounded-long",
+    "size": [
+      1024,
+      768
+    ],
+    "assIdentical": true,
+    "fontCount": 2,
+    "compileMs": 557.3887080000004,
+    "loadMs": 739.2320419999996,
+    "renderMs": 715.8423750000002,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        83,
+        322,
+        940,
+        685
+      ],
+      "right": [
+        83,
+        322,
+        940,
+        685
+      ],
+      "meanChannelError": 0.19049771210715133,
+      "pixels": 165946
+    },
+    "encoded": {
+      "left": [
+        80,
+        320,
+        941,
+        687
+      ],
+      "right": [
+        83,
+        322,
+        940,
+        685
+      ],
+      "meanChannelError": 6.6052088507654965,
+      "pixels": 165078
+    }
+  },
+  {
+    "id": "arabic",
+    "size": [
+      960,
+      540
+    ],
+    "assIdentical": true,
+    "fontCount": 3,
+    "compileMs": 46.415750000000116,
+    "loadMs": 625.5979589999997,
+    "renderMs": 124.37687499999993,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        342,
+        370,
+        616,
+        482
+      ],
+      "right": [
+        342,
+        370,
+        616,
+        482
+      ],
+      "meanChannelError": 3.3178470441244166,
+      "pixels": 10138
+    },
+    "encoded": {
+      "left": [
+        338,
+        368,
+        616,
+        485
+      ],
+      "right": [
+        342,
+        370,
+        616,
+        482
+      ],
+      "meanChannelError": 9.930274985902411,
+      "pixels": 10049
+    }
+  },
+  {
+    "id": "hindi",
+    "size": [
+      960,
+      540
+    ],
+    "assIdentical": true,
+    "fontCount": 3,
+    "compileMs": 48.502833000000464,
+    "loadMs": 629.7410419999997,
+    "renderMs": 123.44854200000009,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        370,
+        334,
+        589,
+        482
+      ],
+      "right": [
+        370,
+        334,
+        589,
+        482
+      ],
+      "meanChannelError": 2.086338886193326,
+      "pixels": 12366
+    },
+    "encoded": {
+      "left": [
+        369,
+        332,
+        589,
+        483
+      ],
+      "right": [
+        370,
+        334,
+        589,
+        482
+      ],
+      "meanChannelError": 9.252935129578532,
+      "pixels": 12322
+    }
+  },
+  {
+    "id": "thai-portrait",
+    "size": [
+      540,
+      960
+    ],
+    "assIdentical": true,
+    "fontCount": 3,
+    "compileMs": 46.64629199999945,
+    "loadMs": 627.2487500000007,
+    "renderMs": 133.0226670000011,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        107,
+        324,
+        431,
+        652
+      ],
+      "right": [
+        107,
+        324,
+        431,
+        652
+      ],
+      "meanChannelError": 2.5492461115798126,
+      "pixels": 30818
+    },
+    "encoded": {
+      "left": [
+        107,
+        322,
+        431,
+        653
+      ],
+      "right": [
+        107,
+        324,
+        431,
+        652
+      ],
+      "meanChannelError": 7.354621757139743,
+      "pixels": 30580
+    }
+  },
+  {
+    "id": "japanese-korean",
+    "size": [
+      720,
+      1280
+    ],
+    "assIdentical": true,
+    "fontCount": 2,
+    "compileMs": 532.1041659999992,
+    "loadMs": 688.4778340000012,
+    "renderMs": 649.7968330000003,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        154,
+        671,
+        565,
+        867
+      ],
+      "right": [
+        154,
+        671,
+        565,
+        867
+      ],
+      "meanChannelError": 0.1677260129641082,
+      "pixels": 58212
+    },
+    "encoded": {
+      "left": [
+        152,
+        670,
+        565,
+        871
+      ],
+      "right": [
+        154,
+        671,
+        565,
+        867
+      ],
+      "meanChannelError": 5.615476415879191,
+      "pixels": 58097
+    }
+  },
+  {
+    "id": "converted-titles",
+    "size": [
+      720,
+      1280
+    ],
+    "assIdentical": true,
+    "fontCount": 2,
+    "compileMs": 40.46208399999887,
+    "loadMs": 713.5362079999995,
+    "renderMs": 153.91420800000014,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        207,
+        129,
+        513,
+        877
+      ],
+      "right": [
+        207,
+        129,
+        513,
+        877
+      ],
+      "meanChannelError": 1.574780269058296,
+      "pixels": 27875
+    },
+    "encoded": {
+      "left": [
+        207,
+        129,
+        512,
+        877
+      ],
+      "right": [
+        207,
+        129,
+        513,
+        877
+      ],
+      "meanChannelError": 8.59887066351503,
+      "pixels": 27922
+    }
+  },
+  {
+    "id": "literal-overlap",
+    "size": [
+      640,
+      360
+    ],
+    "assIdentical": true,
+    "fontCount": 1,
+    "compileMs": 44.64937500000087,
+    "loadMs": 593.3050000000003,
+    "renderMs": 106.79091700000026,
+    "compileCount": 1,
+    "native": {
+      "left": [
+        191,
+        247,
+        448,
+        321
+      ],
+      "right": [
+        192,
+        247,
+        448,
+        321
+      ],
+      "meanChannelError": 3.503611851508479,
+      "pixels": 8629
+    },
+    "encoded": {
+      "left": [
+        192,
+        245,
+        449,
+        321
+      ],
+      "right": [
+        192,
+        247,
+        448,
+        321
+      ],
+      "meanChannelError": 10.782837670384138,
+      "pixels": 8608
+    }
+  }
+]

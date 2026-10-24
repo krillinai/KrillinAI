@@ -1,0 +1,7 @@
+.suggested-input { position: relative; min-width: 0; width: 100%; }
+.suggested-input > input { box-sizing: border-box; width: 100%; }
+.suggested-input:has(.app-select) > input { padding-inline-end: 42px; }
+.suggested-input > .app-select { position: absolute; top: 50%; inset-inline-end: 4px; width: 32px; transform: translateY(-50%); }
+.suggested-input > .app-select > .app-select-trigger { display: grid; place-items: center; width: 32px; min-height: 28px; height: 28px; padding: 0; border: 0; background: transparent; }
+.suggested-input .app-select-value { display: none; }
+.suggested-input .app-select-trigger:hover:enabled { background: var(--state-hover-bg); }

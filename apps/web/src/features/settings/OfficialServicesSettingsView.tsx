@@ -1,3 +1,4 @@
+import { gatewayModelIdMatches } from '@opencreator/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { AudioLines, Image, LoaderCircle, Mic, RefreshCw, TextCursorInput, Video, type LucideIcon } from 'lucide-react';
 import { gatewayModelCompatible, gatewayModelSupports, gatewayModelReady, type GatewayAccountState, type GatewayModelPurpose } from '@opencreator/protocol';
@@ -66,7 +67,7 @@ export function OfficialServicesSettingsView(props: { state: GatewayAccountState
       const models = props.state.models.filter(model => gatewayModelSupports(model, modality.id)
         && (props.state.transport !== 'gateway' || gatewayModelCompatible(model)));
       const selected = props.state.selectedModels?.[modality.id] ?? '';
-      const selectedModel = models.find(model => model.id === selected);
+      const selectedModel = models.find(model => gatewayModelIdMatches(model.id, selected));
       const recommended = models.find(model => model.id === props.state.recommendedModels?.[modality.id] && gatewayModelReady(model));
       const available = props.state.authState === 'signed_in' && props.state.source === 'gateway' && props.state.activationState === 'ready' && models.some(gatewayModelReady);
       const Icon = modality.icon;

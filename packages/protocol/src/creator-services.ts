@@ -1,6 +1,7 @@
 import { defaultVideoGenerationModels } from './media-generation.js';
 import { publicErrorKindForCode, safePublicErrorMessage } from './errors.js';
 import type { PublicErrorFacts } from './issues.js';
+import type { GatewayVoiceProfile } from './gateway-account.js';
 
 export type OpenAiCompatibleConfig = {
   baseUrl: string;
@@ -41,11 +42,12 @@ export type VolcengineAsrConfig = VolcengineSpeechCredentials & {
   baseUrl: string;
 };
 
-export type CreatorTtsVoice = {
+export type CreatorTtsVoice = Omit<GatewayVoiceProfile, 'gender'> & {
   id: string;
   name: string;
   provider: CreatorTtsProvider;
   language?: string;
+  previewLanguages?: string[];
   gender?: string;
   scenario?: string;
   kind?: 'builtin' | 'custom' | 'designed';
@@ -64,6 +66,7 @@ export type CreatorTtsPreviewRequest = {
   model?: string;
   voiceId: string;
   text?: string;
+  language?: string;
 };
 
 export type KlingAiConfig = {

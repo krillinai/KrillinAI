@@ -201,7 +201,7 @@
 }
 
 .creator-services-field input,
-.creator-services-field select,
+.creator-services-field :is(select, .app-select-trigger),
 .creator-services-field output {
   width: 100%;
   min-width: 0;
@@ -228,7 +228,7 @@
 }
 
 .creator-services-field input:focus,
-.creator-services-field select:focus,
+.creator-services-field :is(select, .app-select-trigger):focus,
 .creator-services-select-trigger:focus-visible,
 .creator-services-select-menu button:focus-visible,
 .creator-services-segmented button:focus-visible,

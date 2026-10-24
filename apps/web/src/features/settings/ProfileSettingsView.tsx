@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
   CodexProfileConfig,
@@ -358,23 +359,23 @@ function ProfileEditor(props: {
         </label>
         <label>
           <span>{l("推理级别", "reasoning level")}</span>
-          <select aria-label={l("推理级别", "reasoning level")} value={reasoning} onChange={event => setReasoning(event.target.value)}>
+          <AppSelect aria-label={l("推理级别", "reasoning level")} value={reasoning} onChange={event => setReasoning(event.target.value)}>
             <option value="">{l("使用默认值", "Use default value")}</option>
             <option value="default">{l("默认", "Default")}</option>
             <option value="low">{l("低", "Low")}</option>
             <option value="medium">{l("中", "Medium")}</option>
             <option value="high">{l("高", "High")}</option>
             <option value="xhigh">{l("超高", "Extra high")}</option>
-          </select>
+          </AppSelect>
         </label>
         <label>
           <span>Sandbox</span>
-          <select aria-label="Sandbox" value={sandbox} onChange={event => setSandbox(event.target.value)}>
+          <AppSelect aria-label="Sandbox" value={sandbox} onChange={event => setSandbox(event.target.value)}>
             <option value="">{l("使用默认值", "Use default value")}</option>
             <option value="read-only">{l("只读", "Read only")}</option>
             <option value="workspace-write">{l("工作区可写", "Workspace write access")}</option>
             <option value="danger-full-access">{l("完全访问", "Full access")}</option>
-          </select>
+          </AppSelect>
         </label>
         <label className="settings-form-wide">
           <span>{l("高级配置 JSON", "Advanced configuration JSON")}</span>

@@ -71,3 +71,18 @@ it('refreshes the catalog without inference', async () => {
   expect(f.client.get).toHaveBeenCalledWith('/gateway/account?refreshModels=1');
   expect(f.client.post).not.toHaveBeenCalled();
 });
+
+it('shows token tariffs in both the selected speech summary and the model menu', async () => {
+  const f = fixture();
+  const speech = { id: 'gemini-2.5-flash-tts', modality: 'speech' as const, capabilities: [],
+    price: { version: 'db-1', inputPerMillion: 156.88735487919675, outputPerMillion: 3137.7470975839346,
+      estimates: { call: { creditUnits: '3153436', usage: { input: 100, output: 1000 } } } } };
+  f.view.rerender(f.renderState({ ...f.state, selectedModels: { ...f.state.selectedModels, speech: speech.id }, models: [...f.state.models, speech] }));
+  const tariff = '文本输入 157 / 音频输出 3138 积分/百万 token';
+  expect(screen.getByText(tariff)).toHaveAttribute('title', expect.stringContaining('按实际文本输入及音频输出用量结算'));
+  await f.user.click(screen.getByRole('combobox', { name: '语音合成模型' }));
+  expect(screen.getByRole('option', { name: speech.id })).toHaveTextContent(tariff);
+  expect(screen.queryByText('约 3 积分/次')).not.toBeInTheDocument();
+  expect(f.client.patch).not.toHaveBeenCalled();
+  expect(f.client.post).not.toHaveBeenCalled();
+});

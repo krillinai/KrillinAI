@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreateMemoryRequest, MemoryScope } from '@opencreator/protocol';
 import { AlertTriangle, Brain, Check, X } from 'lucide-react';
@@ -79,7 +80,7 @@ export function MemorySuggestion(props: {
       <div className="memory-suggestion__actions">
         <label>
           <span>{l("范围", "Scope")}</span>
-          <select
+          <AppSelect
             aria-label={l("记忆建议范围", "Memory suggested range")}
             value={scope}
             disabled={saving}
@@ -88,7 +89,7 @@ export function MemorySuggestion(props: {
             {props.threadKey !== undefined ? <option value="thread">{l("当前线程", "Current thread")}</option> : null}
             {props.projectKey !== undefined ? <option value="project">{l("当前项目", "Current project")}</option> : null}
             <option value="global">{l("全局", "Global")}</option>
-          </select>
+          </AppSelect>
         </label>
         <button type="button" disabled={saving} aria-label={l("忽略记忆建议", "Ignore memory suggestions")} onClick={props.onDismiss}>
           <X aria-hidden="true" size={15} />

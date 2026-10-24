@@ -1,10 +1,25 @@
 import { expect, it, vi } from 'vitest';
 import { accountSchema, catalogSchema, createGatewayClient, GatewayError } from '../../src/gateway/client.js';
 
+it('retains optional voice profiles and accepts older catalogs containing only voice IDs', () => {
+  const model = { id: 'speech', modality: 'speech', capabilities: [], voices: ['Kore'] };
+  const voiceProfiles = { Kore: { gender: 'female', traits: { zh: ['坚定'], en: ['Firm'] }, useCases: { en: ['Narration'] }, sourceUrls: ['https://docs.example/voices'] } };
+  expect(catalogSchema.parse({ models: [{ ...model, voiceProfiles }] }).models[0]?.voiceProfiles).toEqual(voiceProfiles);
+  expect(catalogSchema.parse({ models: [model] }).models[0]?.voices).toEqual(['Kore']);
+  expect(catalogSchema.parse({ models: [model] }).models[0]?.voiceProfiles).toBeUndefined();
+});
+
 it('retains fractional retail token prices and image/cache billing categories', () => {
   const price = { version: 'cost-50-v1', billing: 'usage', inputPerMillion: 5229.578, imageInputPerMillion: 10459.156, cachedInputPerMillion: 104.591, cacheWritePerMillion: 2614.789, outputPerMillion: 31377.469 };
   const catalog = catalogSchema.parse({ models: [{ id: 'gpt-image-2.5-flare', modality: 'image', capabilities: ['generate'], price }] });
   expect(catalog.models[0]?.price).toEqual(price);
+});
+
+it('preserves optional catalog output limits while accepting old catalogs', () => {
+  const model = { id: 'text', modality: 'text', capabilities: ['chat'] };
+  expect(catalogSchema.parse({ models: [model] }).models[0]).toEqual(model);
+  expect(catalogSchema.parse({ models: [{ ...model, textOptions: { maxOutputTokens: 4096 } }] }).models[0]?.textOptions)
+    .toEqual({ maxOutputTokens: 4096 });
 });
 
 it('协商稳定密钥策略并拒绝仍会自动轮换的响应', async () => {
@@ -12,7 +27,7 @@ it('协商稳定密钥策略并拒绝仍会自动轮换的响应', async () => {
   const fetcher = vi.fn<typeof fetch>(async () => Response.json(value));
   const client = createGatewayClient('https://gateway.example', fetcher);
   expect((await client.bootstrap('device-access', { rotate: false, modelUsePolicy: 'cached-key-v1' })).modelUsePolicy).toBe('cached-key-v1');
-  expect(fetcher.mock.calls[0]?.[0]).toBe('https://gateway.example/api/v1/client/bootstrap?protocolVersion=3&rotate=0&modelUsePolicy=cached-key-v1');
+  expect(fetcher.mock.calls[0]?.[0]).toBe('https://gateway.example/api/v1/client/bootstrap?protocolVersion=3&catalogSchema=2&publicMetadata=1&rotate=0&modelUsePolicy=cached-key-v1');
   value.keyRotation = true;
   await expect(client.bootstrap('device-access')).rejects.toThrow();
 });
@@ -158,4 +173,12 @@ it('keeps the failing endpoint and HTTP status without upstream body secrets', a
   const failure = await client.request('/api/v1/client/bootstrap', 'private-device-token').catch(error => error);
   expect(failure).toMatchObject({ code: 'services_not_ready', status: 503, diagnostics: { path: '/api/v1/client/bootstrap', reason: 'http', httpStatus: 503 } });
   expect(JSON.stringify(failure)).not.toContain('private-device-token');
+});
+
+it('accepts public gateway metadata while retaining the legacy internal protocol marker', async () => {
+  const value = { schemaVersion: 3, transport: 'gateway', keyRotation: false, account: { id: 'a', email: 'a@test', verified: true }, keyVersion: 'gateway-v1', bindingVersion: 'a:gateway:v1', baseUrl: 'https://gateway.example/v1', models: [], defaults: {} };
+  const fetcher = vi.fn<typeof fetch>(async () => Response.json(value));
+  const client = createGatewayClient('https://gateway.example', fetcher);
+  expect(await client.bootstrap('device-access')).toMatchObject({ transport: 'gateway', supplier: 'chatanywhere' });
+  expect(fetcher.mock.calls[0]?.[0]).toContain('publicMetadata=1');
 });

@@ -1,7 +1,7 @@
 .gateway-account { padding: 20px 0; font-size: 14px; min-width: 0; color: var(--text); }
 .gateway-account__heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .gateway-account h2 { margin: 0; font-size: 18px; letter-spacing: 0; }
-.gateway-account button, .gateway-account select { font: inherit; color: inherit; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+.gateway-account button, .gateway-account :is(select, .app-select-trigger) { font: inherit; color: inherit; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
 .gateway-account button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .gateway-account button:disabled { opacity: .5; cursor: default; }
 .gateway-account__icon { width: 34px; height: 34px; padding: 0 !important; flex-shrink: 0; }
@@ -16,7 +16,7 @@
 .gateway-account__models li { display: flex; gap: 16px; padding: 6px 0; overflow-wrap: anywhere; }
 .gateway-account__models span { opacity: .6; min-width: 100px; }
 .gateway-account a { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-strong); margin: 10px 0; }
-.gateway-account__plans select { max-width: 100%; min-width: 0; }
+.gateway-account__plans :is(select, .app-select-trigger) { max-width: 100%; min-width: 0; }
 .gateway-account--login { padding: 0; }
 .gateway-account--login > .gateway-account__primary { width: 100%; }
 .gateway-account p { line-height: 1.6; overflow-wrap: anywhere; }

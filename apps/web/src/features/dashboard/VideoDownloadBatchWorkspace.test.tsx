@@ -245,6 +245,24 @@ describe('video download link batches', () => {
     expect(harness.jobs.get('root')?.state[DOWNLOAD_BATCH_HIDDEN]).toEqual([]);
   });
 
+  it('routes download controls to the owning link while another link is selected', async () => {
+    const root = readyJob('root', firstUrl);
+    root.stages.push(stage(root, 'download', 'running'));
+    const child = readyJob('child', secondUrl, 'root');
+    child.stages.push(stage(child, 'download', 'running'));
+    const harness = setup(root, [child]);
+    await screen.findByRole('button', { name: /^Video second/ });
+    fireEvent.click(screen.getByRole('tab', { name: '作品' }));
+    fireEvent.click(screen.getByRole('button', { name: '暂停下载 Video second · 1080p' }));
+    await screen.findByRole('button', { name: '继续下载 Video second · 1080p' });
+    expect(harness.service.controlDownload).toHaveBeenLastCalledWith('child', child.stages[0]!.id, 'pause');
+    expect(harness.jobs.get('root')?.stages[0]?.status).toBe('running');
+    fireEvent.click(screen.getByRole('button', { name: '取消下载 Video second · 1080p' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: '继续下载 Video second · 1080p' })).not.toBeInTheDocument());
+    expect(harness.service.controlDownload).toHaveBeenLastCalledWith('child', child.stages[0]!.id, 'cancel');
+    expect(harness.jobs.get('root')?.stages[0]?.status).toBe('running');
+  });
+
   it('keeps successfully added jobs when a later creation fails and retries with the same creation key', async () => {
     const harness = setup(readyJob('root', firstUrl));
     const realCreate = harness.service.createJob.getMockImplementation()!;
@@ -318,6 +336,16 @@ function setup(root: CreatorJob, members: CreatorJob[] = []) {
       return { job: next, receipt: { actor: 'user' as const, action: request.action, summary: request.action, affectedArtifacts: [], newRevision: next.revision, createdAt: next.updatedAt } };
     }),
     openArtifact: vi.fn(async () => new Response(new Blob(['file'], { type: 'video/mp4' }))),
+    controlDownload: vi.fn(async (id: string, stageRunId: string, action: 'pause' | 'resume' | 'cancel') => {
+      const current = jobs.get(id)!;
+      const previous = current.stages.find(stage => stage.id === stageRunId)!;
+      const nextStage: CreatorStageRun = { ...previous, status: action === 'pause' ? 'interrupted' : action === 'cancel' ? 'canceled' : 'running',
+        progress: { ...previous.progress, downloadControl: action === 'pause' ? 'paused' : action === 'cancel' ? 'canceled' : null } };
+      const next = { ...current, revision: current.revision + 1, stages: current.stages.map(stage => stage.id === stageRunId ? nextStage : stage) };
+      jobs.set(id, next);
+      const control: 'paused' | 'canceled' | 'resumed' = action === 'pause' ? 'paused' : action === 'cancel' ? 'canceled' : 'resumed';
+      return { job: next, stage: nextStage, control };
+    }),
     runAgentTurn: vi.fn()
   };
   const ensureJob = vi.fn(async (state: Record<string, CreatorJson>) => {

@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import { act, render, screen, cleanup, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -21,7 +22,7 @@ it('changes the ChatAnywhere region without offering supplier self-selection', a
   value.setRegion = vi.fn(async region => ({ ...initial, supplierRegion: region }));
   render(<LanguageProvider initialPreference="zh-CN"><GatewayAccountSettingsView service={value}/></LanguageProvider>);
   const region = await screen.findByRole('combobox', { name: '连接区域' });
-  await userEvent.setup().selectOptions(region, 'overseas');
+  selectOption(region, 'overseas');
   await waitFor(() => expect(value.setRegion).toHaveBeenCalledWith('overseas'));
   expect(region).toHaveValue('overseas');
 });
@@ -37,7 +38,7 @@ it('shows a supplier migration on the signed-in profile', async () => {
   const value = service();
   vi.mocked(value.getState).mockResolvedValue({ ...state, activationState: 'blocked', activationError: { code: 'supplier_migrating', message: 'Switching supplier' } });
   render(<LanguageProvider initialPreference="zh-CN"><GatewayAccountSettingsView variant="profile" service={value}/></LanguageProvider>);
-  expect(await screen.findByText('正在切换模型供应商，完成后将自动恢复。')).toBeInTheDocument();
+  expect(await screen.findByText('官方服务维护中，完成后将自动恢复。')).toBeInTheDocument();
 });
 it('shows an expired session explicitly and keeps reauthorization available', async () => {
   const value = service();

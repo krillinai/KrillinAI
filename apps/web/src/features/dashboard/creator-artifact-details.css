@@ -2,7 +2,7 @@
 .creator-artifact-details summary { cursor: pointer; font-weight: 600; }
 .creator-artifact-details section { display: grid; gap: 10px; max-height: min(40vh, 380px); overflow: auto; padding-top: 12px; }
 .creator-artifact-details label { display: grid; gap: 4px; }
-.creator-artifact-details select { width: 100%; min-width: 0; padding: 6px; color: inherit; background: var(--surface, #fff); }
+.creator-artifact-details :is(select, .app-select-trigger) { width: 100%; min-width: 0; padding: 6px; color: inherit; background: var(--surface, #fff); }
 .creator-artifact-details dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 0; }
 .creator-artifact-details dd { margin: 0; overflow-wrap: anywhere; }
 .creator-artifact-details p, .creator-artifact-details h3 { margin: 0; font-size: 12px; }

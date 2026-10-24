@@ -60,6 +60,7 @@ export function createDownloadExecutor(
 ): CreatorExecutor {
   return {
     id: 'download',
+    supportsProcessPause: true,
     async run(stage) {
       if (stage.job.templateId === 'video-translation' && isPreviewStage(stage)) {
         return preparePreviewSource(input, stage);
@@ -216,7 +217,7 @@ async function downloadSelectedOption(
   stage.reportProgress({
     status: 'running',
     phase: 'preparing_download',
-    percent: 2,
+    percent: typeof stage.stageRun.progress.percent === 'number' ? stage.stageRun.progress.percent : 2,
     message: 'Preparing the selected format'
   });
   const outputTemplate = join(
@@ -661,8 +662,10 @@ async function downloadLegacy(
 }
 
 async function readProbe(stage: CreatorExecutorInput): Promise<DownloadProbe> {
-  const probeArtifact = stage.inputArtifacts.find(
+  const pinnedProbeId = stage.stageRun.progress.probeArtifactId;
+  const probeArtifact = (typeof pinnedProbeId === 'string' ? stage.job.artifacts : stage.inputArtifacts).find(
     artifact => artifact.kind === 'download_probe'
+      && (typeof pinnedProbeId !== 'string' || artifact.id === pinnedProbeId)
   );
   if (probeArtifact?.path === null || probeArtifact?.path === undefined) {
     throw new CreatorExecutorError(
@@ -734,6 +737,7 @@ function audioDownloadArgs(
     '--no-playlist',
     ...(option.playlistIndex === undefined ? [] : ['--playlist-items', String(option.playlistIndex)]),
     '--newline',
+    '--continue',
     '--windows-filenames',
     '--ffmpeg-location',
     ffmpegPath,
@@ -775,6 +779,7 @@ function videoDownloadArgs(
     '--no-playlist',
     ...(option.playlistIndex === undefined ? [] : ['--playlist-items', String(option.playlistIndex)]),
     '--newline',
+    '--continue',
     '--windows-filenames',
     '--ffmpeg-location',
     ffmpegPath,
@@ -1049,7 +1054,8 @@ function createDownloadProgressReporter(
     : [1];
   let completedParts = 0;
   let previousPartPercent = 0;
-  let reportedPercent = 2;
+  let reportedPercent = typeof stage.stageRun.progress.percent === 'number'
+    ? Math.min(95, Math.max(2, stage.stageRun.progress.percent)) : 2;
   return line => {
     const match = line.match(/\[download\]\s+([\d.]+)%/);
     if (match !== null) {
@@ -1085,6 +1091,7 @@ function createDownloadProgressReporter(
         status: 'running',
         phase: 'downloading',
         percent: reportedPercent,
+        bytesPerSecond: parseDownloadByteQuantity(/\bat\s+([\d.]+)\s*([KMGT]?i?B)\/s\b/i.exec(line)),
         message: mediaType === 'audio' ? 'Downloading audio' : 'Downloading video'
       });
       return;
@@ -1112,10 +1119,14 @@ function createDownloadProgressReporter(
 }
 
 function parseDownloadTotalBytes(line: string): number | null {
-  const match = /\bof\s+~?\s*([\d.]+)\s*([KMGT]?i?B)\b/i.exec(line);
+  const bytes = parseDownloadByteQuantity(/\bof\s+~?\s*([\d.]+)\s*([KMGT]?i?B)\b/i.exec(line));
+  return bytes !== null && bytes > 0 ? bytes : null;
+}
+
+function parseDownloadByteQuantity(match: RegExpExecArray | null): number | null {
   if (match === null) return null;
   const amount = Number(match[1]);
-  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (!Number.isFinite(amount) || amount < 0) return null;
   const unit = match[2]!.toLowerCase();
   const multipliers: Record<string, number> = {
     b: 1,
@@ -1128,7 +1139,8 @@ function parseDownloadTotalBytes(line: string): number | null {
     tb: 1_000_000_000_000,
     tib: 1_099_511_627_776
   };
-  return amount * (multipliers[unit] ?? 1);
+  const bytes = amount * (multipliers[unit] ?? 1);
+  return Number.isFinite(bytes) ? bytes : null;
 }
 
 async function safeOutputPath(workdir: string, path: string): Promise<string> {
@@ -1180,13 +1192,15 @@ function printedOutputPath(stdout: string): string | undefined {
   return path;
 }
 
-function run(
+async function run(
   binary: string,
   args: string[],
   stage: CreatorExecutorInput,
   onLine?: (line: string) => void,
   env?: NodeJS.ProcessEnv
 ): Promise<string> {
+  await stage.processControl?.waitUntilResumed();
+  stage.signal.throwIfAborted();
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawnCreatorProcess(binary, args, {
       cwd: stage.workdir,
@@ -1195,7 +1209,7 @@ function run(
         ...env
       },
       stdio: ['ignore', 'pipe', 'pipe']
-    }, stage.signal);
+    }, stage.signal, stage.processControl);
     let stdout = '';
     let stderr = '';
     const stdoutDecoder = new StringDecoder('utf8');
@@ -1237,7 +1251,9 @@ function run(
       emitLines(trailingStderr, 'stderr');
       if (stdoutBuffer) onLine?.(stdoutBuffer);
       if (stderrBuffer) onLine?.(stderrBuffer);
-      if (code === 0) resolvePromise(stdout);
+      if (code === 0) {
+        void (stage.processControl?.waitUntilResumed() ?? Promise.resolve()).then(() => resolvePromise(stdout), rejectPromise);
+      }
       else rejectPromise(classifyDownloadError(stderr, code));
     });
   });

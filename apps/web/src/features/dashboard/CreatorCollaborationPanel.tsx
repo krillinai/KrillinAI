@@ -9,14 +9,17 @@ import type {
 } from '@opencreator/protocol';
 import {
   CheckCircle2,
+  ChevronRight,
   CircleDot,
   LoaderCircle,
   MessageSquareText,
+  MoreHorizontal,
   Play,
   RefreshCw,
   ServerOff,
   Sparkles,
   Square,
+  X,
   XCircle
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -37,6 +40,7 @@ import {
 } from './creator-panel-adapters.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
 import { RuntimeRecoveryNotice, useRuntimeRecovery } from '../../runtime/runtime-recovery.js';
+import './creator-task-progress.css';
 
 export type CreatorPanelQuickAction = {
   id: string;
@@ -219,6 +223,7 @@ export default function CreatorCollaborationPanel(props: {
     <aside
       className="creator-collaboration creator-collaboration-panel"
       aria-label="OpenCreator"
+      tabIndex={-1}
     >
       <header className="creator-collaboration-header">
         <span aria-hidden="true"><OpenCreatorMark size={18} /></span>
@@ -492,10 +497,10 @@ function CollaborationActivityView(props: { event: SyncEvent }) {
   );
 }
 
-export function CreatorTaskProgressNotice(props: { stageId: string }) {
+export function CreatorTaskProgressNotice(props: { stageId?: string; stage?: CreatorStageRun }) {
   const localize = useLocalizedCopy();
   const session = useOptionalCreatorSession();
-  const stage = activeStageRun((session?.job.stages ?? []).filter(run => run.stageId === props.stageId));
+  const stage = props.stage ?? activeStageRun((session?.job.stages ?? []).filter(run => run.stageId === props.stageId));
   if (stage === undefined) return null;
   const adapter = creatorPanelAdapterFor(session?.job.templateId ?? '');
   const progress = adapter.readStageProgress(stage, localize);
@@ -506,17 +511,162 @@ export function CreatorTaskProgressNotice(props: { stageId: string }) {
         {stageStatusIcon(stage)}
         <strong>{stageProgressText(stage, progress, adapter, localize)}{percent === null ? '' : ` · ${percent}%`}</strong>
       </div>
+      <div className="creator-collaboration-stage-progress" data-indeterminate={progress.indeterminate || percent === null || undefined}
+        role="progressbar" aria-label={props.stage ? localize('原视频下载进度', 'Source video download progress') : localize('任务进度', 'Task progress')}
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined}
+        aria-valuetext={percent === null ? progress.message ?? undefined : `${percent}%`}>
+        <span style={{ width: `${percent ?? 30}%` }} />
+      </div>
       <CreatorStageProgressDetails stage={stage} progress={progress} />
     </section>
   );
 }
 
-function CreatorStageProgressDetails(props: { stage: CreatorStageRun; progress: CreatorStageProgressView }) {
+export function useCreatorTaskProgress(options: {
+  starting?: boolean;
+  onCompleted?(version: number | undefined, key: string, stageId: string): void;
+} = {}) {
+  const l = useLocalizedCopy();
+  const session = useOptionalCreatorSession();
+  const adapter = creatorPanelAdapterFor(session?.job.templateId ?? '');
+  const workflow = session ? adapter.taskProgress?.(session.job, l) ?? null : null;
+  const [dismissed, setDismissed] = useState<string>();
+  const [retryState, setRetryState] = useState<{ id: string; pending?: boolean; error?: string }>();
+  const retryingRef = useRef(false);
+  const completionRef = useRef(options.onCompleted);
+  completionRef.current = options.onCompleted;
+  const previousRef = useRef<{ key: string; active: boolean }>();
+  const stage = workflow?.stage;
+  const needsInput = session?.job.status === 'needs_input';
+  const realActive = stage?.status === 'running' || stage?.status === 'queued' || Boolean(workflow?.waitingForNext && !needsInput);
+  const realCompleted = stage?.status === 'succeeded' && !workflow?.waitingForNext;
+  useEffect(() => {
+    if (!workflow) { previousRef.current = undefined; return; }
+    if (realCompleted && previousRef.current?.key === workflow.key && previousRef.current.active) {
+      completionRef.current?.(workflow.resultVersion, workflow.key, workflow.stage.stageId);
+    }
+    previousRef.current = { key: workflow.key, active: realActive };
+  }, [workflow?.key, stage?.id, stage?.status, realActive, realCompleted]);
+
+  const starting = options.starting === true;
+  if (!starting && (!workflow || (realCompleted && dismissed === workflow.key))) return null;
+  const status = starting ? 'starting' : needsInput ? 'needs_input' : workflow?.waitingForNext ? 'running' : stage!.status;
+  const active = status === 'starting' || status === 'queued' || status === 'running';
+  const progress = stage ? adapter.readStageProgress(stage, l) : undefined;
+  const indeterminate = starting || workflow?.waitingForNext || progress?.indeterminate === true || progress?.percent == null;
+  const percent = status === 'succeeded' ? 100 : indeterminate ? null : Math.max(0, Math.min(100, Math.round(progress!.percent!)));
+  const canceling = active && stage?.progress.cancelRequested === true;
+  const label = workflow?.steps[workflow.stepIndex]?.label ?? l('创作任务', 'Creator task');
+  const title = starting ? l('正在启动任务', 'Starting task')
+    : canceling ? l('正在终止当前阶段', 'Stopping current stage')
+    : status === 'needs_input' ? l('需要补充配置', 'Configuration required')
+    : workflow?.waitingForNext ? l(`正在准备${workflow.steps[workflow.stepIndex + 1]?.label ?? ''}`, `Preparing ${workflow.steps[workflow.stepIndex + 1]?.label ?? 'next stage'}`)
+    : status === 'succeeded' ? workflow!.completionLabel
+    : status === 'failed' ? l(`${label}失败`, `${label} failed`)
+    : status === 'canceled' || status === 'interrupted' ? l(`${label}已${status === 'canceled' ? '终止' : '中断'}`, `${label} ${status === 'canceled' ? 'stopped' : 'interrupted'}`)
+    : status === 'queued' ? l(`等待${label}`, `Waiting to ${label}`)
+    : progress?.phase ? l(`正在${adapter.phaseLabel(progress.phase, l) ?? label}`, adapter.phaseLabel(progress.phase, l) ?? label) : l(`正在${label}`, `${label} in progress`);
+  const counted = progress?.completed != null && progress.total != null && progress.total > 0;
+  const summary = starting ? l('正在检查配置并提交任务，请稍候', 'Checking settings and submitting the task')
+    : status === 'failed' ? adapter.failedProgressText?.(stage!, l) ?? creatorSystemIssueText(stage!.errorCode, l)
+      ?? stage!.errorMessage ?? l('请查看详情后重试，已有产出会保留', 'View details and retry. Existing outputs are preserved.')
+    : status === 'needs_input' ? l('请在设置中完成配置，再继续任务', 'Complete the configuration in settings to continue')
+    : status === 'succeeded' ? l('已有版本保留，可预览或下载最新产出', 'Previous versions are preserved. Preview or download the latest output.')
+    : status === 'canceled' || status === 'interrupted' ? l('已有产出保留，继续时从当前阶段重新开始', 'Existing outputs are preserved. Resume to restart this stage.')
+    : workflow?.waitingForNext ? l('前一阶段已完成，正在准备下一阶段', 'The previous stage is complete. Preparing the next stage.')
+    : progress?.summary ? progress.summary
+    : counted ? l(`已完成 ${progress.completed} / ${progress.total} 段${progress.failed ? ` · ${progress.failed} 段失败` : ''}`, `Completed ${progress.completed} / ${progress.total} segments${progress.failed ? ` · ${progress.failed} failed` : ''}`)
+    : progress?.message ?? l('任务正在后台执行，可继续查看字幕', 'The task runs in the background. You can continue reviewing subtitles.');
+
+  async function retry() {
+    if (!session || !stage || status !== 'failed' || retryingRef.current || session.job.stages.some(run => run.status === 'queued' || run.status === 'running')) return;
+    retryingRef.current = true;
+    setRetryState({ id: stage.id, pending: true });
+    session.clearError();
+    try {
+      // Retry the same stage and version instead of generating all upstream outputs again.
+      await session.applyAction({ action: 'run-stage', input: {
+        stageId: stage.stageId,
+        resumedFromStageRunId: stage.id,
+        ...(stage.progress.workflow === true ? { workflow: true } : {}),
+        ...Object.fromEntries(['baseResultVersion', 'inputResultVersion', 'targetResultVersion', 'workflowParentStageRunId']
+          .filter(field => stage.progress[field] !== undefined).map(field => [field, stage.progress[field]!]))
+      } });
+      setRetryState(undefined);
+    } catch (error) {
+      setRetryState({ id: stage.id, error: creatorSystemIssueText((error as { code?: string })?.code ?? null, l)
+        ?? l('重试未能启动，请查看详情后再试', 'Could not start the retry. View details and try again.') });
+    } finally { retryingRef.current = false; }
+  }
+  return { workflow, stage, status, active, starting, canceling, progress, percent, title, summary,
+    retry, retryPending: retryState?.id === stage?.id && retryState?.pending === true,
+    controlError: retryState?.id === stage?.id ? retryState?.error : undefined,
+    dismiss: () => { if (workflow && status === 'succeeded') setDismissed(workflow.key); } };
+}
+
+export function CreatorTaskProgressBar(props: {
+  task: NonNullable<ReturnType<typeof useCreatorTaskProgress>>;
+  onDetails(): void;
+  onCancel?(): void;
+  onResume?(): void;
+  onPreview?(): void;
+  onDownload?(): void;
+  controlPending?: 'canceling' | 'resuming';
+}) {
+  const l = useLocalizedCopy();
+  const { task } = props;
+  const success = task.status === 'succeeded';
+  const failed = task.status === 'failed';
+  const stopped = task.status === 'canceled' || task.status === 'interrupted';
+  const busy = task.retryPending || props.controlPending !== undefined;
+  const phase = task.workflow?.stepIndex ?? 0;
+  return <section className="creator-task-progress-bar" data-state={task.status} aria-label={l('当前任务进度', 'Current task progress')}>
+    <div className="creator-task-progress-bar-content">
+      <span className="creator-task-progress-bar-icon" aria-hidden="true" data-spinning={task.active || undefined}>
+        {task.active ? <LoaderCircle size={18} /> : success ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+      </span>
+      <div className="creator-task-progress-bar-summary">
+        <strong role="status">{task.title}{!task.starting && task.workflow?.resultVersion ? <small className="creator-task-progress-bar-version"> · V{task.workflow.resultVersion}</small> : null}</strong>
+        <div><span title={task.controlError ?? task.summary}>{task.controlError ?? task.summary}</span>
+          {task.active && !task.starting && task.stage && task.progress ? <CreatorStageProgressDetails stage={task.stage} progress={task.progress} compact /> : null}
+        </div>
+      </div>
+      {!task.starting ? <ol className="creator-task-progress-bar-stages" aria-label={l('执行阶段', 'Workflow stages')}>
+        {task.workflow?.steps.map((step, index) => <li key={step.id} aria-current={!success && index === phase ? 'step' : undefined} data-completed={index < phase || success || undefined}>
+          {index > 0 ? <ChevronRight size={13} aria-hidden="true" /> : null}
+          <span>{index < phase || success ? <CheckCircle2 size={12} /> : index + 1}</span>{step.label}
+        </li>)}
+      </ol> : null}
+      {task.percent !== null ? <strong className="creator-task-progress-bar-percent" title={l('当前阶段进度', 'Current stage progress')}>{task.percent}<span>%</span></strong> : null}
+      <div className="creator-task-progress-bar-actions">
+        {failed ? <button type="button" disabled={busy} onClick={() => void task.retry()}>{task.retryPending ? l('正在重试…', 'Retrying…') : l('重试当前阶段', 'Retry stage')}</button> : null}
+        {stopped && props.onResume ? <button type="button" disabled={busy} onClick={props.onResume}>{props.controlPending === 'resuming' ? l('正在继续…', 'Resuming…') : l('继续任务', 'Resume task')}</button> : null}
+        {success && props.onPreview ? <button type="button" onClick={props.onPreview}>{l('查看成片', 'View video')}</button> : null}
+        {success && props.onDownload ? <button type="button" onClick={props.onDownload}>{l('下载视频', 'Download video')}</button> : null}
+        <button type="button" onClick={props.onDetails}>{l('查看详情', 'View details')}<ChevronRight size={14} aria-hidden="true" /></button>
+        {task.active && !task.starting && props.onCancel ? <details className="creator-task-progress-bar-menu" key={`${task.stage?.id}-${task.status}`}
+          onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.removeAttribute('open'); }}
+          onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); event.currentTarget.removeAttribute('open'); event.currentTarget.querySelector('summary')?.focus(); } }}>
+          <summary aria-label={l('更多任务操作', 'More task actions')}><MoreHorizontal size={18} aria-hidden="true" /></summary>
+          <div><button type="button" disabled={busy || task.canceling} onClick={event => {
+            event.currentTarget.closest('details')?.removeAttribute('open'); props.onCancel?.();
+          }}>{task.canceling || props.controlPending === 'canceling' ? l('正在终止…', 'Stopping…') : l('终止当前任务', 'Stop current task')}</button></div>
+        </details> : null}
+        {success ? <button type="button" aria-label={l('关闭完成提示', 'Dismiss completion notice')} onClick={task.dismiss}><X size={15} /></button> : null}
+      </div>
+    </div>
+    {task.active || success ? <div className="creator-task-progress-bar-track" role="progressbar" aria-label={l('当前阶段进度', 'Current stage progress')}
+      data-indeterminate={task.percent === null || undefined} aria-valuemin={0} aria-valuemax={100} aria-valuenow={task.percent ?? undefined}
+      aria-valuetext={task.percent === null ? task.title : `${task.percent}%`}><span style={{ width: `${task.percent ?? 30}%` }} /></div> : null}
+  </section>;
+}
+
+function CreatorStageProgressDetails(props: { stage: CreatorStageRun; progress: CreatorStageProgressView; compact?: boolean }) {
   const localize = useLocalizedCopy();
   const session = useOptionalCreatorSession();
   const { stage, progress } = props;
   const active = stage.status === 'queued' || stage.status === 'running';
-  const showTiming = active && progress.showTiming === true;
+  const showTiming = active && (props.compact || progress.showTiming === true);
   const observedRef = useRef({ stageId: stage.id, progress: stage.progress, firstSeenAt: Date.now(), receivedAt: Date.now() });
   if (observedRef.current.stageId !== stage.id) {
     observedRef.current = { stageId: stage.id, progress: stage.progress, firstSeenAt: Date.now(), receivedAt: Date.now() };
@@ -545,6 +695,10 @@ function CreatorStageProgressDetails(props: { stage: CreatorStageRun; progress: 
       : waitingForProvider && elapsedSeconds >= 120
         ? localize('仍在等待服务商返回结果，生成时间由服务商决定。可以离开当前页面，任务会在后台继续。', 'Still waiting for the provider result. Generation time depends on the provider. You can leave this page; the task continues in the background.', 'Väntar fortfarande på leverantörens resultat. Genereringstiden beror på leverantören. Du kan lämna sidan; uppgiften fortsätter i bakgrunden.')
         : null;
+  if (props.compact) return <small className="creator-task-progress-bar-timing" title={warning ?? undefined} aria-live="off">
+    {disconnected ? localize('连接中断，正在重连', 'Connection lost; reconnecting') : stage.startedAt === null
+      ? localize(`已等待 ${duration}`, `Waiting ${duration}`) : localize(`已运行 ${duration}`, `Elapsed ${duration}`)}
+  </small>;
   return (
     <div className="creator-collaboration-stage-details">
       {active && progress.showMessage && progress.message ? <p className="creator-collaboration-stage-message" role="status">{progress.message}</p> : null}
@@ -583,8 +737,10 @@ function CollaborationStageView(props: {
   return (
     <article
       className="creator-collaboration-stage"
+      data-stage-run-id={stage.id}
       data-status={stage.status}
       data-compact={compact || undefined}
+      tabIndex={-1}
     >
       <header>
         <span aria-hidden="true">{stageStatusIcon(stage)}</span>

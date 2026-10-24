@@ -1,3 +1,4 @@
+import { changeControl } from '../../test/select-option.js';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type {
   CreatorActionRequest,
@@ -158,7 +159,7 @@ describe('CoverGeneratorWorkspace', () => {
     fireEvent.change(within(workspace).getByRole('textbox', { name: '内容与补充要求' }), {
       target: { value: '参考上传图片的主体和构图' }
     });
-    fireEvent.change(within(workspace).getByLabelText('上传封面参考图'), {
+    changeControl(within(workspace).getByLabelText('上传封面参考图'), {
       target: { files: [reference] }
     });
     fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
@@ -241,7 +242,7 @@ describe('CoverGeneratorWorkspace', () => {
     });
     fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
     fireEvent.click(within(workspace).getByRole('radio', { name: '财富' }));
-    fireEvent.change(within(workspace).getByLabelText('封面文字语言'), {
+    changeControl(within(workspace).getByLabelText('封面文字语言'), {
       target: { value: 'en-US' }
     });
     fireEvent.change(within(workspace).getByRole('textbox', { name: '主标题 选填' }), {

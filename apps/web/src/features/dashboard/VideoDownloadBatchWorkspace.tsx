@@ -210,7 +210,8 @@ export default function VideoDownloadBatchWorkspace(props: ComponentProps<typeof
     try {
       session.clearError();
       const latest = session.job.stages.at(-1);
-      if ((latest?.status === 'canceled' || latest?.status === 'interrupted') && source.job.artifacts.some(artifact => artifact.kind === 'download_probe')) {
+      if ((latest?.status === 'canceled' || latest?.status === 'interrupted') && latest.progress.downloadControl !== 'canceled'
+        && source.job.artifacts.some(artifact => artifact.kind === 'download_probe')) {
         await session.resumeJob();
       } else if (latest?.status === 'failed' && latest.stageId === 'download'
         && typeof latest.progress.optionId === 'string'

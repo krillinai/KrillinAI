@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import * as fontkit from 'fontkit';
 import { verifyRuntimeExecutable } from './runtime-executable-check.mjs';
 import { stripMacNodeRuntime } from './prepare-creator-node.mjs';
+import { creatorNlpLockPath, prepareCreatorNlpRuntime } from './creator-nlp-runtime.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -75,6 +76,20 @@ for (const [name, configured, vendored] of externalInputs) {
   copyExecutable(source, target);
 }
 const ytDlpRuntime = prepareYtDlpRuntime(vendorVersions);
+const nlpPythonRoot = ytDlpRuntime.descriptor.mode === 'python'
+  ? join(outputRoot, 'yt-dlp-runtime', 'python')
+  : join(outputRoot, 'nlp-runtime', 'python');
+if (ytDlpRuntime.descriptor.mode !== 'python') {
+  mkdirSync(dirname(nlpPythonRoot), { recursive: true });
+  extractPythonRuntime(join(vendorRoot, 'python-runtime.tar.gz'), dirname(nlpPythonRoot));
+  removePythonBytecodeCaches(nlpPythonRoot);
+  clearMacOSFileMetadata(nlpPythonRoot, true);
+}
+const nlpExecutable = portablePythonExecutable(nlpPythonRoot, targetPlatform);
+const nlpRuntime = prepareCreatorNlpRuntime({
+  vendorRoot, outputRoot, pythonRoot: nlpPythonRoot, pythonExecutable: nlpExecutable,
+  platform: targetPlatform, arch: targetArch
+});
 const javascriptRuntime = prepareYtDlpJavascriptRuntime(vendorVersions);
 ytDlpRuntime.descriptor.javascriptRuntime = javascriptRuntime.descriptor;
 ytDlpRuntime.resourcePaths.push(...javascriptRuntime.resourcePaths);
@@ -96,6 +111,7 @@ const buildRecord = {
   sourceCommit,
   sourceSha256,
   ytDlp: ytDlpRuntime.descriptor,
+  nlp: nlpRuntime.descriptor,
   subtitleFonts: {
     manifestSha256: subtitleFonts.manifestSha256,
     resourceCount: subtitleFonts.resourcePaths.length
@@ -106,6 +122,9 @@ const buildRecord = {
     join(scriptDir, 'creator-runtime-releases.mjs'),
     join(scriptDir, 'prepare-creator-runtime.mjs'),
     join(scriptDir, 'prepare-creator-node.mjs'),
+    join(scriptDir, 'creator-nlp-runtime.mjs'),
+    join(scriptDir, 'install-creator-nlp-wheels.py'),
+    creatorNlpLockPath,
     join(rootDir, 'apps', 'daemon', 'src', 'creator', 'krillin', 'adapter.ts'),
     join(rootDir, 'apps', 'daemon', 'src', 'creator', 'krillin', 'cli-runner.ts'),
     join(rootDir, 'apps', 'daemon', 'src', 'creator', 'krillin', 'config-bridge.ts'),
@@ -119,14 +138,16 @@ const buildRecord = {
 const buildRecordPath = join(outputRoot, 'build-record.json');
 writeFileSync(buildRecordPath, `${JSON.stringify(buildRecord, null, 2)}\n`);
 
-const resourcePaths = [
+const resourcePaths = [...new Set([
   primaryExecutablePath,
   ...externalInputs.map(([name]) => join(binDir, `${name}${executableSuffix}`)),
   ...ytDlpRuntime.resourcePaths,
+  ...nlpRuntime.resourcePaths,
+  ...(ytDlpRuntime.descriptor.mode === 'python' ? [] : listFiles(dirname(nlpPythonRoot))),
   ...subtitleFonts.resourcePaths,
   subtitleStylePath,
   buildRecordPath
-];
+])];
 const manifest = {
   version: 1,
   runtimeMode,
@@ -137,10 +158,11 @@ const manifest = {
   platform: targetPlatform,
   arch: targetArch,
   ytDlp: ytDlpRuntime.descriptor,
+  nlp: nlpRuntime.descriptor,
   resources: resourcePaths.map(path => ({
     path: relative(outputRoot, path).replaceAll('\\', '/'),
     sha256: hashFile(path),
-    kind: path.startsWith(binDir) || ytDlpRuntime.executablePaths.includes(path)
+    kind: path.startsWith(binDir) || ytDlpRuntime.executablePaths.includes(path) || path === nlpExecutable
       ? 'executable'
       : 'asset'
   }))
@@ -351,7 +373,7 @@ function ensureExternalDependencies() {
     [process.env.OPENCREATOR_FFMPEG_PATH, join(vendorRoot, `ffmpeg${executableSuffix}`)],
     [process.env.OPENCREATOR_FFPROBE_PATH, join(vendorRoot, `ffprobe${executableSuffix}`)],
     [configuredYtDlpPath, join(vendorRoot, 'yt-dlp')],
-    [configuredYtDlpPath, join(vendorRoot, 'python-runtime.tar.gz')],
+    [undefined, join(vendorRoot, 'python-runtime.tar.gz')],
     [configuredYtDlpPath, join(vendorRoot, 'cacert.pem')],
     [process.env.OPENCREATOR_YT_DLP_NODE_PATH, join(vendorRoot, targetPlatform === 'win32' ? 'node-runtime.zip' : 'node-runtime.tar.gz')]
   ];

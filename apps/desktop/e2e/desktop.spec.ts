@@ -1599,6 +1599,34 @@ test('@package-smoke 创作模块连接内嵌 Runtime 并使用默认项目', as
   }
 });
 
+test('@package-smoke 字幕 Worker 和 WASM 在实际 App 的 CSP 下加载并渲染', async ({}, testInfo) => {
+  const fixture = await launchPackagedDesktop('success', { runtimeMode: 'bundled' });
+  const loaded: string[] = [];
+  const errors: string[] = [];
+  fixture.page.on('response', response => loaded.push(response.url()));
+  fixture.page.on('pageerror', error => errors.push(error.message));
+  try {
+    await waitForWorkspace(fixture.page);
+    await fixture.page.setViewportSize({ width: 1440, height: 900 });
+    const projects = await runtimeRequest<{ projects: Array<{ id: string }> }>(fixture.page, 'GET', '/projects?status=all');
+    const created = await runtimeRequest<{ job: { id: string } }>(fixture.page, 'POST', '/creator/jobs', {
+      projectId: projects.body.projects[0]!.id, templateId: 'video-translation', templateVersion: 2, creationKey: 'packaged-subtitle-renderer',
+      state: { sourceType: 'file', sourceLanguage: 'en', targetLanguage: 'zh_cn', composeVideo: true, currentStep: 2, furthestStep: 2, workspacePhase: 'configure' }
+    });
+    expect(created.status).toBe(201);
+    await navigateToAppRoute(fixture.page, `#/workbench?tool=video-translation&jobId=${created.body.job.id}`);
+    const composition = fixture.page.locator('.subtitle-composition-preview');
+    await expect(composition).toHaveAttribute('data-status', 'ready');
+    await expect(composition.locator('canvas')).toBeVisible();
+    expect(loaded.some(url => url.includes('/subtitle-render/fonts/'))).toBe(true);
+    expect(loaded.some(url => /\/assets\/worker-.*\.js$/.test(url))).toBe(true);
+    expect(loaded.some(url => /\.wasm$/.test(url))).toBe(true);
+    expect(errors).toEqual([]);
+    await fixture.page.waitForTimeout(300);
+    await composition.screenshot({ path: testInfo.outputPath('packaged-subtitle-preview.png') });
+  } finally { await closeFixture(fixture); }
+});
+
 test('@package-smoke Windows YouTube 专用登录完成和取消，保存后重启复用', async ({}, testInfo) => {
   test.skip(process.platform !== 'win32', 'Windows normal Chrome login');
   let fixture = await launchPackagedDesktop('success');

@@ -4,11 +4,20 @@ import { isDirectTransport, isSupplierBase, supplierBases, type SupplierRegion }
 
 const tokenSchema = z.object({ accessToken: z.string().min(12), refreshToken: z.string().min(12), expiresIn: z.number().int().positive() });
 const modelSchema = z.object({
+  catalogSchema: z.number().int().optional(),
   id: z.string().min(1), name: z.string().optional(),
   modality: z.enum(['text', 'image', 'video', 'speech', 'transcription']),
   capabilities: z.array(z.string()), voices: z.array(z.string().min(1)).optional(),
+  textOptions: z.object({ maxOutputTokens: z.number().int().positive() }).optional(),
+  voiceProfiles: z.record(z.object({
+    gender: z.enum(['female', 'male', 'neutral']).optional(),
+    traits: z.record(z.array(z.string())).optional(),
+    useCases: z.record(z.array(z.string())).optional(),
+    description: z.record(z.string()).optional(),
+    sourceUrls: z.array(z.string().url()).optional()
+  })).optional(),
   vendor: z.string().optional(), status: z.enum(['ready','temporarily_unavailable','retired']).optional(), statusReason: z.string().optional(), recommended: z.boolean().optional(),
-  price: z.object({version:z.string(),billing:z.literal('usage').optional(),inputPerMillion:z.number().optional(),cachedInputPerMillion:z.number().optional(),cacheWritePerMillion:z.number().optional(),imageInputPerMillion:z.number().optional(),outputPerMillion:z.number().optional(),perMinute:z.number().optional(),perMillionCharacters:z.number().optional(),perRequest:z.number().optional(),videoUnitsPerSecond:z.record(z.number().int().positive().max(1_000_000_000_000)).optional()}).optional(),
+  price: z.object({estimates:z.record(z.object({creditUnits:z.string().regex(/^\d+$/),usage:z.record(z.number().int().nonnegative()).optional(),resolution:z.string().optional(),quality:z.string().optional(),seconds:z.number().int().positive().optional(),images:z.number().int().positive().optional()})).optional(),version:z.string(),billing:z.literal('usage').optional(),inputPerMillion:z.number().optional(),cachedInputPerMillion:z.number().optional(),cacheWritePerMillion:z.number().optional(),imageInputPerMillion:z.number().optional(),outputPerMillion:z.number().optional(),perMinute:z.number().optional(),perMillionCharacters:z.number().optional(),perRequest:z.number().optional(),videoUnitsPerSecond:z.record(z.number().int().positive().max(1_000_000_000_000)).optional()}).optional(),
   videoOptions: z.object({ profile:z.string(), maxImages:z.number().int().min(0).max(30), maxVideos:z.number().int().min(0).max(10), maxAudios:z.number().int().min(0).max(10), firstLastFrames:z.boolean(), framesExclusive:z.boolean(), generateAudio:z.boolean(), referenceDuration:z.number().int().positive().optional() }).optional(),
   sizes: z.array(z.string().regex(/^\d+x\d+$/)).optional(),
   durations: z.array(z.number().int().positive()).optional(),
@@ -21,6 +30,7 @@ const modelSchema = z.object({
   imageOptions: z.object({
     aspectRatios: z.array(z.string()).optional(), resolutions: z.array(z.string()).optional(),
     qualities: z.array(z.string()).optional(), outputFormats: z.array(z.string()).optional(),
+    imagesPerRequest: z.number().int().min(1).max(4).optional(),
     maxImages: z.number().int().min(1).max(10), maxReferences: z.number().int().nonnegative()
   }).optional()
 });
@@ -42,10 +52,11 @@ export const bootstrapCredentialsSchema = z.object({
   models: z.array(modelSchema), defaults: z.record(z.string()), ...catalogMetadata
 });
 export const bootstrapSchema = bootstrapCredentialsSchema
-  .refine(value => value.transport === 'gateway' && value.schemaVersion === 3 ? !value.modelKey && value.supplier === 'chatanywhere' && value.keyRotation === false : !!value.modelKey && value.schemaVersion !== 3, 'Invalid gateway credentials')
+  .refine(value => value.transport === 'gateway' && value.schemaVersion === 3 ? !value.modelKey && (!value.supplier || value.supplier === 'chatanywhere') && value.keyRotation === false : !!value.modelKey && value.schemaVersion !== 3, 'Invalid gateway credentials')
   .refine(value => value.modelUsePolicy !== cachedModelUsePolicy || (isDirectTransport(value.transport) && value.keyRotation === false), 'Cached model credentials require a stable direct binding')
   .refine(value => value.transport !== 'supplier-direct' || (value.schemaVersion === 2 && value.supplier !== 'openrouter' && isSupplierBase(value.supplier, value.baseUrl)), 'Invalid supplier binding')
-  .refine(value => value.transport !== 'openrouter-direct' || ((!value.supplier || value.supplier === 'openrouter') && value.baseUrl === supplierBases.openrouter), 'Invalid OpenRouter binding');
+  .refine(value => value.transport !== 'openrouter-direct' || ((!value.supplier || value.supplier === 'openrouter') && value.baseUrl === supplierBases.openrouter), 'Invalid OpenRouter binding')
+  .transform(value => value.transport === 'gateway' ? { ...value, supplier: 'chatanywhere' as const } : value);
 export type GatewayBootstrap = z.infer<typeof bootstrapSchema>;
 export type GatewayTokens = z.infer<typeof tokenSchema>;
 export type GatewayDeviceGrant = { attemptId: string; deviceSecret: string; authorizationUrl: string; interval: number; expiresIn: number };
@@ -140,6 +151,8 @@ export function createGatewayClient(origin: string, fetcher: typeof fetch = fetc
     async bootstrap(access, options) {
       const query = new URLSearchParams();
       query.set('protocolVersion', '3');
+      query.set('catalogSchema', '2');
+      query.set('publicMetadata', '1');
       if (options) query.set('rotate', options.rotate ? '1' : '0');
       if (options?.modelUsePolicy) query.set('modelUsePolicy', options.modelUsePolicy);
       if (options?.region) query.set('region', options.region);

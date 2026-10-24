@@ -10,6 +10,8 @@ export type CreatorResultVersionItem = {
 };
 
 export default function CreatorResultVersionMenu(props: {
+  label?: string;
+  disabled?: boolean;
   showCompletion?: boolean;
   version: number;
   versions: CreatorResultVersionItem[];
@@ -62,13 +64,14 @@ export default function CreatorResultVersionMenu(props: {
     <div className="video-result-version" ref={versionMenuRef}>
       <button
         type="button"
+        disabled={props.disabled}
         aria-expanded={historyOpen}
         aria-haspopup="menu"
         aria-controls={menuId}
         onClick={() => setHistoryOpen(open => !open)}
       >
         {!stale && props.showCompletion !== false ? <CircleCheck size={15} strokeWidth={2} aria-hidden="true" /> : null}
-        <span>{l(`项目 V${props.version}`, `Project V${props.version}`)}</span>
+        <span>{props.label ?? l(`项目 V${props.version}`, `Project V${props.version}`)}</span>
         <ChevronDown className="video-result-version-chevron" size={15} strokeWidth={1.8} aria-hidden="true" />
       </button>
       {historyOpen ? (

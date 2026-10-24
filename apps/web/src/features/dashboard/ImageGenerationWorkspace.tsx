@@ -169,15 +169,15 @@ export default function ImageGenerationWorkspace(props: {
   const resultQuality = savedModelQuality || resultSettings?.modelQuality === ''
     ? { zh: imageQualityLabel(savedModelQuality, l) || l('默认', 'Default'), en: imageQualityLabel(savedModelQuality, l) || l('默认', 'Default') }
     : qualities.find(item => item.value === readQuality(resultSettings?.quality)) ?? qualities[1]!;
-  const supportsReferenceImage = session === null
-    || session.job.id.startsWith('pending:')
-    || session.job.templateVersion >= 2;
+  const outputBatchSize = official.model?.catalogSchema === 2 ? official.model.imageOptions?.imagesPerRequest ?? 1 : 1;
+  const supportsReferenceImage = (session === null || session.job.id.startsWith('pending:') || session.job.templateVersion >= 2)
+    && (!official.official || official.model?.catalogSchema !== 2 || (official.model.capabilities.includes('edit') && (official.model.imageOptions?.maxReferences ?? 0) > 0));
   const activeReferenceArtifact = findArtifact(
     session?.job.artifacts ?? [],
     session?.state.referenceImageArtifactId,
     'reference_image'
   );
-  const missingReference = imagePromptRequiresReference(prompt)
+  const missingReference = (imagePromptRequiresReference(prompt) || official.model?.capabilities.includes('reference_required'))
     && referenceFile === null && activeReferenceArtifact === undefined;
   const referenceValidationMessage = missingReference ? l(
     '当前提示词需要基于已有图片生成，请先上传参考图；如需纯文字生图，请移除对上传图片或原图的要求。',
@@ -194,6 +194,13 @@ export default function ImageGenerationWorkspace(props: {
     activeReferenceArtifact?.version, activeReferenceArtifact?.sha256, activeReferenceArtifact?.path]);
   const currentReferenceName = referenceFile?.name
     ?? readArtifactString(activeReferenceArtifact, 'fileName');
+  useEffect(() => {
+    if (supportsReferenceImage || official.taskRunning || busy) return;
+    if (referenceFile !== null) setReferenceFile(null);
+    if (activeReferenceArtifact !== undefined) {
+      session?.updateDraft({ referenceImageArtifactId: null }, { semantic: true });
+    }
+  }, [supportsReferenceImage, official.taskRunning, busy, referenceFile, activeReferenceArtifact?.id, session?.updateDraft]);
   const shouldLoadDefaultProvider = session !== null
     && (
       session.state.provider === undefined
@@ -499,14 +506,14 @@ export default function ImageGenerationWorkspace(props: {
         ? l('正在生成图片', 'Generating images')
         : selectedResult
           ? l(`V${selectedResult.value} · ${selectedResult.artifacts.length} 张图片`, `V${selectedResult.value} · ${selectedResult.artifacts.length} images`, `V${selectedResult.value} · ${selectedResult.artifacts.length} bilder`)
-          : `${l(selectedProvider.zh, selectedProvider.en)} · ${selectedSize.ratio} · ${count}`}
+          : `${l(selectedProvider.zh, selectedProvider.en)} · ${selectedSize.ratio} · ${count * outputBatchSize}`}
       taskSummary={<CreatorTaskSummary
         sourceIcon={ImageIcon}
         sourceLabel={l('画面描述', 'Prompt')}
         sourceValue={(selectedResult ? readString(resultSettings?.prompt) : prompt.trim()) || l('待添加', 'Not added', 'Inte tillagt')}
         compactSummary={selectedResult
           ? `${l(resultProvider.zh, resultProvider.en)} · ${resultSizeOption.ratio} · V${selectedResult.value}`
-          : `${l(selectedProvider.zh, selectedProvider.en)} · ${selectedSize.ratio} · ${l(`${count} 张`, `${count} images`, `${count} bilder`)}`}
+          : `${l(selectedProvider.zh, selectedProvider.en)} · ${selectedSize.ratio} · ${l(`${count * outputBatchSize} 张`, `${count * outputBatchSize} images`, `${count * outputBatchSize} bilder`)}`}
         items={selectedResult ? [
           { label: l('图像服务', 'Provider'), value: l(resultProvider.zh, resultProvider.en) },
           { label: l('画幅', 'Format'), value: resultSettings?.aspectRatio ? resultSizeOption.ratio : `${l(resultSizeOption.zh, resultSizeOption.en)} · ${resultSizeOption.ratio}` },
@@ -656,7 +663,7 @@ export default function ImageGenerationWorkspace(props: {
                 <div className="creator-tool-segmented" role="radiogroup" aria-label={l('生成数量', 'Number of images')}>
                   {(!official.official && provider === 'codex-native' ? [1] : [1, 2, 4].filter(value => value <= (official.official ? official.model?.imageOptions?.maxImages ?? 4 : 4))).map(value => (
                     <button type="button" role="radio" aria-checked={count === value} aria-selected={count === value} key={value} onClick={() => updateCount(value)}>
-                      {value} {l('张', value === 1 ? 'image' : 'images')}
+                      {value * outputBatchSize} {l('张', value * outputBatchSize === 1 ? 'image' : 'images')}
                     </button>
                   ))}
                 </div>
@@ -722,7 +729,7 @@ export default function ImageGenerationWorkspace(props: {
                 <span><Images size={24} strokeWidth={1.6} /></span>
                 <strong>{generating ? l('正在生成图片', 'Generating images') : l('准备生成图片', 'Ready to generate images')}</strong>
                 <p>{l(
-                  `${l(selectedProvider.zh, selectedProvider.en)} · ${count} 张 ${selectedSize.ratio} 图片 · ${l(selectedQuality.zh, selectedQuality.en)}质量`,
+                  `${l(selectedProvider.zh, selectedProvider.en)} · ${count * outputBatchSize} 张 ${selectedSize.ratio} 图片 · ${l(selectedQuality.zh, selectedQuality.en)}质量`,
                   `${selectedProvider.en} · ${count} ${selectedSize.ratio} images · ${selectedQuality.en} quality`,
                   `${l(selectedProvider.zh, selectedProvider.en)} · ${count} bilder i ${selectedSize.ratio} · ${l(selectedQuality.zh, selectedQuality.en)} kvalitet`
                 )}</p>

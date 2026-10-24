@@ -1,4 +1,4 @@
-import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, gatewayPublicModelId } from '@opencreator/protocol';
 import { parse } from '@iarna/toml';
 import {
   chmodSync,
@@ -21,6 +21,7 @@ import {
   runKrillinCli
 } from '../../src/creator/krillin/cli-runner.js';
 import { KrillinCliError } from '../../src/creator/krillin/cli-runner.js';
+import { createGatewayCreatorSource } from '../../src/gateway/creator-service-source.js';
 import type { KrillinRuntimeManifest } from '../../src/creator/krillin/manifest.js';
 
 let tempDir = '';
@@ -249,7 +250,8 @@ describe('KrillinAI CLI runner', () => {
     expect(runProcess).not.toHaveBeenCalled();
   });
 
-  it.skipIf(process.platform === 'win32')('writes private config, invokes the official CLI shape, maps outputs, and removes secrets', async () => {
+  it.skipIf(process.platform === 'win32').each(['manual', 'official-flash', 'official-other'])('writes private config, invokes the CLI, and enables Flash failover only for another official model (%s)', async mode => {
+    const official = mode !== 'manual';
     tempDir = mkdtempSync(join(tmpdir(), 'creator-krillin-cli-'));
     const resourceRoot = join(tempDir, 'runtime');
     const jobsRoot = join(tempDir, 'jobs');
@@ -291,7 +293,24 @@ describe('KrillinAI CLI runner', () => {
         kind: 'executable'
       }]
     };
-    const config = createDefaultCreatorServicesConfig();
+    const manual = createDefaultCreatorServicesConfig();
+    const flashName = 'deepseek-v4.1-flash';
+    const flashId = gatewayPublicModelId(`88api/${flashName}`);
+    const modelName = mode === 'official-other' ? 'gpt-6-luna' : flashName;
+    const textModel = `88api/${modelName}`;
+    const officialSource = createGatewayCreatorSource({
+      account: {
+        peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', activationError: null, models: [],
+          account: { id: 'test-user', email: 'test@example.test', verified: true }, bindingVersion: 'test-binding' }),
+        modelCredentials: async () => ({ accountId: 'test-user', transport: 'gateway', modelKey: 'test-token', keyVersion: '1', bindingVersion: 'test-binding',
+          baseUrl: 'https://gateway.example/v1', defaults: { text: textModel, transcription: 'test-asr' },
+          models: [{ id: gatewayPublicModelId(textModel), name: modelName, modality: 'text', capabilities: ['chat'], textOptions: { maxOutputTokens: 4096 } },
+            ...(mode === 'official-other' ? [{ id: flashId, name: flashName, modality: 'text' as const, capabilities: ['chat'] }] : [])] })
+      },
+      manual: { read: async () => manual, write: async value => value, reset: async () => manual },
+      getLocalOrigin: () => 'http://127.0.0.1:39999'
+    });
+    const config = official ? await officialSource.store.read() : manual;
     config.llm.apiKey = 'llm-test-secret';
     config.transcription.provider = 'whisperkit';
     config.transcription.openai.apiKey = 'transcription-test-secret';
@@ -304,6 +323,7 @@ describe('KrillinAI CLI runner', () => {
       },
       job: {
         id: 'job-1',
+        templateId: 'video-translation',
         state: {}
       },
       inputArtifacts: [],
@@ -344,6 +364,10 @@ describe('KrillinAI CLI runner', () => {
       'bilingual_subtitle',
       'vertical_subtitle'
     ]);
+    expect(artifacts.find(artifact => artifact.kind === 'target_subtitle')?.metadata).toMatchObject({
+      translationStatus: 'complete', translationFailedCount: 0, translationFailures: []
+    });
+    expect(artifacts.find(artifact => artifact.kind === 'source_subtitle')?.metadata).toBeUndefined();
     expect(JSON.parse(readFileSync(join(workdir, 'observed-args.json'), 'utf8'))).toEqual(expect.arrayContaining([
       'subtitle',
       '--prepare-video',
@@ -355,6 +379,15 @@ describe('KrillinAI CLI runner', () => {
       '--bilingual-top=false'
     ]));
     expect(readFileSync(join(workdir, 'observed-config.toml'), 'utf8')).toContain('transcription-test-secret');
+    const observed = parse(readFileSync(join(workdir, 'observed-config.toml'), 'utf8')) as { llm: Record<string, unknown> };
+    expect(observed.llm).not.toHaveProperty('max_output_tokens');
+    if (official) expect(observed.llm).toMatchObject({ model: textModel, model_name: modelName });
+    else expect(observed.llm).not.toHaveProperty('model_name');
+    if (mode === 'official-other') expect(observed).toMatchObject({ llm_fallback: {
+      model: flashId, model_name: flashName, api_key: expect.stringMatching(/^oclocal_/),
+      base_url: 'http://127.0.0.1:39999/internal/krillin-llm/gateway/v1'
+    } });
+    else expect(observed).not.toHaveProperty('llm_fallback');
     expect(JSON.parse(readFileSync(join(workdir, 'observed-dependencies.json'), 'utf8'))).toEqual({
       resourceRoot: join(workdir, '.krillin-cli'),
       offline: '1',
@@ -530,7 +563,7 @@ describe('KrillinAI CLI runner', () => {
     ]);
   });
 
-  it.skipIf(process.platform === 'win32')('selects the short vertical subtitle without changing horizontal subtitle selection', async () => {
+  it.skipIf(process.platform === 'win32').each(['top', 'bottom'])('preserves bilingual document text and subtitle selection with translation on %s', async subtitlePosition => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-krillin-cli-render-'));
     const resourceRoot = join(tempDir, 'runtime');
     const jobsRoot = join(tempDir, 'jobs');
@@ -538,6 +571,7 @@ describe('KrillinAI CLI runner', () => {
     const cli = join(resourceRoot, 'bin', 'krillinai-cli');
     const source = join(jobsRoot, 'job-render', 'artifacts', 'source.mp4');
     const target = join(jobsRoot, 'job-render', 'artifacts', 'target.srt');
+    const original = join(jobsRoot, 'job-render', 'artifacts', 'original.srt');
     const bilingual = join(jobsRoot, 'job-render', 'artifacts', 'bilingual.srt');
     const vertical = join(jobsRoot, 'job-render', 'artifacts', 'vertical.srt');
     mkdirSync(dirname(cli), { recursive: true });
@@ -545,6 +579,7 @@ describe('KrillinAI CLI runner', () => {
     writeFileSync(cli, `#!${process.execPath}\n${FAKE_CLI}`);
     writeFileSync(source, 'fixture-video');
     writeFileSync(target, '1\n00:00:00,000 --> 00:00:01,000\n目标字幕\n');
+    writeFileSync(original, '1\n00:00:00,000 --> 00:00:01,000\nSource subtitle\n');
     writeFileSync(bilingual, '1\n00:00:00,000 --> 00:00:01,000\n目标字幕\nSource subtitle\n');
     writeFileSync(vertical, '1\n00:00:00,000 --> 00:00:01,000\n竖屏短字幕\n');
     chmodSync(cli, 0o755);
@@ -562,6 +597,7 @@ describe('KrillinAI CLI runner', () => {
     const config = createDefaultCreatorServicesConfig();
     const artifacts = [
       { id: 'source-1', kind: 'source_video', path: source },
+      { id: 'original-1', kind: 'source_subtitle', path: original },
       { id: 'vertical-1', kind: 'vertical_subtitle', path: vertical },
       { id: 'target-1', kind: 'target_subtitle', path: target },
       { id: 'bilingual-1', kind: 'bilingual_subtitle', path: bilingual }
@@ -583,7 +619,11 @@ describe('KrillinAI CLI runner', () => {
           id: 'job-render',
           state: {}
         },
-        inputArtifacts: [],
+        inputArtifacts: inputs.map(artifact => ({ ...artifact, metadata: {
+          cues: artifact.kind === 'target_subtitle' || artifact.kind === 'source_subtitle'
+            ? [{ start: '00:00:00,000', end: '00:00:01,000', text: artifact.kind === 'target_subtitle' ? '目标字幕' : 'Source subtitle' }]
+            : []
+        } })),
         workdir,
         signal: new AbortController().signal,
         reportProgress() {}
@@ -596,7 +636,7 @@ describe('KrillinAI CLI runner', () => {
         stage,
         config,
         artifacts: inputs,
-        options: { bilingual: true }
+        options: { bilingual: true, bilingualTop: subtitlePosition === 'top' }
       });
       return JSON.parse(readFileSync(join(workdir, 'observed-args.json'), 'utf8')) as string[];
     };
@@ -609,6 +649,10 @@ describe('KrillinAI CLI runner', () => {
       artifacts.filter(artifact => artifact.kind !== 'vertical_subtitle')
     ))).toBe(bilingual);
     expect(selectedSubtitle(await run('render-horizontal', 'stage-run-horizontal'))).toBe(bilingual);
+    for (const stageRunId of ['stage-run-horizontal', 'stage-run-vertical-fallback']) {
+      expect(JSON.parse(readFileSync(join(jobsRoot, 'job-render', stageRunId, 'observed-subtitle-document.json'), 'utf8')))
+        .toMatchObject({ bilingual: true, subtitlePosition, cues: [{ startMs: 0, endMs: 1000, text: '目标字幕', sourceText: 'Source subtitle' }] });
+    }
   });
 });
 
@@ -621,6 +665,9 @@ const args = process.argv.slice(2);
 const workdir = args[args.indexOf('--workdir') + 1];
 mkdirSync(workdir, { recursive: true });
 writeFileSync(join(workdir, 'observed-args.json'), JSON.stringify(args));
+if (args.includes('--subtitle-document')) {
+  writeFileSync(join(workdir, 'observed-subtitle-document.json'), readFileSync(args[args.indexOf('--subtitle-document') + 1]));
+}
 writeFileSync(
   join(workdir, 'observed-config.toml'),
   readFileSync(join(process.cwd(), 'config', 'config.toml'))

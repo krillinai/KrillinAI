@@ -14,9 +14,6 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@opencreator/protocol": "workspace:*",
-    "@opencreator/skill-market": "workspace:*",
-    "@opencreator/writing-templates": "workspace:*",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
@@ -29,7 +26,11 @@
     "@codemirror/search": "^6.7.1",
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.6",
+    "@opencreator/protocol": "workspace:*",
+    "@opencreator/skill-market": "workspace:*",
+    "@opencreator/writing-templates": "workspace:*",
     "fuse.js": "^7.1.0",
+    "jassub": "2.5.23",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-colorful": "^5.6.1",

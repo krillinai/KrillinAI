@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import { createLocalizedCopy } from '../../i18n/localized-copy.js';
@@ -11,7 +12,7 @@ import type {
   ScheduleResponse,
   UpdateScheduleRequest,
 } from '@opencreator/protocol';
-import { Check, ChevronDown, Clock3, LoaderCircle, Save, X } from 'lucide-react';
+import { Check, Clock3, LoaderCircle, Save, X } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
 import type { OpenCreatorProject } from '../projects/project-model.js';
@@ -550,14 +551,13 @@ function SelectControl(props: {
 }) {
   return (
     <span className="schedule-select-control">
-      <select
+      <AppSelect
         aria-label={props.ariaLabel}
         value={props.value}
         onChange={event => props.onChange(event.target.value)}
       >
         {props.children}
-      </select>
-      <ChevronDown size={14} aria-hidden="true" />
+      </AppSelect>
     </span>
   );
 }

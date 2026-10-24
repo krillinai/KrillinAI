@@ -1,3 +1,4 @@
+import { gatewayModelIdMatches } from '@opencreator/protocol';
 import { isDirectTransport, type SupplierRegion } from './supplier.js';
 import { createHash } from 'node:crypto';
 import type { GatewayAccountState, GatewayActivationStage, GatewayBalanceSnapshot, GatewayBalanceState, GatewayModel, GatewayModelOperation, GatewayModelProbeOptions, PublicErrorFacts, ServiceSource } from '@opencreator/protocol';
@@ -148,7 +149,7 @@ export function createGatewayAccountService(input: {
         || credentials.account?.id !== scope.accountId || credentials.keyVersion !== scope.keyVersion) return;
       const bootstrap = bootstrapSchema.parse(credentials);
       const model = input.modelAccess.findModel(bootstrap, id, modality);
-      const submitted = scope.models?.find(candidate => candidate.id === id && candidate.modality === modality);
+      const submitted = scope.models?.find(candidate => gatewayModelIdMatches(candidate.id, id) && candidate.modality === modality);
       if (scope.models && JSON.stringify(submitted) !== JSON.stringify(model)) return;
       if (!model) return;
       if (facts && await input.modelAccess.recordFailure(scope.accessContext ?? '', model, facts)) await applyVisibleCatalog(input.modelAccess.filter(bootstrap));
@@ -302,7 +303,7 @@ export function createGatewayAccountService(input: {
       state.transport = bootstrap.transport;
       state.catalogVersion=bootstrap.catalogVersion; state.catalogUpdatedAt=bootstrap.catalogUpdatedAt; state.catalogRefreshState=bootstrap.catalogRefreshState;
       for (const [modality, model] of Object.entries(selectedModels)) {
-        if (bootstrap.transport !== 'gateway' && bootstrap.models.some(candidate => gatewayModelSupports(candidate,modality as GatewayModelPurpose) && candidate.id === model)) bootstrap.defaults[modality] = model;
+        if (bootstrap.transport !== 'gateway' && bootstrap.models.some(candidate => gatewayModelSupports(candidate,modality as GatewayModelPurpose) && gatewayModelIdMatches(candidate.id, model))) bootstrap.defaults[modality] = model;
       }
       stage = 'catalog';
       const visible = await visibleBootstrap(bootstrap);
@@ -395,7 +396,7 @@ export function createGatewayAccountService(input: {
       await refresh();
       if (closing || accessPaused) return;
       const original = assertSignedIn(); const expected = generation;
-      const catalog = catalogSchema.parse(await withAccountAccess(() => input.client.request('/api/v1/client/models', original.accessToken)));
+      const catalog = catalogSchema.parse(await withAccountAccess(() => input.client.request('/api/v1/client/models' + (original.transport === 'gateway' ? '?catalogSchema=2&publicMetadata=1' : ''), original.accessToken)));
       if (original.transport === 'gateway') {
         await serialize(async()=>{
           if (closing || accessPaused || generation!==expected || credentials?.account?.id!==original.account?.id || state.authState!=='signed_in') return;
@@ -537,7 +538,7 @@ export function createGatewayAccountService(input: {
   const modelCredentials = () => readModelCredentials();
   async function validateModel(modality: GatewayModel['modality'], id: string) {
     const scope = await readModelCredentials();
-    const model = scope.models.find(candidate => candidate.modality === modality && candidate.id === id
+    const model = scope.models.find(candidate => candidate.modality === modality && gatewayModelIdMatches(candidate.id, id)
       && gatewayModelReady(candidate) && (modality !== 'text' || candidate.capabilities.includes('responses') || candidate.capabilities.includes('chat')));
     if (!model) throw new GatewayError('invalid_model', 400);
     return model;
@@ -548,7 +549,7 @@ export function createGatewayAccountService(input: {
     const use = await beginModelUse();
     try {
       let scope = use.credentials;
-      let model = scope.models.find(candidate => candidate.modality === modality && candidate.id === id
+      let model = scope.models.find(candidate => candidate.modality === modality && gatewayModelIdMatches(candidate.id, id)
       && gatewayModelReady(candidate) && (modality !== 'text' || scope.transport !== 'gateway' || candidate.capabilities.includes(options?.textApi==='chat/completions'?'chat':'responses')));
       if (!model) throw new GatewayError('invalid_model', 400);
       if (!input.probeModel) throw new ModelProbeError('model_probe_unavailable');
@@ -560,7 +561,7 @@ export function createGatewayAccountService(input: {
           if (updated.baseUrl !== scope.baseUrl) throw new GatewayError('supplier_binding_changed', 409);
           if (updated.modelKey === scope.modelKey) throw error;
           scope = updated;
-          model = scope.models.find(candidate => candidate.modality === modality && candidate.id === id
+          model = scope.models.find(candidate => candidate.modality === modality && gatewayModelIdMatches(candidate.id, id)
             && gatewayModelReady(candidate) && (modality !== 'text' || scope.transport !== 'gateway' || candidate.capabilities.includes(options?.textApi==='chat/completions'?'chat':'responses')));
           if (!model) throw new GatewayError('invalid_model', 400);
           await input.probeModel(model, scope, true, options);
@@ -632,7 +633,7 @@ export function createGatewayAccountService(input: {
     if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') throw new GatewayError('auth_required', 401);
     if (current.account && bootstrap.account.id !== current.account.id) throw new GatewayError('account_mismatch');
     for (const [modality, model] of Object.entries(selectedModels)) {
-      if (bootstrap.transport !== 'gateway' && bootstrap.models.some(candidate => gatewayModelSupports(candidate,modality as GatewayModelPurpose) && candidate.id === model)) bootstrap.defaults[modality] = model;
+      if (bootstrap.transport !== 'gateway' && bootstrap.models.some(candidate => gatewayModelSupports(candidate,modality as GatewayModelPurpose) && gatewayModelIdMatches(candidate.id, model))) bootstrap.defaults[modality] = model;
     }
     const visible = await visibleBootstrap(bootstrap);
     if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') throw new GatewayError('auth_required', 401);
@@ -773,7 +774,7 @@ export function createGatewayAccountService(input: {
           model = state.recommendedModels?.[modality] ?? '';
           if (current.transport !== 'gateway' || !model) throw new GatewayError('invalid_model', 400);
         }
-        if (state.source !== 'gateway' || state.activationState !== 'ready' || !current.defaults || !state.models.some(candidate => gatewayModelSupports(candidate,modality) && gatewayModelReady(candidate) && candidate.id === model)) throw new GatewayError('invalid_model', 400);
+        if (state.source !== 'gateway' || state.activationState !== 'ready' || !current.defaults || !state.models.some(candidate => gatewayModelSupports(candidate,modality) && gatewayModelReady(candidate) && gatewayModelIdMatches(candidate.id, model))) throw new GatewayError('invalid_model', 400);
         const next = { ...current, defaults: { ...current.defaults, [modality]: model } };
         if (modality === 'text' && current.transport === 'gateway') assertIdle();
         if (modality === 'text') { await input.activateRuntime(bootstrapSchema.parse(next)); runtimeTextModel = model; }

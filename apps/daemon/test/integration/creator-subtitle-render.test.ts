@@ -15,6 +15,7 @@ import { delimiter, dirname, join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { buildKrillinSubtitleStyle } from '../../src/creator/krillin/adapter.js';
 import { createSubtitlePreviewService } from '../../src/creator/krillin/subtitle-preview.js';
+import { createSubtitleRenderService } from '../../src/creator/krillin/subtitle-render.js';
 import { readKrillinRuntimeManifest } from '../../src/creator/krillin/manifest.js';
 import { resolveYtDlpRuntime } from '../../src/creator/yt-dlp/runtime.js';
 import sharp from 'sharp';
@@ -36,6 +37,55 @@ afterAll(() => {
 });
 
 describe.runIf(hasPackagedRuntime)('Creator packaged subtitle rendering', () => {
+  it('compiles complete documents without model configuration and returns verified packaged fonts', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'opencreator-subtitle-document-'));
+    roots.push(root);
+    const service = createSubtitleRenderService({ resourceRoot: runtimeRoot, workRoot: root, ensureRuntimeReady: async () => {} });
+    const input = { width: 640, height: 360, horizontal: true, bilingual: true, subtitlePosition: 'bottom' as const,
+      subtitleStyle: { fontPreset: 'sans' }, cues: [{ startMs: 1230, endMs: 4560, text: '完整字幕！\n手动换行', sourceText: 'Original context, '.repeat(20) }] };
+    const [first, second] = await Promise.all([service.compile(input), service.compile(input)]);
+    expect(first).toEqual(second);
+    expect(first.ass).toContain(input.cues[0]!.sourceText);
+    expect(first.ass).toContain('完整字幕！\\N手动换行');
+    expect(first.ass).toContain('00:00:01.23,00:00:04.56');
+    expect(first.fonts.length).toBeGreaterThan(0);
+    for (const font of first.fonts) {
+      const bytes = await service.font(font.id);
+      expect(createHash('sha256').update(bytes!).digest('hex')).toBe(font.sha256);
+    }
+    expect(await service.font('../manifest.json')).toBeUndefined();
+    expect(await service.font('0'.repeat(64))).toBeUndefined();
+    const changed = await service.compile({ ...input, subtitleStyle: { fontPreset: 'serif' } });
+    expect(changed.contentHash).not.toBe(first.contentHash);
+  });
+
+  it('keeps bilingual glyphs sharp with a soft shadow and zero outline', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'opencreator-soft-shadow-'));
+    roots.push(root);
+    const service = createSubtitleRenderService({ resourceRoot: runtimeRoot, workRoot: root, ensureRuntimeReady: async () => {} });
+    const input = { width: 1920, height: 1080, horizontal: true, bilingual: true, subtitlePosition: 'top' as const,
+      cues: [{ startMs: 0, endMs: 2000, text: '你知道吗？你的人生今晚就可能彻底改变。', sourceText: 'Do you know your entire life can change tonight?' }] };
+    const style = { fontPreset: 'sans', fontWeight: 'medium', outlineWidth: 0,
+      shadow: { enabled: true, color: '#000000', opacity: 0.85, offsetX: 0, offsetY: 2, blur: 4 } };
+    const frames: Buffer[] = [];
+    for (const enabled of [false, true]) {
+      const bundle = await service.compile({ ...input, subtitleStyle: { ...style, shadow: { ...style.shadow, enabled } } });
+      const assPath = join(root, `${enabled}.ass`);
+      writeFileSync(assPath, bundle.ass);
+      frames.push(run(ffmpegPath, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=black@0:s=1920x1080:d=1,format=rgba',
+        '-ss', '0.5', '-vf', `ass=filename='${assPath}':fontsdir='${join(runtimeRoot, 'fonts')}':alpha=1`,
+        '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgba', 'pipe:1'], null));
+    }
+    const countPixels = (frame: Buffer, predicate: (r: number, alpha: number) => boolean) => {
+      let count = 0;
+      for (let i = 0; i < frame.length; i += 4) if (predicate(frame[i]!, frame[i + 3]!)) count++;
+      return count;
+    };
+    const sharpGlyphs = frames.map(frame => countPixels(frame, (r, alpha) => r > 180 && alpha > 250));
+    expect(sharpGlyphs[0]).toBeGreaterThan(10000);
+    expect(sharpGlyphs[1]).toBeGreaterThan(sharpGlyphs[0]! * 0.95);
+    expect(countPixels(frames[1]!, (r, alpha) => r < 5 && alpha > 5 && alpha < 200)).toBeGreaterThan(1000);
+  });
   it.each([
     ['sans', 640, 360, 'top', false],
     ['serif', 640, 360, 'bottom', false],

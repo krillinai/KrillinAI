@@ -40,10 +40,7 @@ func importSubtitleFile(ctx context.Context, svc StageService, req SubtitleReque
 		// Import translation has no download/ASR work. Its progress must not use
 		// the video preparation reporter or the legacy 40–90 translation range.
 		step.TaskPtr.SetProgressReporter(nil)
-		step.TaskPtr.SetTranslationProgressReporter(func(completed, total int) {
-			percent := startPercent + completed*(95-startPercent)/total
-			reportSubtitleProgress(req, "translating_subtitles", percent, "正在翻译导入的原文字幕", ProgressCounts{Completed: completed, Total: total})
-		})
+		forwardSubtitleTranslationProgress(step.TaskPtr, req.ReportProgress, startPercent, 95, "正在翻译导入的原文字幕")
 		reportSubtitleProgress(req, "translating_subtitles", startPercent, "正在准备字幕翻译")
 		blocks, err = svc.TranslateSubtitleBlocks(ctx, blocks, step)
 		if err != nil {

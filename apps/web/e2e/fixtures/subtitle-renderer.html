@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Subtitle renderer parity fixture</title></head>
+<body style="margin:0;background:#202020"><canvas id="preview"></canvas><div id="composition"></div>
+<script type="module">
+import { createSubtitleRenderer } from '/src/features/dashboard/subtitle-renderer.ts';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import SubtitleCompositionPreview from '/src/features/dashboard/SubtitleCompositionPreview.tsx';
+import '/src/features/dashboard/dashboard.css';
+let root;
+window.mountComposition = ({input, bundle, fonts, time = 0.5, converted = false, background}) => {
+  document.querySelector('#preview').style.display = 'none';
+  const host = document.querySelector('#composition');
+  Object.assign(host.style, {position:'relative',width:input.width+'px',height:input.height+'px',background:'#202020'});
+  if (converted) host.style.background = 'linear-gradient(to bottom,black 0px,black 250px,#202020 250px,#202020 656px,black 656px)';
+  if (background) host.style.backgroundImage = `url(data:image/png;base64,${background})`;
+  root ??= createRoot(host);
+  window.compileCount = 0;
+  const prepare = async () => { window.compileCount++; return bundle; };
+  const openFont = async id => new Response(Uint8Array.from(atob(fonts[id]), c => c.charCodeAt(0)));
+  const render = time => root.render(React.createElement(SubtitleCompositionPreview, {input,prepare,openFont,time}));
+  window.updateCompositionTime = render;
+  render(time);
+};
+window.renderSubtitle = async (ass, fonts, width, height, time = 0.5) => {
+  const canvas = document.querySelector('canvas');
+  canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
+  window.renderer = await createSubtitleRenderer(canvas, ass, await Promise.all(fonts.map(async url => new Uint8Array(await (await fetch(url)).arrayBuffer()))), width, height);
+  await window.renderer.manualRender({ width, height, mediaTime: time, expectedDisplayTime: performance.now() }, true);
+  return true;
+};
+</script></body></html>

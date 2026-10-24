@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, CaseSensitive, X } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -48,13 +49,13 @@ export default function SubtitleFindReplace(props: {
     }}>
     <header>
       <strong>{l('查找与替换', 'Find and replace')}</strong>
-      <select aria-label={l('搜索范围', 'Search scope')} value={scope} onChange={event => { setScope(event.target.value as SubtitleSearchScope); setIndex(0); }}>
+      <AppSelect aria-label={l('搜索范围', 'Search scope')} value={scope} onChange={event => { setScope(event.target.value as SubtitleSearchScope); setIndex(0); }}>
         <option value="text">{l('译文', 'Translation')}</option>
         {props.cues.some(cue => cue.sourceText !== undefined) ? <>
           <option value="sourceText">{l('原文', 'Original text')}</option>
           <option value="all">{l('全部', 'All')}</option>
         </> : null}
-      </select>
+      </AppSelect>
       <button type="button" aria-label={l('关闭', 'Close')} onClick={props.onClose}><X size={16} /></button>
     </header>
     <div className="subtitle-editor-find-row">

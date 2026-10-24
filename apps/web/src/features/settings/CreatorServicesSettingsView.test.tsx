@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import {
   createDefaultCreatorServicesConfig,
   type CodexModelListResponse,
@@ -7,13 +8,35 @@ import {
 } from '@opencreator/protocol';
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmDialogProvider } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
+import { readTranslationContinuation, saveTranslationContinuation } from '../dashboard/video-translation-continuation.js';
 import { CreatorServicesSettingsView } from './CreatorServicesSettingsView.js';
 
+afterEach(() => sessionStorage.clear());
+
 describe('CreatorServicesSettingsView', () => {
+  it.each(['valid', 'missing', 'failed'] as const)('returns to the pending composition only after a valid save (%s)', async outcome => {
+    saveTranslationContinuation({ jobId: 'pending', version: 2, type: 'voice', status: 'configure',
+      createdAt: Date.now(), returnPath: '#/workbench?tool=video-translation&jobId=pending' });
+    const service = createService(outcome === 'valid' ? ['tts.openai.apiKey'] : []);
+    if (outcome === 'failed') vi.mocked(service.saveConfig).mockRejectedValue(new Error('Save failed'));
+    const onReturn = vi.fn();
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorServicesSettingsView connected service={service}
+      initialSection="tts" onReturnToTranslation={onReturn} /></LanguageProvider>);
+    await userEvent.click(await screen.findByRole('button', { name: '保存并继续配音合成' }));
+    await waitFor(() => expect(service.saveConfig).toHaveBeenCalledOnce());
+    if (outcome === 'valid') {
+      await waitFor(() => expect(onReturn).toHaveBeenCalledOnce());
+      expect(readTranslationContinuation()?.status).toBe('ready');
+    } else {
+      await waitFor(() => expect(screen.getByRole('button', { name: '保存并继续配音合成' })).toBeEnabled());
+      expect(onReturn).not.toHaveBeenCalled(); expect(readTranslationContinuation()?.status).toBe('configure');
+    }
+  });
+
   it('keeps the saved image service active until a detected local service is manually saved', async () => {
     const user = userEvent.setup();
     const service = createService();
@@ -242,11 +265,13 @@ describe('CreatorServicesSettingsView', () => {
     );
 
     await screen.findByRole('heading', { name: 'AI 服务' });
-    await user.selectOptions(screen.getByLabelText('供应商'), 'deepseek');
+    await selectOption(screen.getByLabelText('供应商'), 'deepseek');
     expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.deepseek.com');
     expect(screen.getByLabelText('模型')).toHaveValue('deepseek-v4-pro');
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
     expect(screen.getByRole('option', { name: 'deepseek-v4-flash' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'MiniMax-M2.7' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
 
     await user.click(screen.getByRole('button', { name: '保存配置' }));
     await waitFor(() => expect(service.saveConfig).toHaveBeenCalled());
@@ -276,10 +301,11 @@ describe('CreatorServicesSettingsView', () => {
     );
 
     await screen.findByRole('heading', { name: 'AI 服务' });
-    await user.selectOptions(screen.getByLabelText('供应商'), 'openai');
+    await selectOption(screen.getByLabelText('供应商'), 'openai');
 
     expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.openai.com/v1');
     expect(screen.getByLabelText('模型')).toHaveValue('gpt-5.6-sol');
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
     expect(screen.getByRole('option', { name: 'gpt-5.5' })).toBeInTheDocument();
   });
 
@@ -294,8 +320,8 @@ describe('CreatorServicesSettingsView', () => {
     );
 
     await screen.findByRole('heading', { name: 'AI 服务' });
-    await user.selectOptions(screen.getByLabelText('供应商'), 'deepseek');
-    await user.selectOptions(screen.getByLabelText('模型'), '__custom__');
+    await selectOption(screen.getByLabelText('供应商'), 'deepseek');
+    await selectOption(screen.getByLabelText('模型'), '__custom__');
 
     const customModel = screen.getByPlaceholderText('gpt-5.6-sol');
     await user.clear(customModel);
@@ -314,8 +340,9 @@ describe('CreatorServicesSettingsView', () => {
     );
 
     await screen.findByRole('heading', { name: 'AI 服务' });
-    await user.selectOptions(screen.getByLabelText('供应商'), 'minimax');
+    await selectOption(screen.getByLabelText('供应商'), 'minimax');
     expect(screen.getByLabelText('模型')).toHaveValue('MiniMax-M2.7');
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
     expect(screen.getByRole('option', { name: 'MiniMax-M2.7-highspeed' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'gpt-5.5' })).not.toBeInTheDocument();
   });
@@ -505,6 +532,7 @@ describe('CreatorServicesSettingsView', () => {
     await user.click(screen.getByRole('tab', { name: '视频生成' }));
     expect(screen.getByRole('combobox', { name: '服务商' })).toHaveTextContent('Seedance');
     expect(screen.getByLabelText('默认模型')).toHaveValue('doubao-seedance-2-5-260628');
+    await user.click(screen.getByRole('combobox', { name: '默认模型' }));
     expect(screen.getByRole('option', { name: 'doubao-seedance-2-5-260628' })).toBeInTheDocument();
     expect(screen.getByLabelText('API Key')).toHaveAttribute('type', 'password');
     await user.click(screen.getByRole('combobox', { name: '服务商' }));

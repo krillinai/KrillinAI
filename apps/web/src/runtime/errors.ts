@@ -1,4 +1,4 @@
-import type { OpenCreatorIssue, PublicErrorFacts } from '@opencreator/protocol';
+import { gatewayRelayIdentity, sanitizePublicErrorFacts, type OpenCreatorIssue, type PublicErrorFacts } from '@opencreator/protocol';
 
 export class ApiClientError extends Error {
   readonly status: number;
@@ -15,12 +15,12 @@ export class ApiClientError extends Error {
     publicFacts?: PublicErrorFacts;
     issue?: OpenCreatorIssue;
   }) {
-    super(input.message);
+    super(gatewayRelayIdentity.test(input.message) ? 'Official model service could not complete the request.' : input.message);
     this.name = 'ApiClientError';
     this.status = input.status;
     this.code = input.code;
     this.details = input.details;
-    this.publicFacts = input.publicFacts;
+    this.publicFacts = input.publicFacts ? sanitizePublicErrorFacts(input.publicFacts) : undefined;
     this.issue = input.issue;
   }
 }

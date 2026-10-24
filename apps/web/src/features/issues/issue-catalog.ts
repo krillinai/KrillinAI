@@ -1,3 +1,4 @@
+import { gatewayRelayIdentity } from '@opencreator/protocol';
 import { safePublicErrorCode, safePublicErrorMessage, sanitizePublicErrorFacts, type OpenCreatorIssue, type PublicErrorFacts } from '@opencreator/protocol';
 import type { AppLanguage } from '../../i18n/language.js';
 import { createLocalizedCopy, type LocalizeCopy } from '../../i18n/localized-copy.js';
@@ -80,6 +81,8 @@ function issuePublicFacts(issue: OpenCreatorIssue): PublicErrorFacts | undefined
 }
 
 function localizedIssueSummary(issue: OpenCreatorIssue, localize: LocalizeCopy): string {
+  if (issue.code === 'creator_codex_config_resynced') return localize('已重新同步本机 Codex 配置，请重试本次操作。', 'Local Codex configuration has been re-synchronized. Retry this operation.', 'Konfigurationen för lokala Codex har synkroniserats igen. Försök igen.');
+  if (issue.code === 'creator_codex_config_check_failed') return localize('本机 Codex 配置检查失败，请检查配置文件和登录信息。', 'Local Codex configuration could not be checked. Check the configuration files and sign-in details.', 'Konfigurationen för lokala Codex kunde inte kontrolleras. Kontrollera konfigurationsfilerna och inloggningsuppgifterna.');
   if (issue.code === 'platform_request_signature_required') return localize('当前下载器尚未兼容抖音的请求签名校验。', 'The current downloader does not support Douyin request signature verification.', 'Den nuvarande nedladdaren stöder inte Douyins verifiering av begäranssignaturer.');
   if (issue.code === 'platform_session_required') return localize('视频平台未接受浏览器会话或需要网页验证。', 'The video platform did not accept the browser session or requires website verification.', 'Videoplattformen accepterade inte webbläsarsessionen eller kräver webbplatsverifiering.');
   const transcription = transcriptionIssueCopy(issue.code, localize) ?? transcriptionIssueCopy(issue.publicFacts?.upstreamCode, localize);
@@ -216,6 +219,10 @@ export function issueConversationText(
     ? localize('请重试当前步骤；如果仍然失败，可先切分视频，并向 Agent 提供文件大小和诊断编号。', 'Retry the current step. If it still fails, split the video and provide the file size and diagnostic ID to the Agent.', 'Försök igen. Om det fortfarande misslyckas, dela videon och ge filstorleken och diagnostik-ID till Agent.')
     : issue.publicFacts?.upstreamCode === 'IMAGE_REFERENCE_MISSING'
     ? localize('请先上传参考图；如需纯文字生图，请移除对上传图片或原图的要求后重试。', 'Upload a reference image, or remove the uploaded/original image requirements for text-only generation, then retry.', 'Ladda upp en referensbild, eller ta bort kraven på en uppladdad eller ursprunglig bild för textgenerering och försök igen.')
+    : issue.code === 'creator_codex_config_resynced'
+    ? localize('配置已同步，请重新发送刚才的请求。', 'The configuration is synchronized. Send the previous request again.', 'Konfigurationen är synkroniserad. Skicka den föregående begäran igen.')
+    : issue.code === 'creator_codex_config_check_failed'
+    ? localize('请检查本机 Codex 的配置文件和登录信息，修正后重试。', 'Check local Codex configuration files and sign-in details, then retry.', 'Kontrollera konfigurationsfilerna och inloggningsuppgifterna för lokala Codex och försök igen.')
     : issue.code === 'creator_template_version_mismatch'
     ? localize('请刷新页面以加载当前模板版本；如果仍然失败，请重新启动本地服务。', 'Refresh the page to load the current template version. If the problem persists, restart the local service.', 'Uppdatera sidan för att läsa in den aktuella mallversionen. Om problemet kvarstår, starta om den lokala tjänsten.')
     : issue.publicFacts?.kind === 'http-rejected' || issue.publicFacts?.kind === 'provider-failed'
@@ -266,7 +273,7 @@ export function issueDiagnosticText(issue: OpenCreatorIssue, language: AppLangua
 }
 
 function safeFallback(value: string, language: AppLanguage): string {
-  const normalized = value
+  const normalized = (gatewayRelayIdentity.test(value) ? '' : value)
     .replace(/authorization\s*[:=]\s*(?:Bearer|Basic)\s+\S+/gi, '[redacted]')
     .replace(/(?:authorization|api[-_ ]?key|token|secret)\s*[:=]\s*\S+/gi, '[redacted]')
     .replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, '[user directory]')

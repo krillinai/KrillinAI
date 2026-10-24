@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import type {
   ReasoningEffort,
   ThreadResponse,
@@ -195,7 +196,7 @@ export function ProjectManagementDialog(props: {
                         ) : null}
                       </div>
                       <div className="project-assignment-controls">
-                        <select
+                        <AppSelect
                           aria-label={`${l('目标项目', 'Target project')} ${thread.title?.trim() || thread.id}`}
                           value={targetProjectId}
                           onChange={event => {
@@ -209,7 +210,7 @@ export function ProjectManagementDialog(props: {
                           {props.projects.map(project => (
                             <option key={project.id} value={project.id}>{project.name}</option>
                           ))}
-                        </select>
+                        </AppSelect>
                         <button
                           type="button"
                           disabled={targetProjectId.length === 0 || props.busy}
@@ -314,15 +315,15 @@ function ProjectEditForm(props: {
       </label>
       <label>
         <span>{l('推理强度', 'Reasoning effort')}</span>
-        <select value={reasoning} onChange={event => setReasoning(event.currentTarget.value as '' | ReasoningEffort)}>
+        <AppSelect value={reasoning} onChange={event => setReasoning(event.currentTarget.value as '' | ReasoningEffort)}>
           {reasoningOptions.map(option => (
             <option key={option.value} value={option.value}>{localizeReasoning(option.label, l)}</option>
           ))}
-        </select>
+        </AppSelect>
       </label>
       <label>
         <span>{l('权限', 'Permission')}</span>
-        <select
+        <AppSelect
           value={normalizeProjectSandbox(sandbox)}
           onChange={async event => {
             const value = event.currentTarget.value as OpenCreatorProject['sandbox'];
@@ -346,7 +347,7 @@ function ProjectEditForm(props: {
           <option value="follow-global">{l('跟随全局', 'Follow global setting')}</option>
           <option value="workspace-write">{l('请求批准', 'Ask for approval')}</option>
           <option value="danger-full-access">{l('完全访问权限', 'Full access')}</option>
-        </select>
+        </AppSelect>
       </label>
       <div className="project-edit-actions">
         <button type="button" onClick={props.onCancel}>{l('取消', 'Cancel')}</button>

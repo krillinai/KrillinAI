@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ type App struct {
 	TranslateParallelNum  int      `toml:"translate_parallel_num"`
 	TranscribeMaxAttempts int      `toml:"transcribe_max_attempts"`
 	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
-	MaxSentenceLength     int      `toml:"max_sentence_length"` // 原文和译文单行上限：宽字素簇计2，其余基础字素簇计1
+	MaxSentenceLength     int      `toml:"max_sentence_length"` // 音频/VTT每条每种语言的显示硬上限；宽字素簇计2，其余基础字素簇计1
 	EnableBlockVttBatch   bool     `toml:"enable_block_vtt_batch"`
 	VttBatchSize          int      `toml:"vtt_batch_size"`
 	TargetLanguageFirst   bool     `toml:"target_language_first"`    // 双语字幕中目标语言是否在上
@@ -39,6 +40,7 @@ type OpenaiCompatibleConfig struct {
 	BaseUrl       string `toml:"base_url"`
 	ApiKey        string `toml:"api_key"`
 	Model         string `toml:"model"`
+	ModelName     string `toml:"model_name"` // 网关公开模型的真实名称，仅用于选择兼容参数，不替换路由ID。
 	OfficialModel string `toml:"official_model"`
 }
 
@@ -143,13 +145,14 @@ type OpenAiWhisper struct {
 }
 
 type Config struct {
-	App        App                    `toml:"app"`
-	Server     Server                 `toml:"server"`
-	Llm        OpenaiCompatibleConfig `toml:"llm"`
-	Transcribe Transcribe             `toml:"transcribe"`
-	Tts        Tts                    `toml:"tts"`
-	Dubbing    Dubbing                `toml:"dubbing"`
-	Image      Image                  `toml:"image"`
+	App         App                    `toml:"app"`
+	Server      Server                 `toml:"server"`
+	Llm         OpenaiCompatibleConfig `toml:"llm"`
+	LlmFallback OpenaiCompatibleConfig `toml:"llm_fallback"`
+	Transcribe  Transcribe             `toml:"transcribe"`
+	Tts         Tts                    `toml:"tts"`
+	Dubbing     Dubbing                `toml:"dubbing"`
+	Image       Image                  `toml:"image"`
 }
 
 var Conf = Config{
@@ -159,7 +162,7 @@ var Conf = Config{
 		TranscribeParallelNum: 1,
 		TranscribeMaxAttempts: 3,
 		TranslateMaxAttempts:  3,
-		MaxSentenceLength:     50,
+		MaxSentenceLength:     60,
 		EnableBlockVttBatch:   false,
 		VttBatchSize:          10,
 	},
@@ -333,7 +336,26 @@ func CheckConfig() error {
 func CheckBaseConfig() error {
 	var err error
 	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
-	return err
+	if err != nil {
+		return err
+	}
+	return ValidateLLMFallbackConfig()
+}
+
+// 备用源为空时保持单源行为；配置不完整时阻止启动，避免故障时才发现无法切换。
+func ValidateLLMFallbackConfig() error {
+	fallback := Conf.LlmFallback
+	if fallback.BaseUrl == "" && fallback.ApiKey == "" && fallback.Model == "" {
+		return nil
+	}
+	if strings.TrimSpace(fallback.BaseUrl) == "" || strings.TrimSpace(fallback.ApiKey) == "" || strings.TrimSpace(fallback.Model) == "" {
+		return errors.New("备用 LLM 需要完整配置 base_url、api_key 和 model")
+	}
+	endpoint, err := url.Parse(fallback.BaseUrl)
+	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+		return errors.New("备用 LLM base_url 必须是有效的 HTTP/HTTPS 接口地址")
+	}
+	return nil
 }
 
 // SaveConfig 保存配置到文件

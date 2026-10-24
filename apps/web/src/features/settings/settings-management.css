@@ -249,7 +249,7 @@
 }
 
 .settings-form-grid input,
-.settings-form-grid select,
+.settings-form-grid :is(select, .app-select-trigger),
 .settings-form-grid textarea,
 .settings-env-editor input {
   width: 100%;
@@ -262,7 +262,7 @@
 }
 
 .settings-form-grid input,
-.settings-form-grid select,
+.settings-form-grid :is(select, .app-select-trigger),
 .settings-env-editor input {
   height: 36px;
   padding: 0 10px;
@@ -765,7 +765,7 @@
 }
 
 .memory-toolbar input,
-.memory-toolbar select {
+.memory-toolbar :is(select, .app-select-trigger) {
   width: 100%;
   min-width: 0;
   height: 36px;

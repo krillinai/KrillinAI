@@ -1,3 +1,5 @@
+import SuggestedInput from '../../components/forms/SuggestedInput.js';
+import AppSelect from '../../components/forms/Select.js';
 import {
   createDefaultCreatorServicesConfig,
   creatorProviderCatalogById,
@@ -36,6 +38,7 @@ import {
   Save
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { readTranslationContinuation, saveTranslationContinuation, ttsServiceConfigured } from '../dashboard/video-translation-continuation.js';
 import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -64,6 +67,7 @@ export function CreatorServicesSettingsView(props: {
   modelService?: ModelSettingsService | null;
   initialSection?: CreatorServicesSection;
   modeControls?: ReactNode;
+  onReturnToTranslation?(): void;
 }) {
   const l = useLocalizedCopy();
   const confirm = useConfirmDialog();
@@ -289,6 +293,15 @@ export function CreatorServicesSettingsView(props: {
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
       pageIssues.resolveOperation('settings.creator-services.save');
       setNotice(l('配置已安全保存', 'Settings saved securely'));
+      const pending = readTranslationContinuation();
+      if (activeSection === 'tts' && props.onReturnToTranslation && pending?.status === 'configure') {
+        if (!ttsServiceConfigured(response, response.config.tts.provider)) {
+          setValidationError(l('请填写所选配音服务的必需凭据后继续。', 'Enter the required credentials for the selected dubbing service to continue.'));
+          return;
+        }
+        saveTranslationContinuation({ ...pending, status: 'ready' });
+        props.onReturnToTranslation();
+      }
     } catch (cause) {
       const message = readableSaveError(cause, l);
       const field = modelFieldFromError(message);
@@ -491,7 +504,8 @@ export function CreatorServicesSettingsView(props: {
               ) : (
                 <Save size={15} aria-hidden="true" />
               )}
-              {saving ? l('保存中', 'Saving') : l('保存配置', 'Save settings')}
+              {saving ? l('保存中', 'Saving') : activeSection === 'tts' && props.onReturnToTranslation && readTranslationContinuation()?.status === 'configure'
+                ? l('保存并继续配音合成', 'Save and continue composing') : l('保存配置', 'Save settings')}
             </button>
           </footer>
         </form>
@@ -565,11 +579,11 @@ function TextModelSettings(props: SettingsGroupProps & {
         </div>
         {props.mode === 'custom' ? <label className="creator-services-field is-wide">
           <span>{l('供应商', 'Provider')}</span>
-          <select value={props.providerId} onChange={event => props.onProviderIdChange(event.target.value)}>
+          <AppSelect value={props.providerId} onChange={event => props.onProviderIdChange(event.target.value)}>
             {llmProviderOptions.map(provider => (
               <option key={provider.id} value={provider.id}>{provider.label}</option>
             ))}
-          </select>
+          </AppSelect>
         </label> : null}
         {props.mode === 'custom' ? <OpenAiFields
           id="llm"
@@ -1357,27 +1371,22 @@ function TextField(props: {
   return (
     <label className={props.wide ? 'creator-services-field is-wide' : 'creator-services-field'} htmlFor={props.id}>
       <span>{props.label}</span>
-      <input
+      <SuggestedInput
         id={props.id}
         aria-label={props.label}
         type="text"
         value={props.value}
         placeholder={props.placeholder}
-        list={props.suggestions?.length ? `${props.id}-suggestions` : undefined}
+        suggestions={props.suggestions ?? []}
         spellCheck={false}
         autoComplete="off"
         aria-invalid={props.error === undefined ? undefined : true}
         aria-describedby={props.error === undefined ? undefined : `${props.id}-error`}
-        onChange={event => props.onChange(event.target.value)}
+        onChange={props.onChange}
       />
       {props.error === undefined ? null : (
         <span id={`${props.id}-error`} className="creator-services-field-error">{props.error}</span>
       )}
-      {props.suggestions?.length ? (
-        <datalist id={`${props.id}-suggestions`}>
-          {props.suggestions.map(value => <option key={value} value={value} />)}
-        </datalist>
-      ) : null}
     </label>
   );
 }
@@ -1403,7 +1412,7 @@ function ModelField(props: {
     <label className="creator-services-field" htmlFor={props.id}>
       <span>{props.label}</span>
       {props.suggestions?.length ? (
-        <select
+        <AppSelect
           aria-label={props.label}
           value={showCustomInput ? '__custom__' : props.value}
           aria-invalid={props.error === undefined ? undefined : true}
@@ -1419,7 +1428,7 @@ function ModelField(props: {
         >
           {props.suggestions.map(value => <option key={value} value={value}>{value}</option>)}
           <option value="__custom__">{l('自定义模型', 'Custom model')}</option>
-        </select>
+        </AppSelect>
       ) : null}
       {(!props.suggestions?.length || showCustomInput) ? (
         <input

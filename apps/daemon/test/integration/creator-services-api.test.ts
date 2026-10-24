@@ -41,6 +41,7 @@ describe('creator services API', () => {
         provider: 'aliyun' as const,
         model: 'qwen3-tts-flash',
         voiceId: request.voiceId,
+        language: 'en',
         format: 'mp3' as const
       }))
     };
@@ -289,18 +290,21 @@ describe('creator services API', () => {
         provider: 'aliyun',
         model: 'qwen3-tts-flash',
         voiceId: 'Cherry',
+        language: 'ja-JP',
         text: '试听文本'
       }
     });
 
     expect(preview.statusCode).toBe(200);
     expect(preview.headers['content-type']).toContain('audio/mpeg');
+    expect(preview.headers['content-language']).toBe('en');
     expect(preview.headers['cache-control']).toBe('no-store');
     expect(preview.rawPayload.toString()).toBe('preview:Cherry');
     expect(ttsService.preview).toHaveBeenCalledWith({
       provider: 'aliyun',
       model: 'qwen3-tts-flash',
       voiceId: 'Cherry',
+      language: 'ja-JP',
       text: '试听文本'
     });
   });

@@ -24,12 +24,14 @@ export function TtsVoicePicker(props: {
   id: string;
   provider: CreatorTtsProvider;
   model: string;
+  catalogKey?: string;
   value: string;
   service: Pick<CreatorServicesSettingsService, 'getTtsVoices' | 'previewTtsVoice'> | null;
   label?: string;
   presentation?: 'select' | 'library';
   disabled?: boolean;
   allowCustomVoice?: boolean;
+  allowPreviewLanguage?: boolean;
   onChange(voiceId: string, voice?: CreatorTtsVoice): void;
   onVoiceResolved?(voice: CreatorTtsVoice): void;
 }) {
@@ -44,6 +46,8 @@ export function TtsVoicePicker(props: {
   const [previewVoiceId, setPreviewVoiceId] = useState('');
   const [reloadToken, setReloadToken] = useState(0);
   const [customId, setCustomId] = useState(props.value);
+  const [previewLanguageOverride, setPreviewLanguageOverride] = useState('');
+  const [sampleLanguage, setSampleLanguage] = useState('');
   const audioRef = useRef<HTMLAudioElement>(null);
   const previewUrlRef = useRef('');
   const previewRequestRef = useRef(0);
@@ -61,6 +65,7 @@ export function TtsVoicePicker(props: {
       };
     }
     setLoading(true);
+    setVoices([]);
     void props.service.getTtsVoices(props.provider, props.model)
       .then(response => {
         if (!active) return;
@@ -89,6 +94,7 @@ export function TtsVoicePicker(props: {
     pageIssues.captureOperationFailure,
     pageIssues.resolveOperation,
     props.model,
+    props.catalogKey,
     props.provider,
     props.service,
     reloadToken
@@ -116,28 +122,45 @@ export function TtsVoicePicker(props: {
       kind: 'custom' as const
     }, ...voices];
   }, [props.provider, props.value, voices]);
-  const selectGroups = useMemo<TtsVoiceSelectGroup[]>(() => groupVoices(options).map(group => ({
+  const previewLanguages = useMemo(() => [...new Set(voices.flatMap(voice => voice.previewLanguages ?? []))]
+    .sort((a, b) => Number(b === appLanguage.split('-')[0]) - Number(a === appLanguage.split('-')[0])
+      || Number(b === 'en') - Number(a === 'en')
+      || (voiceLanguageLabel(a, appLanguage, l) ?? a).localeCompare(voiceLanguageLabel(b, appLanguage, l) ?? b, appLanguage)), [voices, appLanguage, l]);
+  const previewLanguage = props.allowPreviewLanguage
+    ? availablePreviewLanguage(previewLanguages, previewLanguageOverride, appLanguage)
+    : appLanguage;
+  const visibleOptions = useMemo(() => props.allowPreviewLanguage && previewLanguage
+    ? options.filter(voice => voice.previewLanguages?.includes(previewLanguage))
+    : options, [options, previewLanguage, props.allowPreviewLanguage]);
+  const selectGroups = useMemo<TtsVoiceSelectGroup[]>(() => groupVoices(visibleOptions).map(group => ({
     label: group.label ? voiceScenarioLabel(group.label, l) : '',
     options: group.voices.map(voice => ({
       value: voice.id,
       name: voiceName(voice, l),
       detail: voiceDetail(voice, l, appLanguage, group.label)
     }))
-  })), [appLanguage, l, options]);
+  })), [appLanguage, l, visibleOptions]);
   const selected = options.find(voice => voice.id === props.value);
-  const libraryOptions = useMemo<VoiceLibraryOption[]>(() => options.map(voice => ({
+  const selectedHasPreview = !props.allowPreviewLanguage || !!previewLanguage && !!selected?.previewLanguages?.includes(previewLanguage);
+  const libraryOptions = useMemo<VoiceLibraryOption[]>(() => visibleOptions.map(voice => ({
     id: voice.id,
     name: voice.name,
     language: voiceLanguageLabel(voice.language, appLanguage, l) ?? '',
     gender: voiceGenderLabel(voice.gender, l),
+    traits: localizedVoiceInfo(voice.traits, appLanguage) ?? [],
+    useCases: localizedVoiceInfo(voice.useCases, appLanguage) ?? [],
+    description: localizedVoiceInfo(voice.description, appLanguage),
     scenario: voice.scenario ? voiceScenarioLabel(voice.scenario, l) : '',
     kind: voiceKindLabel(voice.kind, l),
     custom: voice.kind === 'custom',
     recommended: voice.recommended === true,
+    previewAvailable: !props.allowPreviewLanguage || !!voice.previewLanguages?.length,
     search: [voice.id, voice.name, voice.language, voice.gender, voice.scenario,
+      ...Object.values(voice.traits ?? {}).flat(), ...Object.values(voice.useCases ?? {}).flat(),
+      ...Object.values(voice.description ?? {}),
       voiceLanguageLabel(voice.language, appLanguage, l), voiceGenderLabel(voice.gender, l),
       voice.scenario ? voiceScenarioLabel(voice.scenario, l) : '', voiceKindLabel(voice.kind, l)].join(' ')
-  })), [appLanguage, l, options]);
+  })), [appLanguage, l, visibleOptions, props.allowPreviewLanguage]);
 
   useEffect(() => {
     if (selected) onVoiceResolvedRef.current?.(selected);
@@ -156,7 +179,10 @@ export function TtsVoicePicker(props: {
     setPreviewVoiceId('');
   }, []);
 
-  useEffect(() => { stopPreview(); }, [props.provider, props.model, props.value, props.disabled, props.service, appLanguage, stopPreview]);
+  useEffect(() => {
+    stopPreview();
+    setSampleLanguage('');
+  }, [props.provider, props.model, props.value, props.disabled, props.service, appLanguage, previewLanguage, stopPreview]);
 
   function selectVoice(voiceId: string) {
     stopPreview();
@@ -191,7 +217,11 @@ export function TtsVoicePicker(props: {
       || props.disabled
       || loading
     ) return;
+    const language = previewLanguage;
+    if (props.allowPreviewLanguage && !options.find(voice => voice.id === voiceId)?.previewLanguages?.includes(language)) return;
+    if (!language) return;
     stopPreview();
+    setSampleLanguage('');
     const request = ++previewRequestRef.current;
     setPreviewVoiceId(voiceId);
     setPreviewing(true);
@@ -199,6 +229,7 @@ export function TtsVoicePicker(props: {
       const response = await props.service.previewTtsVoice({
         provider: props.provider,
         model: props.model,
+        language,
         voiceId
       });
       if (!response.ok) throw new Error(`Voice preview request failed: ${response.status}`);
@@ -212,6 +243,7 @@ export function TtsVoicePicker(props: {
       audio.src = url;
       await audio.play();
       if (request !== previewRequestRef.current) return;
+      setSampleLanguage(response.headers.get('Content-Language') || '');
       setPlaying(true);
       pageIssues.resolveOperation('tts.preview-voice');
     } catch (cause) {
@@ -219,13 +251,33 @@ export function TtsVoicePicker(props: {
       pageIssues.captureOperationFailure(
         'tts.preview-voice',
         cause,
-        l('音色试听失败，请检查 API Key 和网络后重试。', 'Voice preview failed. Check the API key and network, then retry.'),
+        l('音色试听失败，请稍后重试。', 'Voice preview failed. Please try again later.'),
         { retryable: true }
       );
     } finally {
       if (request === previewRequestRef.current) setPreviewing(false);
     }
   }
+
+  const previewLanguageControl = props.allowPreviewLanguage ? <div className="tts-voice-preview-language">
+    <span id={`${props.id}-preview-language-label`}>{l('试听语言', 'Preview language')}</span>
+    <TtsVoiceSelect id={`${props.id}-preview-language`} labelId={`${props.id}-preview-language-label`} value={previewLanguage}
+      groups={[{ label: '', options: previewLanguages.map(language => {
+        const name = voiceLanguageLabel(language, appLanguage, l) ?? language;
+        const english = voiceLanguageLabel(language, 'en', l);
+        return { value: language, name, detail: english !== name ? english : language.toUpperCase() };
+      }) }]}
+      placeholder={loading ? l('正在加载语言', 'Loading languages') : l('暂无可试听语言', 'No preview languages available')}
+      searchLabel={l('搜索语言', 'Search languages')}
+      emptyLabel={l('未找到匹配语言', 'No matching languages')}
+      disabled={props.disabled || loading || !previewLanguages.length || props.service === null || props.provider === 'edge-tts'}
+      onChange={language => { stopPreview(); setSampleLanguage(''); setPreviewLanguageOverride(language); }} />
+    <small role="status">{sampleLanguage
+      ? sampleLanguage.toLowerCase().split('-')[0] !== previewLanguage.toLowerCase().split('-')[0]
+        ? l(`所选语言暂无样音，当前试听：${voiceLanguageLabel(sampleLanguage, appLanguage, l)}`, `No sample for the selected language. Playing: ${voiceLanguageLabel(sampleLanguage, appLanguage, l)}`)
+        : l(`当前试听：${voiceLanguageLabel(sampleLanguage, appLanguage, l)}`, `Playing: ${voiceLanguageLabel(sampleLanguage, appLanguage, l)}`)
+      : l('免费试听，选好语言后再选择音色。', 'Free previews. Choose a language, then a voice.')}</small>
+  </div> : null;
 
   const voiceDetails = <>
     {allowCustomVoice ? (
@@ -273,16 +325,19 @@ export function TtsVoicePicker(props: {
 
   return (
     <div className={`tts-voice-picker${props.presentation === 'library' ? ' is-library' : ''}`}>
+      {previewLanguageControl}
       {props.presentation === 'library' ? <TtsVoiceLibraryPopover
         label={props.label ?? l('默认音色', 'Default voice')}
         name={loading ? l('正在加载音色', 'Loading voices') : selected?.name ?? props.value}
-        detail={selected ? voiceDetail(selected, l, appLanguage, '') : undefined}
+        detail={selected && !selectedHasPreview && previewLanguage
+          ? l('此语言暂无该音色样音，可重新选择音色', 'No sample in this language. Choose another voice to preview.')
+          : selected ? voiceDetail(selected, l, appLanguage, '') : undefined}
         disabled={props.disabled || props.provider === 'edge-tts'}
-        resetKey={`${props.provider}:${props.model}:${appLanguage}`}
+        resetKey={`${props.provider}:${props.model}:${appLanguage}:${previewLanguage}`}
         onClose={stopPreview}
       >{close => <>
         <TtsVoiceLibrary
-          key={`${props.provider}:${props.model}:${appLanguage}`}
+          key={`${props.provider}:${props.model}:${appLanguage}:${previewLanguage}`}
           id={props.id}
           label={props.label ?? l('默认音色', 'Default voice')}
           value={props.value}
@@ -308,6 +363,7 @@ export function TtsVoicePicker(props: {
             id={props.id}
             labelId={`${props.id}-label`}
             value={props.value}
+            fallbackName={selected ? voiceName(selected, l) : props.value || undefined}
             groups={selectGroups}
             placeholder={loading
               ? l('正在加载音色', 'Loading voices')
@@ -332,7 +388,7 @@ export function TtsVoicePicker(props: {
           </button>
           <button
             type="button"
-            disabled={props.disabled || !selected || props.service === null || props.provider === 'edge-tts' || previewing}
+            disabled={props.disabled || loading || !selected || props.service === null || props.provider === 'edge-tts' || previewing || !selectedHasPreview}
             aria-label={playing ? l('暂停音色试听', 'Pause voice preview') : l('试听当前音色', 'Preview selected voice')}
             title={playing ? l('暂停', 'Pause') : l('试听', 'Preview')}
             onClick={() => void preview()}
@@ -351,6 +407,13 @@ export function TtsVoicePicker(props: {
   );
 }
 
+function availablePreviewLanguage(languages: string[], preferred: string, appLanguage: string): string {
+  return languages.find(language => language === preferred.split('-')[0])
+    ?? languages.find(language => language === appLanguage.split('-')[0])
+    ?? languages.find(language => language === 'en')
+    ?? languages[0] ?? '';
+}
+
 function voiceName(voice: CreatorTtsVoice, l: (zh: string, en: string) => string): string {
   const name = voice.name === voice.id ? voice.name : `${voice.name} (${voice.id})`;
   return voice.recommended ? `${name} · ${l('推荐', 'Recommended')}` : name;
@@ -364,11 +427,17 @@ function voiceDetail(
 ): string | undefined {
   // The group header already shows the scenario, so only repeat it for ungrouped voices.
   const details = [
+    voiceGenderLabel(voice.gender, l),
+    ...(localizedVoiceInfo(voice.traits, appLanguage) ?? []).slice(0, 2),
     voice.scenario && voice.scenario !== groupLabel ? voiceScenarioLabel(voice.scenario, l) : undefined,
     voiceLanguageLabel(voice.language, appLanguage, l),
     voiceKindLabel(voice.kind, l)
   ].filter(Boolean);
   return details.length > 0 ? details.join(' · ') : undefined;
+}
+
+function localizedVoiceInfo<T>(values: Record<string, T> | undefined, language: string): T | undefined {
+  return values?.[language] ?? values?.[language.split('-')[0]!] ?? values?.en;
 }
 
 function voiceLanguageLabel(

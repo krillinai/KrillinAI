@@ -57,6 +57,9 @@ function useWaveform(src: string | undefined, duration: number) {
 }
 
 export default function SubtitleTimeline(props: {
+  defaultCollapsed?: boolean;
+  defaultHeight?: number;
+  onLayoutChange?(layout: { collapsed: boolean; height: number }): void;
   cues: SubtitleCue[];
   src?: string;
   voiceSrc?: string;
@@ -73,8 +76,8 @@ export default function SubtitleTimeline(props: {
 }) {
   const l = useLocalizedCopy();
   const [zoom, setZoom] = useState(1);
-  const [collapsed, setCollapsed] = useState(false);
-  const [height, setHeight] = useState(220);
+  const [collapsed, setCollapsed] = useState(Boolean(props.defaultCollapsed));
+  const [height, setHeight] = useState(props.defaultHeight ?? 200);
   const [viewportWidth, setViewportWidth] = useState(900);
   const [error, setError] = useState('');
   const [dragCue, setDragCue] = useState<SubtitleCue>();
@@ -82,8 +85,8 @@ export default function SubtitleTimeline(props: {
   const scrub = useRef<{ pointerId: number; resume: boolean }>();
   const trackRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const waveform = useWaveform(props.src, props.duration);
-  const voiceWaveform = useWaveform(props.voiceSrc, props.duration);
+  const waveform = useWaveform(collapsed ? undefined : props.src, props.duration);
+  const voiceWaveform = useWaveform(collapsed ? undefined : props.voiceSrc, props.duration);
   const duration = Math.max(1, props.duration, waveform.duration, voiceWaveform.duration, ...props.cues.map(cue => subtitleSeconds(cue.end) || 0));
   const clipTop = props.voiceSrc ? 150 : 98;
   const selected = props.cues.find(cue => cue.id === props.selectedId);
@@ -102,6 +105,8 @@ export default function SubtitleTimeline(props: {
   const tickCount = Math.max(2, Math.round(Math.floor(viewportWidth / 110) * zoom));
   const waveformPath = useMemo(() => waveformSvgPath(waveform.peaks), [waveform.peaks]);
   const voiceWaveformPath = useMemo(() => waveformSvgPath(voiceWaveform.peaks), [voiceWaveform.peaks]);
+
+  useEffect(() => { props.onLayoutChange?.({ collapsed, height }); }, [collapsed, height, props.onLayoutChange]);
 
   useEffect(() => {
     const scroll = scrollRef.current;
@@ -217,20 +222,24 @@ export default function SubtitleTimeline(props: {
         {props.playing ? <Pause size={16} /> : <Play size={16} />}
       </button> : null}
       <span className="subtitle-timeline-time" dir="ltr">{subtitleTimestamp(props.currentTime)} <span>/ {subtitleTimestamp(duration)}</span></span>
-      <div className="subtitle-timeline-tools">
+      {collapsed ? <input className="subtitle-timeline-compact-seek" type="range" min={0} max={duration} step="0.01"
+        value={Math.min(props.currentTime, duration)} aria-label={l('字幕预览进度', 'Subtitle preview progress')}
+        onChange={event => props.onSeek(event.currentTarget.valueAsNumber)} /> : null}
+      {!collapsed ? <div className="subtitle-timeline-tools">
         <button type="button" disabled={props.readOnly || !canSplit} onClick={() => selected && props.onChange(splitSubtitle(props.cues, selected.id, props.currentTime))}
           title={l('在播放位置拆分', 'Split at playhead')}><Scissors size={15} /><span>{l('拆分', 'Split')}</span></button>
         <button type="button" disabled={props.readOnly || !canMerge} onClick={() => selected && props.onChange(mergeSubtitle(props.cues, selected.id))}
           title={l('与下一条合并', 'Merge with next')}><Merge size={15} /><span>{l('合并', 'Merge')}</span></button>
-      </div>
+      </div> : null}
       {!collapsed ? <div className="subtitle-timeline-timing">{timingInput('start')}{timingInput('end')}</div> : null}
-      <div className="subtitle-timeline-zoom">
+      {!collapsed ? <div className="subtitle-timeline-zoom">
         <button type="button" aria-label={l('缩小时间轴', 'Zoom out timeline')} disabled={zoom <= 1} onClick={() => setZoom(value => Math.max(1, value / 1.5))}><ZoomOut size={15} /></button>
         <span>{Math.round(zoom * 100)}%</span>
         <button type="button" aria-label={l('放大时间轴', 'Zoom in timeline')} disabled={zoom >= 16} onClick={() => setZoom(value => Math.min(16, value * 1.5))}><ZoomIn size={15} /></button>
-      </div>
+      </div> : null}
       <button type="button" aria-label={collapsed ? l('展开时间轴', 'Expand timeline') : l('收起时间轴', 'Collapse timeline')} aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
         {collapsed ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+        {collapsed ? <span>{l('调整时间', 'Adjust timing')}</span> : null}
       </button>
     </div>
     {error ? <p className="subtitle-timeline-error" role="alert">{error}</p> : null}

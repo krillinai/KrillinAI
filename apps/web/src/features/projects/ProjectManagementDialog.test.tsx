@@ -1,3 +1,4 @@
+import { changeControl, selectOption } from '../../test/select-option.js';
 import type { ProjectResponse, ThreadResponse } from '@opencreator/protocol';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
@@ -54,7 +55,7 @@ describe('ProjectManagementDialog', () => {
     expect(onAssignThread).not.toHaveBeenCalled();
 
     await user.click(screen.getAllByRole('button', { name: '编辑' })[0]!);
-    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'Renamed' } });
+    changeControl(screen.getByLabelText('名称'), { target: { value: 'Renamed' } });
     await user.click(screen.getByRole('button', { name: '保存' }));
     expect(onUpdate).toHaveBeenCalledWith(
       'project-active',
@@ -67,7 +68,7 @@ describe('ProjectManagementDialog', () => {
     await user.click(screen.getByRole('button', { name: '恢复' }));
     expect(onRestore).toHaveBeenCalledWith('project-archived');
 
-    await user.selectOptions(
+    await selectOption(
       screen.getByLabelText('目标项目 Legacy conversation'),
       'project-missing'
     );

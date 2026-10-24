@@ -17,7 +17,11 @@ async function fixture() {
   const png = await sharp({ create: { width: 1, height: 1, channels: 3, background: 'red' } }).png().toBuffer();
   const fetcher = vi.fn<typeof fetch>(async (url, options) => {
     const path = new URL(String(url)).pathname;
-    if (path.endsWith('/responses')) return Response.json({ status: 'completed', output: [{ type: 'function_call', name: 'model_probe', arguments: '{"ok":true}' }] });
+    if (path.endsWith('/responses')) {
+      const request = JSON.parse(String(options?.body));
+      if (request.tool_choice !== 'auto') return Response.json({ error: { code: 'invalid_parameter', message: 'Only auto tool selection is supported' } }, { status: 400 });
+      return Response.json({ status: 'completed', output: [{ type: 'function_call', name: 'model_probe', arguments: '{"ok":true}' }] });
+    }
     if (path.endsWith('/chat/completions')) return Response.json({ choices: [{ message: { content: 'OK' }, finish_reason: 'stop' }] });
     if (path.endsWith('/images')) return Response.json({ data: [{ b64_json: png.toString('base64') }] });
     if (path.endsWith('/audio/speech')) return new Response(new Uint8Array(modelProbeAudio()), { headers: { 'Content-Type': 'audio/wav' } });

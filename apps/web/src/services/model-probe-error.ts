@@ -1,3 +1,4 @@
+import { safePublicErrorMessage } from '@opencreator/protocol';
 import { ApiClientError } from '../runtime/errors.js';
 
 export function modelProbeErrorMessage(error: unknown, l: (zh: string, en: string) => string): string | undefined {
@@ -14,5 +15,6 @@ export function modelProbeErrorMessage(error: unknown, l: (zh: string, en: strin
           : l('暂时无法确认模型可用性，请重试', 'Model availability could not be confirmed. Try again.');
   const facts = error instanceof ApiClientError ? error.details?.publicFacts : undefined;
   const reason = facts && typeof facts === 'object' && 'upstreamMessage' in facts ? facts.upstreamMessage : undefined;
-  return typeof reason === 'string' && reason.trim() ? `${message}\n${reason}` : message;
+  const safeReason = safePublicErrorMessage(reason);
+  return safeReason ? `${message}\n${safeReason}` : message;
 }

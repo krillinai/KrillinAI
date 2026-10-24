@@ -26,6 +26,7 @@ import {
 import type { CreatorTemplateRegistry } from './templates/types.js';
 import { videoTranslationArtifactRefsPatch } from './templates/video-translation-results.js';
 import { formatSrtTimestamp, parseSrt } from './validators/srt.js';
+import { normalizeSubtitleRenderCues } from '@opencreator/protocol';
 import { detectSubtitleLanguage } from './subtitle-language.js';
 import {
   createBlankCreationFingerprint,
@@ -1039,6 +1040,18 @@ export function createCreatorService(input: {
             resultVersion,
             cues
           );
+          let renderCues = cues;
+          if (source.kind === 'vertical_subtitle' && !Array.isArray(source.metadata.renderCues)) {
+            const target = artifactFromSnapshot(current.artifacts, baseSnapshot?.artifactRefs.target_subtitle, 'target_subtitle');
+            const values = target?.metadata.cues;
+            const targetCues = Array.isArray(values) ? values.flatMap(value => value && typeof value === 'object' && !Array.isArray(value)
+              && typeof value.start === 'string' && typeof value.end === 'string' && typeof value.text === 'string'
+              ? [{ start: value.start, end: value.end, text: value.text }] : []) : [];
+            const snapshot = source.metadata.settingsSnapshot;
+            renderCues = normalizeSubtitleRenderCues({ cues, targetCues, legacyMixed: true,
+              targetPosition: snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) && snapshot.subtitlePosition === 'bottom' ? 'bottom' : 'top' })
+              .map((cue, index) => ({ id: index + 1, start: formatSrtTimestamp(cue.startMs), end: formatSrtTimestamp(cue.endMs), text: cue.text, sourceText: cue.sourceText }));
+          }
           const nextSubtitle = repository.insertArtifact({
             jobId,
             kind: source.kind,
@@ -1049,6 +1062,7 @@ export function createCreatorService(input: {
               ...source.metadata,
               fileName: basename(nextSubtitlePath),
               cues: subtitleMetadataCues(cues),
+              renderCues: renderCues as unknown as CreatorJson,
               editedFromArtifactId: source.id,
               resultVersion
             }
@@ -1171,9 +1185,18 @@ export function createCreatorService(input: {
           if (stage.resultVersionPolicy === 'attach' && parsedInput.inputResultVersion === undefined) {
             throw new CreatorServiceError('creator_action_input_invalid', 'A result version is required to prepare preview media');
           }
-          if ((stage.resultVersionPolicy === 'attach' || stage.id === 'preview-source-video'
-            || current.stages.some(run => run.stageId === 'preview-source-video' && (run.status === 'queued' || run.status === 'running')))
-            && current.stages.some(run => run.status === 'queued' || run.status === 'running')) {
+          const activeRuns = current.stages.filter(run => run.status === 'queued' || run.status === 'running');
+          const backgroundSource = current.templateId === 'video-translation' && stage.id === 'preview-source-video'
+            && parsedInput.backgroundSourceDownload === true && actor === 'system';
+          if (parsedInput.backgroundSourceDownload === true && !backgroundSource) {
+            throw new CreatorServiceError('creator_action_input_invalid', 'Only the translation workflow can start a background source download');
+          }
+          if (backgroundSource && activeRuns.some(run => run.stageId !== 'subtitle')) {
+            throw new CreatorServiceError('creator_stage_already_running', 'A source download is already running');
+          }
+          if (!backgroundSource && (stage.resultVersionPolicy === 'attach' || stage.id === 'preview-source-video'
+            || activeRuns.some(run => run.stageId === 'preview-source-video'))
+            && activeRuns.some(run => !(stage.id === 'subtitle' && run.progress.backgroundSourceDownload === true))) {
             throw new CreatorServiceError('creator_stage_already_running', 'Wait for the current stage to finish before preparing preview media');
           }
           nextState = { ...nextState, currentStage: stageId };

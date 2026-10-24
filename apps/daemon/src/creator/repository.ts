@@ -31,7 +31,7 @@ import type {
 import { parseSrt } from './validators/srt.js';
 
 type RepositoryOptions = {
-  serviceBinding?(): CreatorServiceBinding;
+  serviceBinding?(templateId: string): CreatorServiceBinding;
   idFactory?(prefix: string): string;
   now?(): string;
 };
@@ -462,7 +462,7 @@ export function createCreatorRepository(
     createJob(input: CreateJobInput): CreatorJob {
       const id = idFactory('creator_job');
       const timestamp = now();
-      const serviceBinding = options.serviceBinding?.() ?? { source: 'manual' as const };
+      const serviceBinding = options.serviceBinding?.(input.templateId) ?? { source: 'manual' as const };
       const state = serviceBinding.source === 'gateway'
         ? { ...input.state, officialModels: { ...serviceBinding.models, ...(isRecord(input.state.officialModels) ? input.state.officialModels : {}) } }
         : input.state;

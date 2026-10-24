@@ -150,38 +150,87 @@ export function createImageExecutor(input: {
             }
           )
             .then(async result => {
-              const image = result.contents[0];
-              if (image === undefined) {
+              if (result.contents.length === 0) {
                 throw new ImageGenerationProviderError(
                   'upstream_error',
                   'The image provider returned no images'
                 );
               }
-              const candidate = index + 1;
-              const extension = extensionForMime(image.mime);
-              const fileName = `OpenCreator-image-${candidate}.${extension}`;
-              const path = join(stage.workdir, fileName);
-              const coverRatio = stage.job.templateId === 'cover'
-                ? readCoverRatio(stage)
-                : undefined;
-              const sourcePath = coverRatio !== undefined && input.normalizeCoverImage !== undefined
-                ? join(stage.workdir, `OpenCreator-image-${candidate}-source.${extension}`)
-                : path;
-              await writeFile(sourcePath, image.content);
-              let normalized: { width: number; height: number } | undefined;
-              try {
-                if (coverRatio !== undefined && input.normalizeCoverImage !== undefined) {
-                  normalized = await input.normalizeCoverImage({
-                    sourcePath,
-                    outputPath: path,
-                    ratio: coverRatio,
-                    signal: stage.signal
-                  });
+              const batchOutputs: CreatorExecutorOutput[] = [];
+              for (const [imageIndex, image] of result.contents.entries()) {
+                const candidate = result.contents.length === 1 ? index + 1 : index * result.contents.length + imageIndex + 1;
+                const extension = extensionForMime(image.mime);
+                const fileName = result.contents.length === 1
+                  ? `OpenCreator-image-${candidate}.${extension}`
+                  : `OpenCreator-image-${index + 1}-${imageIndex + 1}.${extension}`;
+                const path = join(stage.workdir, fileName);
+                const coverRatio = stage.job.templateId === 'cover'
+                  ? readCoverRatio(stage)
+                  : undefined;
+                const sourcePath = coverRatio !== undefined && input.normalizeCoverImage !== undefined
+                  ? join(stage.workdir, `OpenCreator-image-${candidate}-source.${extension}`)
+                  : path;
+                await writeFile(sourcePath, image.content);
+                let normalized: { width: number; height: number } | undefined;
+                try {
+                  if (coverRatio !== undefined && input.normalizeCoverImage !== undefined) {
+                    normalized = await input.normalizeCoverImage({
+                      sourcePath,
+                      outputPath: path,
+                      ratio: coverRatio,
+                      signal: stage.signal
+                    });
+                  }
+                } finally {
+                  if (sourcePath !== path) await rm(sourcePath, { force: true });
                 }
-              } finally {
-                if (sourcePath !== path) await rm(sourcePath, { force: true });
+                const metadata = await validateImageFile(path);
+                batchOutputs.push({
+                  kind: outputKind,
+                  status: 'completed' as const,
+                  path,
+                  metadata: {
+                    ...metadata,
+                    provider: request.provider,
+                    model: result.model,
+                    candidate,
+                    imageSize: request.size,
+                    quality: request.quality,
+                    ...(request.aspectRatio ? { aspectRatio: request.aspectRatio } : {}),
+                    ...(request.resolution ? { resolution: request.resolution } : {}),
+                    ...(request.modelQuality ? { modelQuality: request.modelQuality } : {}),
+                    mimeType: image.mime,
+                    fileName,
+                    ...(referenceImage === undefined
+                      ? {}
+                      : {
+                          referenceArtifactId: referenceImage.artifactId,
+                          referenceArtifactKind: referenceImage.kind
+                        }),
+                    ...(requestContext.cover === undefined
+                      ? {}
+                      : {
+                          coverStyle: requestContext.cover.style,
+                          coverTextLanguage: requestContext.cover.language,
+                          headline: requestContext.cover.headline,
+                          subheadline: requestContext.cover.subheadline,
+                          emphasisTerms: requestContext.cover.emphasisTerms
+                        }),
+                    ...(coverRatio === undefined
+                      ? {}
+                      : {
+                          ratio: coverRatio,
+                          normalizedToRatio: normalized !== undefined,
+                          ...(normalized === undefined
+                            ? {}
+                            : {
+                                width: normalized.width,
+                                height: normalized.height
+                              })
+                        })
+                  }
+                } satisfies CreatorExecutorOutput);
               }
-              const metadata = await validateImageFile(path);
               if (ledger) ledger = input.ledger!.markSucceeded(ledger.id);
               completed += 1;
               stage.reportProgress({
@@ -192,51 +241,8 @@ export function createImageExecutor(input: {
                 failed,
                 total: request.count
               });
-              return {
-                kind: outputKind,
-                status: 'completed' as const,
-                path,
-                metadata: {
-                  ...metadata,
-                  provider: request.provider,
-                  model: result.model,
-                  candidate,
-                  imageSize: request.size,
-                  quality: request.quality,
-                  ...(request.aspectRatio ? { aspectRatio: request.aspectRatio } : {}),
-                  ...(request.resolution ? { resolution: request.resolution } : {}),
-                  ...(request.modelQuality ? { modelQuality: request.modelQuality } : {}),
-                  mimeType: image.mime,
-                  fileName,
-                  ...(referenceImage === undefined
-                    ? {}
-                    : {
-                        referenceArtifactId: referenceImage.artifactId,
-                        referenceArtifactKind: referenceImage.kind
-                      }),
-                  ...(requestContext.cover === undefined
-                    ? {}
-                    : {
-                        coverStyle: requestContext.cover.style,
-                        coverTextLanguage: requestContext.cover.language,
-                        headline: requestContext.cover.headline,
-                        subheadline: requestContext.cover.subheadline,
-                        emphasisTerms: requestContext.cover.emphasisTerms
-                      }),
-                  ...(coverRatio === undefined
-                    ? {}
-                    : {
-                        ratio: coverRatio,
-                        normalizedToRatio: normalized !== undefined,
-                        ...(normalized === undefined
-                          ? {}
-                          : {
-                              width: normalized.width,
-                              height: normalized.height
-                            })
-                      })
-                }
-              } satisfies CreatorExecutorOutput;
+
+              return batchOutputs;
             })
             .catch(error => {
               if (ledger && ['submitting', 'waiting_remote'].includes(ledger.status)) {
@@ -258,7 +264,7 @@ export function createImageExecutor(input: {
             })
         })
       );
-      const outputs = settled.flatMap(item => item.status === 'fulfilled' ? [item.value] : []);
+      const outputs = settled.flatMap(item => item.status === 'fulfilled' ? item.value : []);
       const failures = settled.flatMap((item, index) => item.status === 'rejected'
         ? [{
             candidate: index + 1,
@@ -274,7 +280,7 @@ export function createImageExecutor(input: {
         percent: 100,
         completed: outputs.length,
         failed: failures.length,
-        total: request.count
+        total: outputs.length + failures.length
       });
       return {
         outputs,
@@ -284,7 +290,7 @@ export function createImageExecutor(input: {
           percent: 100,
           completed: outputs.length,
           failed: failures.length,
-          total: request.count,
+          total: outputs.length + failures.length,
           failures
         }
       };

@@ -1,3 +1,4 @@
+import { changeControl } from '../../test/select-option.js';
 import type { CreatorActionRequest, CreatorArtifact, CreatorJob } from '@opencreator/protocol';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -65,13 +66,13 @@ describe('ShortVideoScriptWorkspace', () => {
       fireEvent.change(screen.getByPlaceholderText('例如：准备参与开源项目的程序员'), {
         target: { value: '准备参与开源项目的程序员' }
       });
-      fireEvent.change(screen.getByRole('combobox', { name: '发布平台或场景' }), {
+      changeControl(screen.getByRole('combobox', { name: '发布平台或场景' }), {
         target: { value: 'bilibili' }
       });
       fireEvent.change(screen.getByRole('spinbutton', { name: '目标时长（秒）' }), {
         target: { value: '90' }
       });
-      fireEvent.change(screen.getByRole('combobox', { name: '表达语气' }), {
+      changeControl(screen.getByRole('combobox', { name: '表达语气' }), {
         target: { value: 'professional' }
       });
       fireEvent.change(screen.getByPlaceholderText('例如：开场直接给结论，不使用夸张表达'), {

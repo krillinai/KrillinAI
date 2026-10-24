@@ -1,5 +1,5 @@
 import {
-  smartDubbingStyles,
+  smartDubbingStyles, gatewayModelDisplayName, gatewayModelIdMatches,
   type CreatorArtifact,
   type CreatorJson,
   type CreatorTtsProvider,
@@ -317,6 +317,8 @@ export default function SmartDubbingWorkspace(props: {
     && !Array.isArray(settingsSnapshot)
       ? settingsSnapshot as Record<string, CreatorJson>
       : undefined;
+  const resultModelId = result?.model || model || '';
+  const resultModelLabel = gatewayModelDisplayName(official.models.find(candidate => gatewayModelIdMatches(candidate.id, resultModelId)) ?? { id: resultModelId }, l('官方模型', 'Official model'));
   const summaryText = result ? readString(resultSettings?.text) || text.trim() : text.trim();
   const summaryStyle = result
     ? styles.find(item => item.value === result.style) ?? selectedStyle
@@ -329,7 +331,7 @@ export default function SmartDubbingWorkspace(props: {
       compactSummary={`${result?.voiceName || voiceName || voice || providerLabel(provider, l)} · ${(result?.format ?? format).toUpperCase()}`}
       items={[
         { label: l('服务商', 'Provider'), value: providerLabel(result?.provider ?? provider, l) },
-        { label: l('模型', 'Model'), value: result?.model || model || '—' },
+        { label: l('模型', 'Model'), value: resultModelId ? resultModelLabel : '—' },
         { label: l('音色', 'Voice'), value: result?.voiceName || voiceName || voice || '—' },
         ...(result || supportsStyle ? [{ label: l('表达风格', 'Delivery'), value: l(summaryStyle.zh, summaryStyle.en) }] : []),
         ...(result || supportsSpeed ? [{ label: l('语速', 'Speed'), value: `${(result?.speed ?? speed).toFixed(2)}x` }] : []),
@@ -425,6 +427,8 @@ export default function SmartDubbingWorkspace(props: {
                 <TtsVoicePicker
                   id="smart-dubbing-voice"
                   presentation="library"
+                  allowPreviewLanguage={official.official}
+                  catalogKey={official.official ? JSON.stringify([official.model?.voices, official.model?.voiceProfiles]) : undefined}
                   provider={provider}
                   model={model}
                   value={voice}
@@ -480,7 +484,7 @@ export default function SmartDubbingWorkspace(props: {
             {result && audioUrl ? (
               <div className="smart-dubbing-result">
                 <span className="smart-dubbing-result-icon"><FileAudio size={28} strokeWidth={1.5} aria-hidden="true" /></span>
-                <div><strong>{result.fileName}</strong><small>{formatBytes(result.size)} · {result.model}</small></div>
+                <div><strong>{result.fileName}</strong><small>{formatBytes(result.size)} · {resultModelLabel}</small></div>
                 <audio controls src={audioUrl} aria-label={l('文本转语音试听', 'Text to Speech preview')} />
                 <div className="smart-dubbing-result-actions">
                   <button className="creator-tool-primary" type="button" onClick={download}><Download size={15} strokeWidth={1.8} aria-hidden="true" />{l('下载音频', 'Download audio')}</button>

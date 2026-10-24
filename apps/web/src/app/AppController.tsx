@@ -4857,6 +4857,7 @@ export function AppController(props: AppControllerProps) {
       initialSection={props.route.view === 'settings' ? props.route.section : undefined}
       componentId={props.route.view === 'settings' ? props.route.component : undefined}
       returnToTranslation={props.route.view === 'settings' && props.route.from === 'video-translation'}
+      translationReturnPath={props.route.view === 'settings' ? props.route.returnPath : undefined}
       onBack={() => {
         const returnRoute = props.route.view === 'settings' && props.route.returnPath
           ? parseRoute(props.route.returnPath)

@@ -307,3 +307,10 @@ describe('RuntimeClient', () => {
     );
   });
 });
+
+it('does not expose relay messages returned by an older Runtime', () => {
+  const error = new ApiClientError({ status: 502, code: 'MODEL_REQUEST_FAILED', message: '88api channel failed',
+    publicFacts: { kind: 'unavailable', provider: 'ChatAnywhere', upstreamMessage: '88api/gpt-image-2 failed', httpStatus: 502 } });
+  expect(error.message).not.toMatch(/88api|chatanywhere/i);
+  expect(error.publicFacts).toEqual({ kind: 'unavailable', httpStatus: 502 });
+});

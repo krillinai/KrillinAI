@@ -187,7 +187,7 @@ body {
 button,
 input,
 textarea,
-select {
+:is(select, .app-select-trigger) {
   font: inherit;
 }
 
@@ -217,7 +217,7 @@ button:not(:disabled):active {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
+:is(select, .app-select-trigger):focus-visible {
   outline: 2px solid var(--state-focus-ring);
   outline-offset: 2px;
 }
@@ -7589,7 +7589,7 @@ a.creator-template-author-avatar:focus-visible {
   font-size: 12px;
 }
 
-.memory-suggestion__actions select {
+.memory-suggestion__actions :is(select, .app-select-trigger) {
   height: 32px;
   padding: 0 8px;
   border: 1px solid var(--border);
@@ -7685,7 +7685,7 @@ a.creator-template-author-avatar:focus-visible {
 @media (max-width: 760px) {
   button,
   [role="button"],
-  select,
+  :is(select, .app-select-trigger),
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
     min-width: var(--control-touch);
     min-height: var(--control-touch) !important;

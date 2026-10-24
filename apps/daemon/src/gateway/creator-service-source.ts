@@ -1,5 +1,6 @@
+import { gatewayModelIdMatches } from '@opencreator/protocol';
 import { isDirectTransport } from './supplier.js';
-import { createDefaultCreatorServicesConfig, gatewayDefaultVoiceId, gatewayModelReady, type CreatorServicesConfig, type CreatorProviderRequest, type CreatorStageRun, type CreatorJob, type GatewayModel } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, gatewayDefaultVoiceId, gatewayModelReady, gatewayTranslationFlashModel, type CreatorServicesConfig, type CreatorProviderRequest, type CreatorStageRun, type CreatorJob, type GatewayModel } from '@opencreator/protocol';
 import type { FastifyInstance } from 'fastify';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -27,6 +28,7 @@ export function createGatewayCreatorSource(input: {
   fetcher?: typeof fetch;
   readJobBinding?(jobId: string): CreatorServiceBinding;
   readJobState?(jobId: string): CreatorJob['state'] | undefined;
+  readJobTemplateId?(jobId: string): string | undefined;
   readStageRun?(stageRunId: string): CreatorStageRun | undefined;
   ledger?: CreatorProviderRequestLedger;
   directRequestsRoot?: string;
@@ -46,7 +48,7 @@ export function createGatewayCreatorSource(input: {
       if (updated.baseUrl !== baseUrl) throw new GatewayError('supplier_binding_changed', 409);
       return updated.modelKey !== failedKey ? updated.modelKey : undefined;
     } : undefined) : undefined;
-  function snapshot(): CreatorServiceBinding {
+  function snapshot(templateId?: string): CreatorServiceBinding {
     const state = input.account.peekState();
     if (state.source === 'manual') return { source: 'manual' };
     if (state.authState !== 'signed_in' || state.activationState !== 'ready' || !state.account || !state.bindingVersion) throw new GatewayError('services_not_ready');
@@ -61,13 +63,15 @@ export function createGatewayCreatorSource(input: {
     if(state.transport==='gateway'){
       for (const modality of ['text','image','video','speech','transcription'] as const) {
         const id = state.selectedModels?.[modality];
-        const selected = state.models.find(model => model.id === id && model.modality === modality && gatewayModelReady(model)
+        const selected = state.models.find(model => gatewayModelIdMatches(model.id, id) && model.modality === modality && gatewayModelReady(model)
           && (modality !== 'text' || model.capabilities.includes('chat'))
           && (modality !== 'transcription' || model.capabilities.includes('subtitle_timestamps')));
         if (selected) { models[modality] = selected.id; caps[modality] = [...selected.capabilities]; }
         else { delete models[modality]; delete caps[modality]; }
       }
     }
+    const flash = templateId === 'video-translation' ? gatewayTranslationFlashModel(state.models) : undefined;
+    if (flash) { models.text = flash.id; caps.text = [...flash.capabilities]; }
     return { source: 'gateway', accountId: state.account.id, bindingVersion: state.bindingVersion, supplier: state.supplier ?? 'openrouter', models, capabilities: caps };
   }
   function assertSnapshot(value: CreatorServiceBinding, recovery = false) {
@@ -96,7 +100,7 @@ export function createGatewayCreatorSource(input: {
       capabilities.set(capability.token, capability);
     }
     const speechModel = original?.models?.speech ?? credentials.defaults.speech;
-    const speechVoices = credentials.models.find(model => model.modality === 'speech' && model.id === speechModel)?.voices;
+    const speechVoices = credentials.models.find(model => model.modality === 'speech' && gatewayModelIdMatches(model.id, speechModel))?.voices;
     const defaults={...credentials.defaults};
     if(credentials.transport==='gateway')defaults.transcription=credentials.models.find(model=>model.id===defaults.transcription&&model.capabilities.includes('subtitle_timestamps')&&gatewayModelReady(model))?.id??'';
     return { accountId: credentials.accountId, bindingVersion, baseUrl: `${local}${prefix}`, apiKey: capability.token, models: original?.models ?? defaults, catalog: credentials.models, capabilities: original?.capabilities ?? Object.fromEntries(credentials.models.filter(model => defaults[model.modality] === model.id).map(model => [model.modality, model.capabilities])), speechVoices, logicalId: scope?.logicalId, stageRunId: scope?.stageRunId };
@@ -187,19 +191,24 @@ export function createGatewayCreatorSource(input: {
       assertSnapshot(original);
       if (original.source === 'gateway') {
         const choices = input.readJobState?.(jobId)?.officialModels;
+        // Task choices below still take precedence; never change the Agent/global default.
+        const flash = input.readJobTemplateId?.(jobId) === 'video-translation'
+          ? gatewayTranslationFlashModel(input.account.peekState().models) : undefined;
+        if (flash) original = { ...original, models: { ...original.models, text: flash.id },
+          capabilities: { ...original.capabilities, text: [...flash.capabilities] } };
         if (choices !== undefined) {
           if (!choices || typeof choices !== 'object' || Array.isArray(choices)) throw new GatewayError('invalid_model', 400);
           original = { ...original, models: { ...original.models }, capabilities: { ...original.capabilities } };
           const catalog = input.account.peekState().models;
           for (const [modality, id] of Object.entries(choices)) {
-            const selected = catalog.find(candidate => candidate.modality === modality && candidate.id === id && gatewayModelReady(candidate) && (modality !== 'text' || candidate.capabilities.includes('chat') || candidate.capabilities.includes('responses')));
+            const selected = catalog.find(candidate => candidate.modality === modality && gatewayModelIdMatches(candidate.id, id) && gatewayModelReady(candidate) && (modality !== 'text' || candidate.capabilities.includes('chat') || candidate.capabilities.includes('responses')));
             if (!selected) {
               const resumed = typeof input.readStageRun?.(stageRunId)?.progress.resumedFromStageRunId === 'string';
               if (!resumed || !['image', 'video'].includes(modality) || typeof id !== 'string') throw new GatewayError('invalid_model', 400);
               original.models[modality] = id;
               continue;
             }
-            original.models[modality] = selected.id; original.capabilities[modality] = [...selected.capabilities];
+            original.models[modality] = typeof id === 'string' ? id : selected.id; original.capabilities[modality] = [...selected.capabilities];
           }
         }
       }
@@ -330,7 +339,7 @@ export function createGatewayCreatorSource(input: {
                 const model = Buffer.isBuffer(request.body)
                   ? (await new Request('http://localhost', { method: 'POST', headers: { 'Content-Type': headers['Content-Type']! }, body: new Uint8Array(request.body) }).formData()).get('model')
                   : (request.body as { model?: unknown })?.model;
-                modelMetadata = credentials.models.find(candidate => candidate.modality === modality && candidate.id === model);
+                modelMetadata = credentials.models.find(candidate => candidate.modality === modality && gatewayModelIdMatches(candidate.id, model));
                 if (!modelMetadata) {
                   if (modality === 'image' || modality === 'video') cachedResponse = await direct.replay(credentials.accountId, headers['Idempotency-Key']!, digest ?? '');
                   if (!cachedResponse) throw new GatewayError('invalid_model', 400);
@@ -344,7 +353,9 @@ export function createGatewayCreatorSource(input: {
                 const id = Buffer.isBuffer(request.body)
                   ? (await new Request('http://localhost', { method: 'POST', headers: { 'Content-Type': headers['Content-Type']! }, body: new Uint8Array(request.body) }).formData()).get('model')
                   : (request.body as { model?: unknown })?.model;
-                const native = await chatAnywhereImage(resource, request.body, headers['Content-Type']!, credentials.models.find(model => model.id === id && model.modality === 'image'));
+                const model = credentials.models.find(model => gatewayModelIdMatches(model.id, id) && model.modality === 'image');
+                const native = model?.catalogSchema === 2 ? { body: request.body, contentType: headers['Content-Type']! }
+                  : await chatAnywhereImage(resource, request.body, headers['Content-Type']!, model);
                 headers['Content-Type'] = native.contentType;
                 body = Buffer.isBuffer(native.body) ? new Uint8Array(native.body) : JSON.stringify(native.body);
               }
@@ -389,8 +400,10 @@ export function createGatewayCreatorSource(input: {
             if (receipt && input.ledger) {
               receipt = input.ledger.findLatest(receipt.provider, receipt.requestKey);
               if (receipt && ['submitting', 'waiting_remote', 'unknown_remote_acceptance'].includes(receipt.status)) {
-                if (id && /^[A-Za-z0-9_-]{12,128}$/.test(id)) receipt = input.ledger.markWaitingRemote(receipt.id, id);
-                else if (!response.ok && response.status >= 400 && response.status < 500 && receipt.status !== 'unknown_remote_acceptance') receipt = input.ledger.markFailed(receipt.id);
+                // A trace ID on a rejected request is not an accepted model request.
+                if (!response.ok && [400, 401, 402, 403, 404, 413, 415, 422, 429].includes(response.status)
+                  && receipt.status !== 'unknown_remote_acceptance') receipt = input.ledger.markFailed(receipt.id);
+                else if (id && /^[A-Za-z0-9_-]{12,128}$/.test(id)) receipt = input.ledger.markWaitingRemote(receipt.id, id);
                 else markUnknown();
               }
             }

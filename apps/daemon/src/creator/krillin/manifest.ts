@@ -44,6 +44,19 @@ const cliSourceSchema = z.object({
   dirty: z.boolean().optional()
 }).strict();
 
+const nlpRuntimeSchema = z.object({
+  engine: z.literal('spacy'),
+  version: z.string().min(1),
+  executable: z.string().min(1),
+  packageMetadata: z.string().min(1),
+  models: z.array(z.object({
+    language: z.string().min(1),
+    name: z.string().min(1),
+    version: z.string().min(1),
+    metadata: z.string().min(1)
+  }).strict()).min(1)
+}).strict();
+
 const manifestSchema = z.object({
   version: z.number().int().positive(),
   runtimeMode: z.literal('cli').optional(),
@@ -56,6 +69,7 @@ const manifestSchema = z.object({
   upstreamCommit: z.string().optional(),
   cliSource: cliSourceSchema.optional(),
   ytDlp: ytDlpRuntimeSchema.optional(),
+  nlp: nlpRuntimeSchema.optional(),
   resources: z.array(resourceSchema)
 }).strict();
 

@@ -9,10 +9,14 @@ export type VoiceLibraryOption = {
   name: string;
   language: string;
   gender: string;
+  traits?: string[];
+  useCases?: string[];
+  description?: string;
   scenario: string;
   kind: string;
   custom: boolean;
   recommended: boolean;
+  previewAvailable?: boolean;
   search: string;
 };
 
@@ -41,24 +45,27 @@ export function TtsVoiceLibrary(props: {
   const [language, setLanguage] = useState('');
   const [gender, setGender] = useState('');
   const [scenario, setScenario] = useState('');
+  const [useCase, setUseCase] = useState('');
   const [category, setCategory] = useState<'all' | 'recommended' | 'custom'>('all');
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
   const filters = useMemo(() => ({
     languages: [...new Set(props.options.map(option => option.language).filter(Boolean))],
     genders: [...new Set(props.options.map(option => option.gender).filter(Boolean))],
-    scenarios: [...new Set(props.options.map(option => option.scenario).filter(Boolean))]
+    scenarios: [...new Set(props.options.flatMap(option => [option.scenario, ...option.traits ?? []]).filter(Boolean))],
+    useCases: [...new Set(props.options.flatMap(option => option.useCases ?? []))]
   }), [props.options]);
   const filtered = useMemo(() => {
     const terms = normalize(query).split(/\s+/).filter(Boolean);
     return props.options.filter(option => (
       (!language || option.language === language)
       && (!gender || option.gender === gender)
-      && (!scenario || option.scenario === scenario)
+      && (!scenario || option.scenario === scenario || option.traits?.includes(scenario))
+      && (!useCase || option.useCases?.includes(useCase))
       && (category !== 'recommended' || option.recommended)
       && (category !== 'custom' || option.custom)
       && terms.every(term => normalize(option.search).includes(term))
     ));
-  }, [props.options, query, language, gender, scenario, category]);
+  }, [props.options, query, language, gender, scenario, useCase, category]);
   const focusId = filtered.find(option => option.id === props.value)?.id ?? filtered[0]?.id;
   const disabled = props.disabled || props.loading;
 
@@ -103,7 +110,8 @@ export function TtsVoiceLibrary(props: {
         {[
           { label: l('全部语言', 'All languages'), values: filters.languages, value: language, set: setLanguage },
           { label: l('全部性别', 'All genders'), values: filters.genders, value: gender, set: setGender },
-          { label: l('全部风格', 'All styles'), values: filters.scenarios, value: scenario, set: setScenario }
+          { label: l('全部风格', 'All styles'), values: filters.scenarios, value: scenario, set: setScenario },
+          { label: l('全部场景', 'All use cases'), values: filters.useCases, value: useCase, set: setUseCase }
         ].filter(filter => filter.values.length > 0).map(filter => <NativeSelect key={filter.label} aria-label={filter.label} value={filter.value} disabled={disabled}
           onChange={event => updateFilter(() => filter.set(event.target.value))}>
           <option value="">{filter.label}</option>
@@ -124,12 +132,12 @@ export function TtsVoiceLibrary(props: {
         {filtered.map((option, index) => {
           const selected = option.id === props.value;
           const activePreview = props.previewVoiceId === option.id;
-          const tags = [...new Set([option.language, option.gender, option.scenario, option.kind].filter(Boolean))];
+          const tags = [...new Set([option.language, option.gender, option.scenario, ...option.traits ?? [], ...option.useCases ?? [], option.kind].filter(Boolean))];
           const name = [option.name, ...tags].join(' · ');
           let tone = 0;
           for (const character of option.id) tone = (tone + character.codePointAt(0)!) % 5;
           return <div key={option.id} className="tts-voice-library-row" data-selected={selected} data-previewing={activePreview && (props.previewing || props.playing)}>
-            <button className="tts-voice-library-play" type="button" data-tone={tone} disabled={props.disabled || !props.canPreview}
+            <button className="tts-voice-library-play" type="button" data-tone={tone} disabled={props.disabled || !props.canPreview || option.previewAvailable === false}
               tabIndex={option.id === focusId ? 0 : -1}
               aria-label={`${activePreview && props.playing ? l('暂停', 'Pause') : l('试听', 'Preview')} · ${option.name}`}
               aria-pressed={activePreview && props.playing} title={option.name} onClick={() => props.onPreview(option.id)}>
@@ -140,6 +148,7 @@ export function TtsVoiceLibrary(props: {
               disabled={props.disabled} tabIndex={option.id === focusId ? 0 : -1} onKeyDown={event => onRadioKeyDown(event, index)} onClick={() => props.onChange(option.id, true)}>
               <span className="tts-voice-library-copy">
                 <span className="tts-voice-library-name"><bdi>{option.name}</bdi>{option.name !== option.id ? <small dir="ltr">{option.id}</small> : null}</span>
+                {option.description ? <span className="tts-voice-library-description">{option.description}</span> : null}
                 {tags.length || option.recommended ? <span className="tts-voice-library-tags">
                   {option.recommended ? <span className="tts-voice-library-recommended"><Star size={11} aria-hidden="true" />{l('推荐', 'Recommended')}</span> : null}
                   {tags.map(tag => <span key={tag}>{tag}</span>)}
@@ -153,7 +162,7 @@ export function TtsVoiceLibrary(props: {
       {!filtered.length ? <div className="tts-voice-library-empty" role="status">
         <AudioLines size={24} aria-hidden="true" />
         <span>{props.options.length ? l('没有匹配的音色', 'No matching voices') : l('暂无可用音色', 'No voices available')}</span>
-        {props.options.length ? <button type="button" onClick={() => updateFilter(() => { setQuery(''); setLanguage(''); setGender(''); setScenario(''); setCategory('all'); })}>{l('全部', 'All')}</button> : null}
+        {props.options.length ? <button type="button" onClick={() => updateFilter(() => { setQuery(''); setLanguage(''); setGender(''); setScenario(''); setUseCase(''); setCategory('all'); })}>{l('全部', 'All')}</button> : null}
       </div> : null}
     </>}
   </section>;

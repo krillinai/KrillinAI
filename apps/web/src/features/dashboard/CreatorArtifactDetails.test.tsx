@@ -1,3 +1,4 @@
+import { changeControl } from '../../test/select-option.js';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { CreatorActionRequest, CreatorArtifact, CreatorJob, CreatorJson } from '@opencreator/protocol';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -49,7 +50,7 @@ it('traces sources, highlights text changes, downloads history and keeps stale r
   mount(f);
   const details = within(await openDetails());
   expect(details.getByText('来源记录缺失：missing-source')).toBeInTheDocument();
-  fireEvent.change(details.getByLabelText('对比版本'), { target: { value: 'artifact-1' } });
+  changeControl(details.getByLabelText('对比版本'), { target: { value: 'artifact-1' } });
   await waitFor(() => expect(details.getByLabelText('版本 1 文本')).toHaveTextContent('old'));
   expect(details.getByLabelText('版本 2 文本').querySelector('.is-changed')).toHaveTextContent('new');
   const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
@@ -77,7 +78,7 @@ it('keeps the adopted version unchanged when the command fails', async () => {
   f.applyAction.mockRejectedValueOnce(new Error('Revision conflict'));
   mount(f, <><CreatorArtifactDetails /><CreatorCollaborationPanel adapter={creatorPanelAdapterFor(f.job.templateId)} stepLabel="产物" contextSummary="产物详情" /></>);
   const details = within(await openDetails());
-  fireEvent.change(details.getByLabelText('浏览产物（不改变项目选择）'), { target: { value: 'artifact-1' } });
+  changeControl(details.getByLabelText('浏览产物（不改变项目选择）'), { target: { value: 'artifact-1' } });
   fireEvent.click(details.getByRole('button', { name: '采用项目版本' }));
   await waitFor(() => expect(screen.getByRole('complementary', { name: 'OpenCreator' }).querySelector('.creator-collaboration-issue')).toBeInTheDocument());
   expect(details.queryByRole('alert')).not.toBeInTheDocument();

@@ -53,6 +53,7 @@ export class CreatorPreflightError extends Error {
 
 export function createCreatorPreflight(input: {
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
+  readConfigForJob?(jobId: string): Promise<CreatorServicesConfig>;
   readCapabilities(): CreatorServicesCapabilitiesResponse;
   resourceRoot: string;
   jobsRoot: string;
@@ -103,7 +104,7 @@ export function createCreatorPreflight(input: {
       add('blocked', { id: 'service-source', title: 'Task service source mismatch', message: 'Restore the original task account and service source before continuing.', executionMode: 'remote' }, { label: 'Open account settings', deepLink: '#/settings?tab=ai-services' });
       return { templateId: job.templateId, templateVersion: job.templateVersion, stageId: stage.id, executionMode: mode, canStart: false, ready, warning, blocked, checkedAt: new Date().toISOString() };
     }
-    const config = await input.configStore.read();
+    const config = await (input.readConfigForJob?.(job.id) ?? input.configStore.read());
     const inputSnapshot = options.inputResultVersion === undefined
       ? undefined
       : creatorResultSnapshotForVersion(job, options.inputResultVersion);
@@ -394,7 +395,7 @@ async function checkProviderConfig(
   }
   if (needs.has('tts')) {
     const gateway = gatewayCreatorBinding(config);
-    if (gateway && (stage.executor === 'smart-dubbing' && !gateway.capabilities?.speech?.includes('speech_instructions')
+    if (gateway && (stage.executor === 'smart-dubbing' && typeof job.state.style === 'string' && job.state.style !== 'natural' && !gateway.capabilities?.speech?.includes('speech_instructions')
       || typeof job.state.speed === 'number' && job.state.speed !== 1 && !gateway.capabilities?.speech?.includes('speech_speed'))) {
       add('blocked', { id: 'tts-style-capability', title: 'Unsupported speech settings', message: 'Style and speed controls are not verified for this official speech model. Select another TTS service.', executionMode: 'remote' }, { label: 'Open speech settings', deepLink: '#/settings?tab=ai-services&section=tts' });
     }

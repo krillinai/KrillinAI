@@ -37,6 +37,15 @@ afterEach(async () => {
 });
 
 describe('persistent app-server executor', () => {
+  it('retains the provider reason from a failed terminal turn', async () => {
+    const fixture = createFixture();
+    await expect(fixture.executor.start(runInput({ prompt: 'provider-failure' })).result)
+      .resolves.toMatchObject({
+        turnStatus: 'failed',
+        error: { message: 'The selected model is not supported by this account.' }
+      });
+  });
+
   it('reuses one initialized process across run parameters and refreshes changed manifests', async () => {
     const fixture = createFixture();
     const executor = fixture.executor;
@@ -666,6 +675,12 @@ rl.on('line', line => {
     currentPrompt = message.params.input?.[0]?.text;
     if (currentPrompt === 'crash') {
       process.exit(9);
+      return;
+    }
+    if (currentPrompt === 'provider-failure') {
+      send({ method: 'turn/completed', params: { threadId: currentThreadId, turn: {
+        id: currentTurnId, status: 'failed', error: { message: 'The selected model is not supported by this account.' }
+      } } });
       return;
     }
     if (currentPrompt === 'wait' || currentPrompt === 'ignore-close') return;

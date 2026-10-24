@@ -48,6 +48,7 @@ import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
+import { OfficialTaskModelFields } from './official-services.js';
 import {
   createCreatorArtifactObjectUrl,
   readCreatorArtifactText,
@@ -1121,6 +1122,7 @@ export default function WechatArticleWorkspace(props: {
         </nav> : null}
 
         {workspacePhase === 'compose' ? <div className="wechat-article-scroll" data-step={currentStep}>
+          <OfficialTaskModelFields modalities={['text', 'image']} disabled={running || uploading} />
           {currentStep === 0 ? (
             <section className="creator-tool-panel wechat-inspiration-panel">
               <div className="creator-tool-panel-heading wechat-inspiration-heading">

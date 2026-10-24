@@ -1,3 +1,4 @@
+import { changeControl } from '../../test/select-option.js';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
   createDefaultCreatorServicesConfig,
@@ -963,7 +964,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByTitle('Bilibili 视频预览')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
     expect(screen.getByText('请确认链接有效，并选择要翻译的分集后继续')).toBeInTheDocument();
-    fireEvent.change(selector, { target: { value: '3' } });
+    changeControl(selector, { target: { value: '3' } });
     expect(new URL(screen.getByTitle('Bilibili 视频预览').getAttribute('src')!).searchParams.get('p')).toBe('3');
     expect(screen.getByText('课程合集 · P3 课程 3')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
@@ -1049,8 +1050,8 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('combobox', { name: '字幕字体' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
     fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'rounded' } });
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    changeControl(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'rounded' } });
+    changeControl(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
     fireEvent.click(screen.getByRole('button', { name: '选择译文颜色' }));
     fireEvent.click(screen.getByRole('button', { name: '#FFE45C' }));
     fireEvent.keyDown(screen.getByRole('button', { name: '#FFE45C' }), { key: 'Escape' });
@@ -1156,9 +1157,9 @@ describe('DashboardPage', () => {
     fireEvent.click(rendering);
     expect(screen.getByRole('combobox', { name: '输出画幅' }).closest('.video-translation-option-block')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'rounded' } });
+    changeControl(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'rounded' } });
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
+    changeControl(screen.getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
     fireEvent.change(screen.getByRole('textbox', { name: /竖屏主标题/ }), { target: { value: '保留标题' } });
     expect(screen.getByRole('region', { name: '字幕样式预览' })).toHaveAttribute('data-ratio', '9:16');
 
@@ -1188,7 +1189,7 @@ describe('DashboardPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
     fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
+    changeControl(screen.getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
     fireEvent.click(within(screen.getByRole('navigation', { name: '翻译流程' })).getByRole('button', {
       name: /视频与字幕$/
     }));
@@ -1285,7 +1286,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('textbox', { name: '视频链接' })).toBeInTheDocument();
 
     const file = new File(['video'], 'long-interview.mp4', { type: 'video/mp4' });
-    fireEvent.change(screen.getByLabelText('上传本地视频'), { target: { files: [file] } });
+    changeControl(screen.getByLabelText('上传本地视频'), { target: { files: [file] } });
     const localPreview = await screen.findByLabelText('本地视频预览');
     expect(localPreview).toHaveAttribute('src', 'blob:auto-clips-preview');
     Object.defineProperties(localPreview, {
@@ -1498,7 +1499,7 @@ describe('DashboardPage', () => {
     await startVideoTranslation();
 
     fireEvent.click(screen.getByRole('button', { name: '调整任务设置' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '翻译为' }), {
+    changeControl(screen.getByRole('combobox', { name: '翻译为' }), {
       target: { value: 'ja' }
     });
     fireEvent.click(screen.getByRole('button', { name: '添加素材' }));
@@ -1771,14 +1772,14 @@ describe('DashboardPage', () => {
     openBlankWorkspace('视频翻译', '空白视频翻译');
 
     const video = new File(['video'], 'demo.mp4', { type: 'video/mp4' });
-    fireEvent.change(screen.getByLabelText('上传本地视频'), { target: { files: [video] } });
+    changeControl(screen.getByLabelText('上传本地视频'), { target: { files: [video] } });
     expect(screen.getByText('本地视频 · 1 KB')).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: '视频链接' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '清除当前视频来源' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '清除当前视频来源' }));
     expect(screen.getByRole('heading', { name: '拖放视频到这里' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '视频链接' })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('上传本地视频'), { target: { files: [video] } });
+    changeControl(screen.getByLabelText('上传本地视频'), { target: { files: [video] } });
     expect(within(screen.getByRole('region', { name: '视频预览' })).getByText('demo.mp4'))
       .toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
@@ -1787,7 +1788,7 @@ describe('DashboardPage', () => {
     fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
     expect(screen.getByRole('option', { name: /16:9/ })).toBeEnabled();
     expect(screen.getByRole('option', { name: /双画幅/ })).toBeEnabled();
-    fireEvent.change(screen.getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
+    changeControl(screen.getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
     expect(screen.getByRole('textbox', { name: /竖屏主标题/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('switch', { name: '生成目标语言配音' }));
 
@@ -1811,7 +1812,7 @@ describe('DashboardPage', () => {
     openBlankWorkspace('视频翻译', '空白视频翻译');
 
     const video = new File(['video'], 'portrait.mp4', { type: 'video/mp4' });
-    fireEvent.change(screen.getByLabelText('上传本地视频'), { target: { files: [video] } });
+    changeControl(screen.getByLabelText('上传本地视频'), { target: { files: [video] } });
     const preview = await screen.findByLabelText('本地视频预览');
     Object.defineProperties(preview, {
       videoWidth: { configurable: true, value: 1080 },
@@ -2449,13 +2450,13 @@ describe('DashboardPage', () => {
     const referenceImage = new File(['reference'], 'coast-reference.png', {
       type: 'image/png'
     });
-    fireEvent.change(referenceImageInput, {
+    changeControl(referenceImageInput, {
       target: { files: [referenceImage] }
     });
     expect(await screen.findByRole('img', { name: '视频参考图预览' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '移除参考图' }));
     expect(screen.queryByRole('img', { name: '视频参考图预览' })).not.toBeInTheDocument();
-    fireEvent.change(referenceImageInput, {
+    changeControl(referenceImageInput, {
       target: { files: [referenceImage] }
     });
     const providerSelect = screen.getByRole('combobox', { name: /^模型$/ });
@@ -2464,12 +2465,12 @@ describe('DashboardPage', () => {
     const durationSelect = screen.getByRole('combobox', { name: '视频时长' });
     expect(providerSelect).toHaveValue('seedance');
     expect(modelSelect).toHaveValue('Seedance 2.5');
-    fireEvent.change(providerSelect, { target: { value: 'veo' } });
+    changeControl(providerSelect, { target: { value: 'veo' } });
     expect(providerSelect).toHaveValue('veo');
     expect(modelSelect).toHaveValue('Veo 3.1');
     expect(durationSelect).toHaveValue('4');
-    fireEvent.change(formatSelect, { target: { value: '720x1280' } });
-    fireEvent.change(durationSelect, { target: { value: '8' } });
+    changeControl(formatSelect, { target: { value: '720x1280' } });
+    changeControl(durationSelect, { target: { value: '8' } });
 
     expect(screen.getByLabelText('任务摘要')).toHaveTextContent('竖屏 · 9:16');
     expect(screen.getByLabelText('任务摘要')).toHaveTextContent('Veo 3.1');

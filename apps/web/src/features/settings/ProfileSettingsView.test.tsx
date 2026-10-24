@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import type {
   CodexProfileDetailResponse,
   CodexProfileListResponse,
@@ -28,8 +29,8 @@ describe('ProfileSettingsView', () => {
     await user.click(screen.getByRole('button', { name: '新建 Profile' }));
     await user.type(screen.getByLabelText('Profile 名称'), 'review');
     await user.type(screen.getByLabelText('模型'), 'gpt-5.3-codex');
-    await user.selectOptions(screen.getByLabelText('推理级别'), 'high');
-    await user.selectOptions(screen.getByLabelText('Sandbox'), 'workspace-write');
+    await selectOption(screen.getByLabelText('推理级别'), 'high');
+    await selectOption(screen.getByLabelText('Sandbox'), 'workspace-write');
     await user.click(screen.getByRole('button', { name: '保存 Profile' }));
 
     expect(createProfile).toHaveBeenCalledWith({
@@ -66,7 +67,7 @@ describe('ProfileSettingsView', () => {
 
     await user.click(screen.getByRole('button', { name: '编辑 review' }));
     expect(await screen.findByDisplayValue('gpt-5.3-codex')).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('推理级别'), 'xhigh');
+    await selectOption(screen.getByLabelText('推理级别'), 'xhigh');
     await user.click(screen.getByRole('button', { name: '保存 Profile' }));
 
     expect(getProfile).toHaveBeenCalledWith('review');

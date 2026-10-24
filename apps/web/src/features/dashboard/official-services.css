@@ -1,3 +1,11 @@
+.official-task-models {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 16px;
+  min-width: 0;
+  margin-block: 16px;
+}
+
 .official-model-value {
   width: 100%;
   min-width: 0;

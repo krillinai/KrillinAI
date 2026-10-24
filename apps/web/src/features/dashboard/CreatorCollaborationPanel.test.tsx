@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
-import CreatorCollaborationPanel, { CreatorTaskProgressNotice } from './CreatorCollaborationPanel.js';
+import CreatorCollaborationPanel, { CreatorTaskProgressNotice, CreatorTaskProgressBar, useCreatorTaskProgress } from './CreatorCollaborationPanel.js';
 import {
   shortVideoScriptPanelAdapter,
   coverPanelAdapter,
@@ -60,7 +60,28 @@ function ProgressHeartbeatControl() {
   })}>Receive status</button>;
 }
 
+function TaskProgressBarHarness() {
+  const task = useCreatorTaskProgress();
+  return task ? <CreatorTaskProgressBar task={task} onDetails={() => {}} /> : null;
+}
+
 describe('shared video progress timing', () => {
+  it('shows draft and review work in the task bar before any subtitle is finalized', () => {
+    const current = videoGenerationJob();
+    current.templateId = 'video-translation';
+    current.stages = current.stages.map(stage => ({ ...stage, stageId: 'subtitle', progress: {
+      phase: 'translating_subtitles', percent: 48, completed: 0, total: 60,
+      message: '初译 40/60；字幕完成 0/60；正在审校、排版'
+    } }));
+    render(<LanguageProvider initialPreference="zh-CN">
+      <CreatorSessionProvider initialJob={current} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+        <TaskProgressBarHarness />
+      </CreatorSessionProvider>
+    </LanguageProvider>);
+    expect(screen.getByText('初译 40/60；字幕完成 0/60；正在审校、排版')).toBeVisible();
+    expect(screen.getByRole('progressbar', { name: '当前阶段进度' })).toHaveAttribute('aria-valuenow', '48');
+  });
+
   it('keeps subtitle translation progress fixed while waiting and shows real sentence counts', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-07T08:00:08.000Z'));

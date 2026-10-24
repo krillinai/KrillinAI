@@ -8,7 +8,7 @@
 .platform-connection-status.is-connected { color: var(--success); }
 .platform-connection-status svg { flex-shrink: 0; }
 .platform-connection-actions { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 8px; }
-.platform-connection-actions select { min-width: 0; max-width: 220px; min-height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); background: var(--surface); }
+.platform-connection-actions :is(select, .app-select-trigger) { min-width: 0; max-width: 220px; min-height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); background: var(--surface); }
 .platform-connection-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
 .platform-connection-actions button:hover:not(:disabled) { background: var(--surface-hover); }
 .platform-connection-actions button:disabled { opacity: .5; cursor: default; }

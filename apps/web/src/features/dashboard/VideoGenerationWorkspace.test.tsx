@@ -1,3 +1,5 @@
+import { selectListbox } from '../../test/select-option.js';
+import { changeControl } from '../../test/select-option.js';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
 import type {
@@ -42,8 +44,8 @@ describe('VideoGenerationWorkspace', () => {
     expect(view.applyAction).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByRole('textbox', { name: '提示词' }), { target: { value: '  The city at dusk  ' } });
-    fireEvent.change(screen.getByRole('combobox', { name: '模型' }), { target: { value: 'veo' } });
-    fireEvent.change(screen.getByRole('combobox', { name: '视频时长' }), { target: { value: '8' } });
+    changeControl(screen.getByRole('combobox', { name: '模型' }), { target: { value: 'veo' } });
+    changeControl(screen.getByRole('combobox', { name: '视频时长' }), { target: { value: '8' } });
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
 
     await waitFor(() => expect(view.applyAction).toHaveBeenCalledWith('creator_video_workspace', expect.objectContaining({
@@ -61,13 +63,13 @@ describe('VideoGenerationWorkspace', () => {
     renderWorkspace(creatorJob({}));
     const upload = screen.getByLabelText('上传视频参考图');
     const image = new File(['image'], 'reference.png', { type: 'image/png' });
-    fireEvent.change(upload, { target: { files: [image] } });
+    changeControl(upload, { target: { files: [image] } });
     expect(await screen.findByRole('img', { name: '视频参考图预览' })).toBeVisible();
     expect(screen.getByRole('combobox', { name: '画幅' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: '移除参考图' }));
     expect(screen.queryByRole('img', { name: '视频参考图预览' })).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: '画幅' })).toBeEnabled();
-    fireEvent.change(upload, { target: { files: [image] } });
+    changeControl(upload, { target: { files: [image] } });
     expect(await screen.findByRole('img', { name: '视频参考图预览' })).toBeVisible();
     expect(upload).toHaveValue('');
   });
@@ -109,9 +111,9 @@ describe('VideoGenerationWorkspace', () => {
     const gatewayState: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: '1', models: [{ id: 'vendor/video', modality: 'video', capabilities: [], resolutions: ['1080p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [3, 12] }], activationError: null };
     renderWorkspace(creatorJob({ state: { prompt: 'city', currentStep: 1, furthestStep: 1 } }), { gatewayState });
     const size = screen.getByRole('combobox', { name: '画幅' }) as HTMLSelectElement;
-    expect([...size.options].map(option => option.value)).toEqual(['1080p@16:9', '1080p@9:16', '720p@16:9', '720p@9:16']);
+    expect(within(selectListbox(size)).getAllByRole('option').map(option => option.getAttribute('data-value'))).toEqual(['1080p@16:9', '1080p@9:16', '720p@16:9', '720p@9:16']);
     const duration = screen.getByRole('combobox', { name: '视频时长' }) as HTMLSelectElement;
-    expect([...duration.options].map(option => option.value)).toEqual(['3', '12']);
+    expect(within(selectListbox(duration)).getAllByRole('option').map(option => option.getAttribute('data-value'))).toEqual(['3', '12']);
   });
   it('shows only the official video model and supported parameters while signed in', async () => {
     const gatewayState: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', selectedModels: { video: 'bytedance/seedance-1-5-pro' }, models: [{ id: 'bytedance/seedance-1-5-pro', modality: 'video', capabilities: ['image_to_video'], sizes: ['1280x720', '720x1280'], durations: [4, 5] }], activationError: null };
@@ -121,7 +123,7 @@ describe('VideoGenerationWorkspace', () => {
     expect(screen.queryByRole('combobox', { name: '模型' })).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: '模型版本' })).not.toBeInTheDocument();
     const durations = screen.getByRole('combobox', { name: '视频时长' }) as HTMLSelectElement;
-    expect([...durations.options].map(option => option.value)).toEqual(['4', '5']);
+    expect(within(selectListbox(durations)).getAllByRole('option').map(option => option.getAttribute('data-value'))).toEqual(['4', '5']);
     expect(screen.queryByRole('option', { name: /1024/ })).not.toBeInTheDocument();
     expect(getConfig).not.toHaveBeenCalled();
   });
@@ -755,8 +757,8 @@ describe('VideoGenerationWorkspace', () => {
     const provider = screen.getByRole('combobox', { name: '模型' });
     const model = screen.getByRole('combobox', { name: '模型版本' });
     const duration = screen.getByRole('combobox', { name: '视频时长' });
-    fireEvent.change(provider, { target: { value: 'veo' } });
-    fireEvent.change(duration, { target: { value: '8' } });
+    changeControl(provider, { target: { value: 'veo' } });
+    changeControl(duration, { target: { value: '8' } });
     await act(async () => { resolveConfig({ config: createVideoConfig(), configuredCredentials: [] }); });
     expect(provider).toHaveValue('veo');
     expect(model).toHaveValue('Veo 3.1');

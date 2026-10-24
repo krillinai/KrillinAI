@@ -153,8 +153,8 @@
 }
 
 .project-edit-form input,
-.project-edit-form select,
-.project-assignment-controls select {
+.project-edit-form :is(select, .app-select-trigger),
+.project-assignment-controls :is(select, .app-select-trigger) {
   min-width: 0;
   height: 34px;
   border: 1px solid var(--border);

@@ -30,6 +30,7 @@ import { createKrillinCliExecutionPlan } from './execution-plan.js';
 import { readKrillinRuntimeManifest, resolveInside } from './manifest.js';
 import type { YtDlpRuntime } from '../yt-dlp/runtime.js';
 import { assessKrillinTranscription } from './transcription-language.js';
+import { translationResumeStage } from './translation-resume.js';
 
 export function createKrillinExecutor(input: {
   resourceRoot: string;
@@ -44,15 +45,18 @@ export function createKrillinExecutor(input: {
   return {
     id: 'krillinai',
     async run(stageInput): Promise<CreatorExecutorResult> {
-      const stage = filterObsoleteSourceVideo(stageInput);
+      let stage = filterObsoleteSourceVideo(stageInput);
       await input.ensureRuntimeReady?.();
       const configured = await input.configStore.read();
       const preflight = preflightKrillinDependencies(input.resourceRoot, configured, {
         cachePath: input.verificationCachePath
       });
       const ffprobe = executablePath(input.resourceRoot, /(?:^|\/)ffprobe(?:\.exe)?$/i);
-      const materializedArtifacts = await writeArtifactIndex(input.jobsRoot, stage);
       const options = buildKrillinStageOptions(stage);
+      const llmOverride = preflight.config.llm.source === 'codex' ? input.getCodexLlmConfig?.() : undefined;
+      stage = translationResumeStage(stage, options, preflight.config, llmOverride);
+      await mkdir(stage.workdir, { recursive: true });
+      const materializedArtifacts = await writeArtifactIndex(input.jobsRoot, stage);
       let artifacts: KrillinResultArtifact[];
       let captionFallbackProgress: Record<string, CreatorJson> = {};
       let transcriptionMetadata: Record<string, CreatorJson> | undefined;
@@ -107,9 +111,7 @@ export function createKrillinExecutor(input: {
               source: attempt.source,
               options: attempt.options,
               ytDlpRuntime: input.getYtDlpRuntime?.(stringValue(attempt.options.sourceUrl)),
-              llmOverride: preflight.config.llm.source === 'codex'
-                ? input.getCodexLlmConfig?.()
-                : undefined
+              llmOverride
             });
             break;
           } catch (error) {
@@ -285,7 +287,7 @@ export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<st
     sourceOnly: input.job.templateId === 'stickman-video'
       && input.stageRun.stageId === 'source-transcript',
     prepareVideo: input.job.templateId !== 'video-translation',
-    audioOnly: input.job.templateId === 'video-translation' && state.composeVideo !== true,
+    audioOnly: input.job.templateId === 'video-translation',
     bilingual: input.stageRun.stageId === 'subtitles' || state.bilingual === true,
     bilingualTop: state.subtitlePosition !== 'bottom',
     ttsProvider: typeof state.ttsProvider === 'string' ? state.ttsProvider : undefined,
@@ -511,6 +513,7 @@ export async function validateResultArtifacts(input: {
       throw new CreatorExecutorError('krillin_output_escape', 'KrillinAI output escapes the current Job root');
     }
     let metadata: Record<string, CreatorJson> = {
+      ...artifact.metadata,
       fileName: basename(path),
       settingsSnapshot: input.stage.job.state,
       sha256: artifact.sha256 ?? null,
