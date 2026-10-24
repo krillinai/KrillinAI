@@ -48,7 +48,7 @@ const fakeCodexLauncherSource = join(e2eDir, 'fixtures', 'fake-codex-launcher.go
 
 test.describe.configure({ mode: 'serial' });
 
-test('@package-smoke 官方配音等待异步回执后返回音频', async ({}, testInfo) => {
+test('@package-smoke 官方配音试听加载公开样本且不触发付费合成', async ({}, testInfo) => {
   const account = { id: 'speech-test', email: 'speech@example.test', verified: true };
   const models = [
     { id: 'text-model', modality: 'text' as const, capabilities: ['chat'] },
@@ -56,7 +56,7 @@ test('@package-smoke 官方配音等待异步回执后返回音频', async ({}, 
   ];
   const requestId = 'ocreq_packaged_speech';
   let submissions = 0;
-  let statusQueries = 0;
+  const samples: Array<{ model: string | null; voice: string | null; language: string | null; authorization?: string }> = [];
   const gateway = createServer((request, response) => {
     response.setHeader('Content-Type', 'application/json');
     const path = request.url?.split('?')[0];
@@ -66,12 +66,12 @@ test('@package-smoke 官方配音等待异步回执后返回音频', async ({}, 
     else if (path === '/v1/audio/speech') {
       submissions++;
       response.writeHead(202, { 'X-Request-ID': requestId }).end(JSON.stringify({ requestId, state: 'submitting', billingState: 'reserved' }));
-    } else if (path === `/v1/requests/${requestId}`) {
-      statusQueries++;
-      response.end(JSON.stringify({ requestId, state: statusQueries === 1 ? 'waiting_upstream' : 'succeeded' }));
-    } else if (path === `/v1/requests/${requestId}/result`) {
-      response.setHeader('Content-Type', 'audio/wav');
-      response.end('RIFF-packaged-speech');
+    } else if (path === '/api/v1/voice-previews') {
+      const query = new URL(request.url!, 'http://localhost').searchParams;
+      samples.push({ model: query.get('model'), voice: query.get('voice'), language: query.get('language'), authorization: request.headers.authorization });
+      response.setHeader('Content-Type', 'audio/mpeg');
+      response.setHeader('Content-Language', 'en');
+      response.end('ID3-packaged-speech');
     } else response.end(JSON.stringify({ items: [] }));
   });
   await new Promise<void>(resolve => gateway.listen(0, '127.0.0.1', resolve));
@@ -98,11 +98,11 @@ test('@package-smoke 官方配音等待异步回执后返回音频', async ({}, 
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'openai', voiceId: 'marin', text: 'Hello' }) });
       return { status: response.status, contentType: response.headers.get('content-type'), content: await response.text() };
     });
-    expect(audio).toMatchObject({ status: 200, contentType: 'audio/wav', content: 'RIFF-packaged-speech' });
-    expect(submissions).toBe(1);
-    expect(statusQueries).toBe(2);
-    await testInfo.attach('speech-receipt.json', { body: JSON.stringify({ submissions, statusQueries, audio }), contentType: 'application/json' });
-    await fixture.page.screenshot({ path: testInfo.outputPath('speech-receipt-workspace.png') });
+    expect(audio).toMatchObject({ status: 200, contentType: 'audio/mpeg', content: 'ID3-packaged-speech' });
+    expect(samples).toEqual([{ model: 'speech-model', voice: 'marin', language: 'en', authorization: undefined }]);
+    expect(submissions).toBe(0);
+    await testInfo.attach('voice-preview.json', { body: JSON.stringify({ submissions, samples, audio }), contentType: 'application/json' });
+    await fixture.page.screenshot({ path: testInfo.outputPath('voice-preview-workspace.png') });
   } finally {
     if (fixture) await closeFixture(fixture);
     gateway.closeAllConnections();
@@ -1611,9 +1611,31 @@ test('@package-smoke 字幕 Worker 和 WASM 在实际 App 的 CSP 下加载并�
     const projects = await runtimeRequest<{ projects: Array<{ id: string }> }>(fixture.page, 'GET', '/projects?status=all');
     const created = await runtimeRequest<{ job: { id: string } }>(fixture.page, 'POST', '/creator/jobs', {
       projectId: projects.body.projects[0]!.id, templateId: 'video-translation', templateVersion: 2, creationKey: 'packaged-subtitle-renderer',
-      state: { sourceType: 'file', sourceLanguage: 'en', targetLanguage: 'zh_cn', composeVideo: true, currentStep: 2, furthestStep: 2, workspacePhase: 'configure' }
+      state: { sourceType: 'file', sourceLanguage: 'en', targetLanguage: 'zh_cn', composeVideo: true, workspacePhase: 'result', resultVersion: 1 }
     });
     expect(created.status).toBe(201);
+    const jobId = created.body.job.id;
+    const videoPath = join(fixture.root, '.opencreator', 'creator', 'jobs', jobId, 'source.mp4');
+    mkdirSync(dirname(videoPath), { recursive: true });
+    const resources = process.platform === 'darwin'
+      ? resolve(dirname(packagedExecutable(desktopDir)), '../Resources')
+      : join(dirname(packagedExecutable(desktopDir)), 'resources');
+    const ffmpeg = join(resources, 'creator-runtime', 'krillinai', 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+    execFileSync(ffmpeg, ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=0x202020:s=640x360:d=2:r=25', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', videoPath], { windowsHide: true });
+    const database = new DatabaseSync(join(fixture.root, '.opencreator', 'data', 'app.sqlite'));
+    try {
+      const row = database.prepare('SELECT state_json, created_at FROM creator_jobs WHERE id = ?').get(jobId)!;
+      const state = JSON.parse(String(row.state_json));
+      const sourceId = 'packaged-subtitle-source';
+      const subtitleId = 'packaged-subtitle-target';
+      const insert = database.prepare('INSERT INTO creator_artifacts (id, job_id, kind, version, status, path, metadata_json) VALUES (?, ?, ?, 1, ?, ?, ?)');
+      insert.run(sourceId, jobId, 'source_video', 'completed', videoPath, JSON.stringify({ fileName: 'source.mp4', width: 640, height: 360, resultVersion: 1 }));
+      insert.run(subtitleId, jobId, 'target_subtitle', 'completed', null, JSON.stringify({ resultVersion: 1,
+        cues: [{ id: 1, start: '00:00:00,000', end: '00:00:02,000', text: '字幕渲染测试' }] }));
+      state.resultSnapshots = [{ version: 1, createdAt: row.created_at, action: 'stage-succeeded', stageId: 'subtitle', description: 'Subtitle translation',
+        artifactRefs: { source_video: [sourceId], target_subtitle: [subtitleId] }, changedArtifactIds: [subtitleId], staleArtifactIds: [], state: { ...state } }];
+      database.prepare('UPDATE creator_jobs SET status = ?, revision = revision + 1, state_json = ? WHERE id = ?').run('completed', JSON.stringify(state), jobId);
+    } finally { database.close(); }
     await navigateToAppRoute(fixture.page, `#/workbench?tool=video-translation&jobId=${created.body.job.id}`);
     const composition = fixture.page.locator('.subtitle-composition-preview');
     await expect(composition).toHaveAttribute('data-status', 'ready');

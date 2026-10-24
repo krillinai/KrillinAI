@@ -17,7 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { packagedExecutable } from './package-artifact.js';
 import {
   closePackagedApp,
@@ -38,6 +38,11 @@ const fakeYtDlpLauncherSource = join(
 const OVERSIZED_WAVE_PCM_BYTES = 10 * 1024 * 1024 + 4096;
 const OVERSIZED_WAVE_FILE_BYTES = OVERSIZED_WAVE_PCM_BYTES + 44;
 test.describe.configure({ mode: 'serial' });
+
+async function selectChoice(control: Locator, value: string) {
+  await control.click();
+  await control.page().getByRole('option').and(control.page().locator(`[data-value="${value}"]`)).click();
+}
 
 test('Remotion 组件不随 App 内嵌，首次渲染按需下载后自动继续，更新不重复下载', async () => {
   test.setTimeout(180_000);
@@ -150,17 +155,24 @@ test('打包 App 的视频翻译支持多语言检索、保存和内置字体', 
     expect(created.status).toBe(201);
     await page.evaluate(jobId => { window.location.hash = `#/workbench?tool=video-translation&jobId=${jobId}`; }, created.body.job.id);
     const source = page.getByRole('combobox', { name: '源语言', exact: true });
-    await expect(source).toHaveValue('hi');
-    await expect(source.locator('option')).toHaveCount(123);
-    await expect(page.getByRole('combobox', { name: '翻译为', exact: true }).locator('option')).toHaveCount(124);
-    const search = page.getByRole('searchbox', { name: '搜索源语言' });
+    await expect(source).toHaveAttribute('data-value', 'hi');
+    await source.click();
+    await expect(page.getByRole('option')).toHaveCount(123);
+    await source.press('Escape');
+    const target = page.getByRole('combobox', { name: '翻译为', exact: true });
+    await target.click();
+    await expect(page.getByRole('option')).toHaveCount(124);
+    await target.press('Escape');
+    await source.click();
+    const search = page.getByRole('searchbox', { name: '搜索选项' });
     await search.fill('阿拉伯');
-    await expect(source).toHaveValue('hi');
-    await expect(source.locator('option[value="ar"]')).toHaveText('العربية');
-    await source.selectOption('ar');
+    await expect(source).toHaveAttribute('data-value', 'hi');
+    const arabic = page.getByRole('option', { name: 'العربية', exact: true });
+    await expect(arabic).toBeVisible();
+    await arabic.click();
     await expect.poll(async () => (await runtimeRequest<{ job: { state: { sourceLanguage: string } } }>(page, 'GET', `/creator/jobs/${created.body.job.id}`)).body.job.state.sourceLanguage).toBe('ar');
     await page.reload();
-    await expect(source).toHaveValue('ar');
+    await expect(source).toHaveAttribute('data-value', 'ar');
     const font = await page.evaluate(async () => {
       const response = await fetch('/fonts/opencreator/NotoSansArabic-Regular.woff2');
       return { status: response.status, bytes: (await response.arrayBuffer()).byteLength };
@@ -173,7 +185,7 @@ test('打包 App 的视频翻译支持多语言检索、保存和内置字体', 
     const restored = await runtimeRequest<{ job: { state: { sourceLanguage: string } } }>(currentApp.page, 'GET', `/creator/jobs/${created.body.job.id}`);
     expect(restored.body.job.state.sourceLanguage).toBe('ar');
     await currentApp.page.evaluate(jobId => { window.location.hash = `#/workbench?tool=video-translation&jobId=${jobId}`; }, created.body.job.id);
-    await expect(currentApp.page.getByRole('combobox', { name: '源语言', exact: true })).toHaveValue('ar');
+    await expect(currentApp.page.getByRole('combobox', { name: '源语言', exact: true })).toHaveAttribute('data-value', 'ar');
   } finally {
     await closePackagedApp(currentApp).catch(() => undefined);
     rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -483,17 +495,18 @@ test('打包 App 的 Creator 设置页保留组件间距和下拉箭头内边距
     await expect.poll(() => fixture.app.page.locator('.stickman-story-panel').evaluate(panel => {
       const source = panel.querySelector(':scope > .creator-tool-field')!.getBoundingClientRect();
       const characters = panel.querySelector('.stickman-character-picker')!.getBoundingClientRect();
-      const style = panel.querySelector('#stickman-visual-style')!.getBoundingClientRect();
-      const duration = panel.querySelector('.stickman-duration-control select')!.getBoundingClientRect();
+      const controls = [panel.querySelector('#stickman-visual-style')!, panel.querySelector('.stickman-duration-control [role="combobox"]')!];
+      const [style, duration] = controls.map(control => control.getBoundingClientRect());
       return {
         sourceCharacterGap: Math.round(characters.top - source.bottom),
         selectTopDelta: Math.round(duration.top - style.top),
-        arrowInsets: Array.from(panel.querySelectorAll('.native-select select')).map(select => (
-          Math.round(select.getBoundingClientRect().right - select.parentElement!.querySelector('svg')!.getBoundingClientRect().right)
+        arrowInsets: controls.map(control => (
+          Math.round(control.getBoundingClientRect().right - control.querySelector('svg')!.getBoundingClientRect().right)
         )),
-        textInsets: Array.from(panel.querySelectorAll('.native-select select')).map(select => getComputedStyle(select).paddingInlineEnd)
+        textArrowGaps: controls.map(control => Math.round(control.querySelector('svg')!.getBoundingClientRect().left
+          - control.querySelector('.app-select-value')!.getBoundingClientRect().right))
       };
-    })).toEqual({ sourceCharacterGap: 16, selectTopDelta: 0, arrowInsets: [12, 12], textInsets: ['40px', '40px'] });
+    })).toEqual({ sourceCharacterGap: 16, selectTopDelta: 0, arrowInsets: [12, 12], textArrowGaps: [10, 10] });
     await fixture.app.page.getByRole('combobox', { name: '目标时长' }).scrollIntoViewIfNeeded();
     await fixture.app.page.screenshot({ path: testInfo.outputPath('creator-settings-spacing-980.png') });
   } finally {
@@ -921,7 +934,7 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     await currentApp.page.getByRole('option', { name: '阿里云百炼' }).click();
     await expect(currentApp.page.getByLabel('Base URL'))
       .toHaveValue('https://dashscope.aliyuncs.com/api/v1');
-    await expect(currentApp.page.getByLabel('模型')).toHaveValue('qwen3-tts-flash');
+    await expect(currentApp.page.getByRole('combobox', { name: '模型', exact: true })).toHaveAttribute('data-value', 'qwen3-tts-flash');
     const defaultVoice = currentApp.page.getByRole('combobox', { name: '默认音色' });
     await expect(defaultVoice).toBeEnabled();
     await defaultVoice.click();
@@ -944,18 +957,18 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     await clipWorkspace.getByRole('textbox', { name: '视频链接' })
       .fill('https://example.com/watch/packaged-auto-clip');
     await clipWorkspace.getByRole('button', { name: '下一步：切片设置' }).click();
-    await clipWorkspace.getByRole('combobox', { name: '内容重点' }).selectOption('knowledge');
-    await clipWorkspace.getByRole('combobox', { name: '目标时长' }).selectOption('30-60');
+    await selectChoice(clipWorkspace.getByRole('combobox', { name: '内容重点' }), 'knowledge');
+    await selectChoice(clipWorkspace.getByRole('combobox', { name: '目标时长' }), '30-60');
     await clipWorkspace.getByRole('spinbutton', { name: '切片数量' }).fill('8');
-    await clipWorkspace.getByRole('combobox', { name: '输出画幅' }).selectOption('9:16');
+    await selectChoice(clipWorkspace.getByRole('combobox', { name: '输出画幅' }), '9:16');
     await expect(clipWorkspace.getByRole('combobox', { name: '内容重点' }))
-      .toHaveValue('knowledge');
+      .toHaveAttribute('data-value', 'knowledge');
     await expect(clipWorkspace.getByRole('combobox', { name: '目标时长' }))
-      .toHaveValue('30-60');
+      .toHaveAttribute('data-value', '30-60');
     await expect(clipWorkspace.getByRole('spinbutton', { name: '切片数量' }))
       .toHaveValue('8');
     await expect(clipWorkspace.getByRole('combobox', { name: '输出画幅' }))
-      .toHaveValue('9:16');
+      .toHaveAttribute('data-value', '9:16');
     await expect.poll(() => new URL(currentApp.page.url()).hash.match(/jobId=([^&]+)/)?.[1]).toBeTruthy();
     const clipJobId = new URL(currentApp.page.url()).hash.match(/jobId=([^&]+)/)?.[1];
     expect(clipJobId).toBeTruthy();
@@ -1410,9 +1423,9 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     await expect(currentApp.page.getByRole('radio', { name: '科技男' })).toBeChecked();
     await expect(currentApp.page.getByRole('textbox', { name: '角色描述' })).toHaveCount(0);
     await expect(currentApp.page.getByRole('combobox', { name: '视觉风格' }))
-      .toHaveValue('stickman.style.whiteboard-marker@1');
+      .toHaveAttribute('data-value', 'stickman.style.whiteboard-marker@1');
     await expect(currentApp.page.getByRole('combobox', { name: '目标时长' }))
-      .toHaveValue('custom');
+      .toHaveAttribute('data-value', 'custom');
     await expect(currentApp.page.getByRole('spinbutton', { name: '自定义时长（秒）' }))
       .toHaveValue('125');
     await expect(currentApp.page.getByRole('combobox', { name: '配音音色' }))
