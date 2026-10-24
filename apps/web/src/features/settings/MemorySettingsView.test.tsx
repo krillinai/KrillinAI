@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import type { ConversationSummary, MemoryEntry } from '@opencreator/protocol';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
@@ -31,8 +32,8 @@ describe('MemorySettingsView', () => {
     await user.click(screen.getByRole('button', { name: '新建记忆' }));
     await user.clear(screen.getByRole('textbox', { name: '记忆内容' }));
     await user.type(screen.getByRole('textbox', { name: '记忆内容' }), '项目使用 pnpm');
-    await user.selectOptions(screen.getByRole('combobox', { name: '记忆范围' }), 'project');
-    await user.selectOptions(screen.getByRole('combobox', { name: '范围目标' }), '/workspace/project');
+    await selectOption(screen.getByRole('combobox', { name: '记忆范围' }), 'project');
+    await selectOption(screen.getByRole('combobox', { name: '范围目标' }), '/workspace/project');
     await user.click(screen.getByRole('button', { name: '保存记忆' }));
     await waitFor(() => expect(service.createMemory).toHaveBeenCalledWith({
       content: '项目使用 pnpm',

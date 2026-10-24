@@ -28,7 +28,7 @@ func runTranslationNLPBoundaryCheck(ctx context.Context, requests []translationN
 	}{language, requests})
 	work, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	command := exec.CommandContext(work, translationNLPPython(), "-I", "-c", translationNLPWorker)
+	command := exec.CommandContext(work, translationNLPPython(), "-B", "-I", "-c", translationNLPWorker)
 	command.Stdin = bytes.NewReader(data)
 	output, err := command.Output()
 	if ctx.Err() != nil {
@@ -73,7 +73,7 @@ func chooseParsedSegmentCutOptions(ctx context.Context, input pairedTranslationI
 	if len(runtimes) > 0 && runtimes[0] != nil {
 		output, err = runtimes[0].exchange(run, data)
 	} else {
-		command := exec.CommandContext(run, translationNLPPython(), "-I", "-c", worker)
+		command := exec.CommandContext(run, translationNLPPython(), "-B", "-I", "-c", worker)
 		command.Stdin = bytes.NewReader(data)
 		output, err = command.Output()
 	}

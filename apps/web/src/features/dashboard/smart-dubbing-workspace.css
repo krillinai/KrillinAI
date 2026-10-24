@@ -14,20 +14,22 @@
 .smart-dubbing-configured-model > .model-brand-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 6px; background: var(--surface-2); }
 .smart-dubbing-configured-model > div { flex: 1; min-width: 0; }
 .smart-dubbing-configured-model > div > span,
-.smart-dubbing-model-row > .creator-tool-field > span { display: block; color: var(--muted); font-size: 11px; line-height: 18px; }
+.smart-dubbing-model-row > .creator-tool-field > span:first-child { display: block; color: var(--muted); font-size: 11px; line-height: 18px; }
 .smart-dubbing-configured-model .smart-dubbing-provider-row { display: grid; gap: 4px; }
 .smart-dubbing-configured-model .smart-dubbing-provider-row strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .smart-dubbing-configured-model .smart-dubbing-provider-row small { color: var(--muted); text-align: start; }
 .smart-dubbing-configured-model > a { flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 4px; color: var(--muted); }
 .smart-dubbing-configured-model > a:hover { color: var(--text); background: var(--state-hover-bg); }
 .smart-dubbing-model-row > .creator-tool-field { position: relative; display: block; }
-.smart-dubbing-model-row > .creator-tool-field > span { margin-inline-start: 54px; }
+.smart-dubbing-model-row > .creator-tool-field > span:first-child { margin-inline-start: 54px; }
 .smart-dubbing-model-row .official-model-control,
 .smart-dubbing-model-row .official-model-control input[role='combobox'] { height: 28px; min-height: 28px; }
 .smart-dubbing-model-row .official-model-control input[role='combobox'] {
   padding-block: 0; padding-inline: 54px 36px; border: 0; border-radius: 0;
-  background: transparent; font-size: 16px; font-weight: 600;
+  background: transparent; font-size: 14px; font-weight: 600;
 }
+.smart-dubbing-model-row .official-model-control.is-open input[role='combobox'] { padding-inline-start: 34px; font-weight: 400; }
+.smart-dubbing-model-row > .creator-tool-field:hover { border-color: var(--border-strong); }
 .smart-dubbing-model-row .official-model-selected-icon,
 .smart-dubbing-model-row .official-model-value > .model-brand-icon {
   position: absolute; top: -16px; inset-inline-start: 0;

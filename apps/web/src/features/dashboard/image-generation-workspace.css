@@ -138,7 +138,7 @@
 .image-generation-settings-grid .media-generation-control > span { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
 .image-generation-settings-grid .creator-tool-field > span > svg,
 .image-generation-settings-grid .media-generation-control > span > svg { flex-shrink: 0; }
-.image-generation-settings-grid .native-select select { height: 44px; background: var(--surface); }
+.image-generation-settings-grid .native-select :is(select, .app-select-trigger) { height: 44px; background: var(--surface); }
 .image-generation-settings-grid .creator-tool-segmented { min-height: 44px; background: var(--surface); }
 .image-generation-settings-grid .creator-tool-segmented button { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .image-generation-submit-row { display: flex; justify-content: flex-end; }

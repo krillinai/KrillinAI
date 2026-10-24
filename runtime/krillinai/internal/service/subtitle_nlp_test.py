@@ -21,6 +21,19 @@ class ConnectorBoundariesTest(unittest.TestCase):
 
 
 class DependencyBoundaryTest(unittest.TestCase):
+    def test_noun_coordination_keeps_shared_head(self):
+        from spacy.tokens import Doc
+        words = "I quite often pick up the Rationalist or the Idealist philosophers today".split()
+        heads = list(range(len(words)))
+        heads[7] = 9
+        deps = ["ROOT"] * len(words)
+        deps[7] = "cc"
+        pos = ["NOUN"] * len(words)
+        pos[7] = "CCONJ"
+        doc = Doc(spacy.blank("en").vocab, words=words, heads=heads, deps=deps, pos=pos)
+        text = " ".join(words)
+        self.assertEqual(split_connectors(text, lambda _: doc), [text])
+
     def test_function_words_stay_with_their_complements(self):
         from spacy.tokens import Doc
         from subtitle_nlp import boundary_issue

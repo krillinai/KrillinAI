@@ -1,3 +1,5 @@
+import { selectListbox } from '../../test/select-option.js';
+import { changeControl } from '../../test/select-option.js';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -292,7 +294,7 @@ describe('OpenCreatorSettingsView', () => {
     const permission = screen.getByRole('combobox', { name: '默认权限' });
     expect(permission).toHaveValue('workspace-write');
 
-    fireEvent.change(permission, { target: { value: 'danger-full-access' } });
+    changeControl(permission, { target: { value: 'danger-full-access' } });
     await user.click(await screen.findByRole('button', { name: '开启' }));
 
     await waitFor(() => {
@@ -315,10 +317,10 @@ describe('OpenCreatorSettingsView', () => {
     );
 
     const permission = screen.getByRole('combobox', { name: '默认权限' });
-    expect(within(permission).getAllByRole('option').map(option => option.textContent))
+    expect(within(selectListbox(permission)).getAllByRole('option').map(option => option.textContent))
       .toEqual(['跟随项目设置', '请求批准', '完全访问权限']);
 
-    fireEvent.change(permission, { target: { value: 'danger-full-access' } });
+    changeControl(permission, { target: { value: 'danger-full-access' } });
     await user.click(await screen.findByRole('button', { name: '取消' }));
 
     expect(onDefaultPermissionChange).not.toHaveBeenCalled();
@@ -421,7 +423,7 @@ describe('OpenCreatorSettingsView', () => {
 
     const behavior = screen.getByRole('combobox', { name: '关闭窗口时' });
     expect(behavior).toHaveValue('hide');
-    fireEvent.change(behavior, { target: { value: 'quit' } });
+    changeControl(behavior, { target: { value: 'quit' } });
     expect(onDesktopCloseBehaviorChange).toHaveBeenCalledWith('quit');
   });
 

@@ -38,6 +38,44 @@ it('does not change an existing choice during initial model display', () => {
   expect(fixture.updateDraft).not.toHaveBeenCalled();
 });
 
+it('excludes transcription models without subtitle timestamps', () => {
+  fixture.state = {};
+  const state: GatewayAccountState = {
+    source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready',
+    account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: '1', activationError: null,
+    selectedModels: {}, models: [
+      { id: 'plain-asr', modality: 'transcription', catalogSchema: 2, capabilities: [] },
+      { id: 'timestamp-asr', modality: 'transcription', catalogSchema: 2, capabilities: ['subtitle_timestamps'] }
+    ]
+  };
+  function Field() { return <OfficialModelField label="ASR" service={useOfficialServices('transcription')} />; }
+  render(<LanguageProvider initialPreference="zh-CN"><OfficialServicesContext.Provider value={state}><Field /></OfficialServicesContext.Provider></LanguageProvider>);
+  fireEvent.click(screen.getByRole('combobox', { name: 'ASR' }));
+  expect(screen.queryByRole('option', { name: 'plain-asr' })).not.toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'timestamp-asr' })).toBeVisible();
+});
+
+it.each([false, true])('initializes only the requested modality when opening a speech field (text default: %s)', async hasTextDefault => {
+  fixture.state = { officialModels: { image: 'saved-image' } };
+  const state: GatewayAccountState = {
+    source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready',
+    account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: '1', activationError: null,
+    selectedModels: { speech: 'speech-model', ...(hasTextDefault ? { text: 'chosen-text' } : {}) },
+    models: [
+      { id: 'arbitrary-text', modality: 'text', capabilities: ['responses', 'chat'] },
+      { id: 'chosen-text', modality: 'text', capabilities: ['responses', 'chat'] },
+      { id: 'speech-model', modality: 'speech', capabilities: [] }
+    ]
+  };
+  function Field() {
+    const service = useOfficialServices('speech');
+    return <OfficialModelField label="Speech" service={service} />;
+  }
+  render(<LanguageProvider initialPreference="zh-CN"><OfficialServicesContext.Provider value={state}><Field /></OfficialServicesContext.Provider></LanguageProvider>);
+  await waitFor(() => expect(fixture.updateDraft).toHaveBeenCalledWith({ officialModels: { speech: 'speech-model' } }));
+  expect(fixture.updateDraft.mock.calls.every(([patch]) => !('text' in patch.officialModels))).toBe(true);
+});
+
 it('keeps a removed task choice visible and lets the user replace it without silently changing the draft', async () => {
   mount('text', 'removed-model', 'gateway');
   expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('removed-model');

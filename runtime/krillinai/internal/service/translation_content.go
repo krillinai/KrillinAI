@@ -102,6 +102,9 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 					if ctx.Err() != nil {
 						return remaining, ctx.Err()
 					}
+					if permanentTranslationServiceError(err) {
+						return remaining, err
+					}
 					source.FailureReason = err.Error()
 					next.Sentences = append(next.Sentences, source)
 					continue
@@ -138,6 +141,9 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 			if ctx.Err() != nil {
 				return remaining, ctx.Err()
 			}
+			if permanentTranslationServiceError(err) {
+				return remaining, err
+			}
 			for i := range remaining.Sentences {
 				remaining.Sentences[i].FailureReason = err.Error()
 			}
@@ -147,7 +153,9 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 		decodeErr := json.Unmarshal([]byte(util.ExtractJSONObject(response, "sentences")), &output)
 		items, duplicate := make(map[string]pairedTranslationOutputSentence), make(map[string]bool)
 		for _, item := range output.Sentences {
-			_, duplicate[item.ID] = items[item.ID]
+			if _, exists := items[item.ID]; exists {
+				duplicate[item.ID] = true
+			}
 			items[item.ID] = item
 		}
 		next := remaining
@@ -155,12 +163,14 @@ func (t *Translator) translateContentBatch(ctx context.Context, input pairedTran
 		var issues []string
 		for _, source := range remaining.Sentences {
 			item, exists := items[source.ID]
-			if decodeErr != nil || !exists || duplicate[source.ID] {
+			if decodeErr != nil || !exists || duplicate[source.ID] || item.textConflict {
 				reason := "missing_sentence_id"
 				if decodeErr != nil {
 					reason = "invalid_response_json"
 				} else if duplicate[source.ID] {
 					reason = "duplicate_sentence_id"
+				} else if item.textConflict {
+					reason = "conflicting_translation_fields"
 				}
 				noteTranslationTextIssue("translation_content", source.ID, reason, attempt+1)
 				source.FailureReason = reason

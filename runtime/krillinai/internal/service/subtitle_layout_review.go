@@ -23,6 +23,31 @@ func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTransl
 		}
 	}
 	if len(pending) > 0 {
+		reviewInput := struct {
+			SourceLanguage string           `json:"source_language"`
+			TargetLanguage string           `json:"target_language"`
+			DisplayTarget  int              `json:"display_target"`
+			Sentences      []pairedSentence `json:"sentences"`
+		}{input.SourceLanguage, input.TargetLanguage, input.MaxTargetChars, pending}
+		payload, _ := json.Marshal(reviewInput)
+		prompt := withTranslationFillerPolicy("任务：translation_layout_review\n" + subtitleLayoutReviewPrompt + "\n输入 JSON：\n" + string(payload))
+		if len(prompt) > translationRequestBytes && len(pending) > 1 {
+			// 内容批次能放下不代表审校载荷也能放下；按真实载荷拆批，
+			// 不提高请求上限，也不丢弃同批已经取得的译文和排版。
+			middle := len(input.Sentences) / 2
+			for _, sources := range [][]pairedTranslationSource{input.Sentences[:middle], input.Sentences[middle:]} {
+				group := input
+				group.Sentences = sources
+				if err := t.reviewPairedLayouts(ctx, group, sentences, originLang, targetLang, save); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		pendingIDs := make(map[string]bool, len(pending))
+		for _, sentence := range pending {
+			pendingIDs[sentence.ID] = true
+		}
 		var result struct {
 			Reviews []struct {
 				ID      string `json:"sentence_id"`
@@ -37,12 +62,6 @@ func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTransl
 				Segments []pairedTranslationSegment `json:"segments"`
 			} `json:"corrections"`
 		}
-		reviewInput := struct {
-			SourceLanguage string           `json:"source_language"`
-			TargetLanguage string           `json:"target_language"`
-			DisplayTarget  int              `json:"display_target"`
-			Sentences      []pairedSentence `json:"sentences"`
-		}{input.SourceLanguage, input.TargetLanguage, input.MaxTargetChars, pending}
 		corrected := make(map[string]pairedSentence)
 		invalid := make(map[string]bool)
 		rewritten := make(map[string]bool)
@@ -74,7 +93,7 @@ func (t *Translator) reviewPairedLayouts(ctx context.Context, input pairedTransl
 			clear(seen)
 			for _, correction := range result.Corrections {
 				original, exists := sentences[correction.ID]
-				if !exists || original.LayoutReviewed || len(original.Source) < 2 || seen[correction.ID] || correction.Reason == "" {
+				if !exists || !pendingIDs[correction.ID] || original.LayoutReviewed || len(original.Source) < 2 || seen[correction.ID] || correction.Reason == "" {
 					return false
 				}
 				seen[correction.ID] = true

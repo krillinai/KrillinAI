@@ -125,11 +125,13 @@ describe('Creator Runtime dependency updates', () => {
     vi.doMock('../scripts/creator-runtime-releases.mjs', async importOriginal => ({
       ...await importOriginal(), creatorRuntimeReleases: () => ({ [`${platform}-x64`]: structuredClone(fixed) })
     }));
+    vi.doMock('../scripts/creator-nlp-runtime.mjs', () => ({ installCreatorNlpDependencies: vi.fn(() => ({ version: 'test' })) }));
   });
 
   afterEach(() => {
     vi.doUnmock('node:child_process');
     vi.doUnmock('../scripts/creator-runtime-releases.mjs');
+    vi.doUnmock('../scripts/creator-nlp-runtime.mjs');
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
     rmSync(root, { recursive: true, force: true });

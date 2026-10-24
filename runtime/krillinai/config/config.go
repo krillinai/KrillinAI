@@ -40,6 +40,7 @@ type OpenaiCompatibleConfig struct {
 	BaseUrl       string `toml:"base_url"`
 	ApiKey        string `toml:"api_key"`
 	Model         string `toml:"model"`
+	ModelName     string `toml:"model_name"` // 网关公开模型的真实名称，仅用于选择兼容参数，不替换路由ID。
 	OfficialModel string `toml:"official_model"`
 }
 

@@ -60,7 +60,7 @@ func runTranslationNLP(ctx context.Context, texts []string, language types.Stand
 	workerContext, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	// No shell, text interpolation, model download, or dependency on VideoLingo paths.
-	cmd := exec.CommandContext(workerContext, translationNLPPython(), "-I", "-c", translationNLPWorker)
+	cmd := exec.CommandContext(workerContext, translationNLPPython(), "-B", "-I", "-c", translationNLPWorker)
 	cmd.Stdin = bytes.NewReader(input)
 	output, err := cmd.Output()
 	if ctx.Err() != nil {

@@ -1,3 +1,5 @@
+import { selectListbox } from '../../test/select-option.js';
+import { changeControl } from '../../test/select-option.js';
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
@@ -145,7 +147,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     await waitFor(() => expect(current.state.composeVideo).toBe(false));
     expect(screen.queryByRole('button', { name: '重新翻译字幕' })).not.toBeInTheDocument();
     fireEvent.click(within(panel).getByRole('tab', { name: '任务设置' }));
-    fireEvent.change(within(panel).getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
+    changeControl(within(panel).getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
     await waitFor(() => expect(current.state.targetLanguage).toBe('de'));
     fireEvent.click(within(panel).getByRole('button', { name: '重新翻译字幕' }));
     expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
@@ -178,7 +180,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       service={{ applyAction, runAgentTurn: vi.fn() } as never}><VideoTranslationWorkspace onBack={vi.fn()} />
     </CreatorSessionProvider></LanguageProvider>);
     fireEvent.click(screen.getByRole('button', { name: '任务设置' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
+    changeControl(screen.getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
     await waitFor(() => expect(current.state.targetLanguage).toBe('de'));
     fireEvent.click(screen.getByRole('button', { name: '重新翻译字幕' }));
     expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
@@ -251,8 +253,8 @@ describe('VideoTranslationWorkspace task controls', () => {
     </CreatorSessionProvider></LanguageProvider>);
     fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
     fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'serif' } });
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    changeControl(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'serif' } });
+    changeControl(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
     fireEvent.click(within(screen.getByRole('dialog', { name: '自定义字幕样式' })).getByRole('button', { name: '完成' }));
     fireEvent.click(within(screen.getByRole('complementary', { name: '字幕样式' })).getByRole('tab', { name: '配音' }));
     fireEvent.click(screen.getByRole('switch', { name: '启用配音' }));
@@ -318,7 +320,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       if (action === 'custom') {
         fireEvent.click(within(dialog).getByRole('button', { name: '自定义样式' }));
         const custom = screen.getByRole('dialog', { name: '自定义字幕样式' });
-        fireEvent.change(within(custom).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+        changeControl(within(custom).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
         fireEvent.click(within(custom).getByRole('button', { name: '取消' }));
         expect(current.state.composeVideo).toBe(false);
         fireEvent.click(within(dialog).getByRole('button', { name: '自定义样式' }));
@@ -412,7 +414,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     const view = render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current} service={service}>
       <VideoTranslationWorkspace onBack={vi.fn()} />
     </CreatorSessionProvider></LanguageProvider>);
-    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['Hindi subtitles'], 'unknown.en.srt')] } });
+    changeControl(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['Hindi subtitles'], 'unknown.en.srt')] } });
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({
       action: 'import-subtitle', input: expect.objectContaining({ language: 'auto' })
     })));
@@ -420,10 +422,10 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
     await waitFor(() => expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue(detected));
     expect(screen.getByRole('combobox', { name: '翻译为' })).toHaveValue('ja');
-    fireEvent.change(screen.getByRole('combobox', { name: '源语言' }), { target: { value: 'en' } });
+    changeControl(screen.getByRole('combobox', { name: '源语言' }), { target: { value: 'en' } });
     await waitFor(() => expect(current.state.sourceLanguage).toBe('en'));
     fireEvent.click(screen.getByRole('button', { name: /上一步/ }));
-    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['Spanish subtitles'], 'replacement.srt')] } });
+    changeControl(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['Spanish subtitles'], 'replacement.srt')] } });
     await waitFor(() => expect(current.state.sourceLanguage).toBe(replacement));
     await waitFor(() => expect(screen.getByRole('button', { name: '继续' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
@@ -449,11 +451,11 @@ describe('VideoTranslationWorkspace task controls', () => {
       <VideoTranslationWorkspace onBack={vi.fn()} />
     </CreatorSessionProvider></LanguageProvider>);
     expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue('auto');
-    expect(screen.getByRole('option', { name: '请选择语言' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '源语言' })).toHaveTextContent('请选择语言');
     expect(screen.getByText('未能可靠识别字幕语言，请手动选择源语言。')).toBeVisible();
     fireEvent.click(within(screen.getByRole('region', { name: '视频翻译操作区' })).getByRole('button', { name: '开始翻译' }));
     expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
-    fireEvent.change(screen.getByRole('combobox', { name: '源语言' }), { target: { value: 'hi' } });
+    changeControl(screen.getByRole('combobox', { name: '源语言' }), { target: { value: 'hi' } });
     expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue('hi');
   });
 
@@ -507,7 +509,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(within(workspace).getByRole('button', { name: '更换文件' })).toBeEnabled();
     expect(workspace.querySelector('pre')).toHaveTextContent('Original text');
     const file = new File(['1\n00:00:00,000 --> 00:00:01,000\nReplacement text\n'], 'replacement.srt');
-    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [file] } });
+    changeControl(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [file] } });
     await waitFor(() => expect(workspace.querySelector('pre')).toHaveTextContent('Replacement text'));
     expect(workspace.querySelector('pre')).not.toHaveTextContent('Original text');
     await waitFor(() => expect(within(workspace).getByRole('button', { name: '移除字幕' })).toBeEnabled());
@@ -519,7 +521,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     await waitFor(() => expect(current.state.importedSourceSubtitleId).toBeNull());
     fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
     expect(within(workspace).getByRole('alert')).toHaveTextContent('请先添加需要翻译的 SRT 字幕');
-    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [file] } });
+    changeControl(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [file] } });
     await waitFor(() => expect(workspace.querySelector('pre')).toHaveTextContent('Replacement text'));
     expect(within(workspace).getByRole('button', { name: '更换文件' })).toBeInTheDocument();
   });
@@ -574,7 +576,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(within(workspace).getByRole('navigation', { name: '翻译流程' }).querySelectorAll('li')).toHaveLength(2);
     fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
     expect(within(workspace).getByRole('alert')).toHaveTextContent('请先添加需要翻译的 SRT 字幕');
-    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['1\n00:00:00,000 --> 00:00:01,000\nHello\n'], 'source.srt')] } });
+    changeControl(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['1\n00:00:00,000 --> 00:00:01,000\nHello\n'], 'source.srt')] } });
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'import-subtitle', input: expect.objectContaining({ kind: 'source_subtitle', fileName: 'source.srt' }) })));
     await waitFor(() => expect(within(workspace).getByRole('button', { name: '继续' })).toBeEnabled());
     const subtitlePreview = workspace.querySelector('details');
@@ -939,8 +941,8 @@ describe('VideoTranslationWorkspace task controls', () => {
       <VideoTranslationWorkspace onBack={vi.fn()} />
     </CreatorSessionProvider></LanguageProvider>);
     fireEvent.click(screen.getByRole('switch', { name: '导入已有字幕' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕类型' }), { target: { value: 'target_subtitle' } });
-    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['srt'], 'translated.srt')] } });
+    changeControl(screen.getByRole('combobox', { name: '字幕类型' }), { target: { value: 'target_subtitle' } });
+    changeControl(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['srt'], 'translated.srt')] } });
     expect(await screen.findByText('本地导入 · translated.srt · zh_cn · 1 条字幕 · v1')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '设置翻译语言' })).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole('region', { name: '视频翻译操作区' })).getByRole('button', { name: '开始翻译' }));
@@ -957,8 +959,8 @@ describe('VideoTranslationWorkspace task controls', () => {
     </CreatorSessionProvider></LanguageProvider>);
     expect(screen.queryByRole('combobox', { name: '字幕类型' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('switch', { name: '导入已有字幕' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕类型' }), { target: { value: kind } });
-    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['invalid'], 'local.srt', { type: 'application/x-subrip' })] } });
+    changeControl(screen.getByRole('combobox', { name: '字幕类型' }), { target: { value: kind } });
+    changeControl(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['invalid'], 'local.srt', { type: 'application/x-subrip' })] } });
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'import-subtitle', input: {
       kind, fileName: 'local.srt', language: kind === 'source_subtitle' ? 'auto' : 'zh_cn', contentBase64: btoa('invalid')
     } })));
@@ -1052,13 +1054,13 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     const drawer = screen.getByRole('dialog', { name: '自定义字幕样式' });
     expect(within(drawer).getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
-    fireEvent.change(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    changeControl(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
     fireEvent.click(within(drawer).getByRole('button', { name: '取消' }));
     expect(screen.queryByRole('dialog', { name: '自定义字幕样式' })).not.toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    changeControl(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
     expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'false');
     const customize = screen.getByRole('button', { name: '自定义样式' });
@@ -1142,14 +1144,14 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(screen.getByRole('button', { name: '编辑模版 口播' }));
     const drawer = screen.getByRole('dialog', { name: '编辑模版' });
     expect(within(drawer).getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
-    fireEvent.change(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
+    changeControl(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
     fireEvent.click(within(drawer).getByRole('button', { name: '取消' }));
     expect(screen.getByRole('radio', { name: '口播' })).toHaveAttribute('aria-checked', 'false');
     expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')[0].style.subtitleSize).toBe('large');
 
     fireEvent.click(screen.getByRole('button', { name: '编辑模版 口播' }));
     fireEvent.change(screen.getByRole('textbox', { name: '模版名称' }), { target: { value: '口播小字' } });
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
+    changeControl(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
     fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
 
     expect(screen.queryByRole('dialog', { name: '编辑模版' })).not.toBeInTheDocument();
@@ -1253,13 +1255,13 @@ describe('VideoTranslationWorkspace task controls', () => {
 
     openStyleSettings();
     fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), {
+    changeControl(screen.getByRole('combobox', { name: '字幕字体' }), {
       target: { value: 'rounded' }
     });
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕字重' }), {
+    changeControl(screen.getByRole('combobox', { name: '字幕字重' }), {
       target: { value: 'regular' }
     });
-    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), {
+    changeControl(screen.getByRole('combobox', { name: '字幕大小' }), {
       target: { value: 'small' }
     });
     fireEvent.click(screen.getByRole('button', { name: '选择译文颜色' }));
@@ -1348,12 +1350,13 @@ describe('VideoTranslationWorkspace task controls', () => {
 
     const sourceSelect = screen.getByRole('combobox', { name: '源语言' });
     const targetSelect = screen.getByRole('combobox', { name: '翻译为' });
-    const sourceOptions = within(sourceSelect).getAllByRole('option');
-    const targetOptions = within(targetSelect).getAllByRole('option');
-    const targetValues = targetOptions.map(option => (option as HTMLOptionElement).value);
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    const sourceOptions = within(selectListbox(sourceSelect)).getAllByRole('option');
+    const targetOptions = within(selectListbox(targetSelect)).getAllByRole('option');
+    const targetValues = targetOptions.map(option => option.getAttribute('data-value'));
 
     expect(sourceOptions).toHaveLength(123);
-    const sourceValues = sourceOptions.map(option => (option as HTMLOptionElement).value);
+    const sourceValues = sourceOptions.map(option => option.getAttribute('data-value'));
     expect(new Set(sourceValues).size).toBe(123);
     expect(sourceValues).not.toContain('pinyin');
     expect(sourceValues).toEqual(expect.arrayContaining(['yue', 'si', 'bo', 'am', 'ml', 'kn', 'or', 'ka', 'hy', 'nn', 'om']));
@@ -1365,28 +1368,37 @@ describe('VideoTranslationWorkspace task controls', () => {
       ['Bahasa Indonesia', 'id'],
       ['ภาษาไทย', 'th']
     ]) {
-      expect(within(sourceSelect).getByRole('option', { name })).toHaveAttribute('value', value);
+      expect(within(selectListbox(sourceSelect)).getByRole('option', { name })).toHaveAttribute('data-value', value);
     }
     expect(targetOptions).toHaveLength(124);
     expect(new Set(targetValues).size).toBe(124);
-    expect(within(targetSelect).getByRole('option', { name: 'বাংলা' })).toHaveAttribute('value', 'bn');
-    expect(within(targetSelect).getByRole('option', { name: 'Gàidhlig' })).toHaveAttribute('value', 'gd');
-    expect(within(targetSelect).getByRole('option', { name: 'Gaelg' })).toHaveAttribute('value', 'gv');
-    fireEvent.change(screen.getByRole('searchbox', { name: '搜索源语言' }), { target: { value: '印地' } });
-    expect(within(sourceSelect).getByRole('option', { name: 'हिन्दी' })).toHaveAttribute('value', 'hi');
-    fireEvent.change(sourceSelect, { target: { value: 'hi' } });
-    fireEvent.change(screen.getByRole('searchbox', { name: '搜索源语言' }), { target: { value: 'Arabic' } });
+    expect(within(selectListbox(targetSelect)).getByRole('option', { name: 'বাংলা' })).toHaveAttribute('data-value', 'bn');
+    expect(within(selectListbox(targetSelect)).getByRole('option', { name: 'Gàidhlig' })).toHaveAttribute('data-value', 'gd');
+    expect(within(selectListbox(targetSelect)).getByRole('option', { name: 'Gaelg' })).toHaveAttribute('data-value', 'gv');
+    selectListbox(sourceSelect);
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索选项' }), { target: { value: '印地' } });
+    expect(within(selectListbox(sourceSelect)).getByRole('option', { name: 'हिन्दी' })).toHaveAttribute('data-value', 'hi');
+    changeControl(sourceSelect, { target: { value: 'hi' } });
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    selectListbox(sourceSelect);
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索选项' }), { target: { value: 'Arabic' } });
     expect(sourceSelect).toHaveValue('hi');
-    expect(within(sourceSelect).getByRole('option', { name: 'العربية' })).toHaveAttribute('value', 'ar');
-    expect(within(sourceSelect).getByRole('option', { name: 'हिन्दी' })).toBeInTheDocument();
+    expect(within(selectListbox(sourceSelect)).getByRole('option', { name: 'العربية' })).toHaveAttribute('data-value', 'ar');
+    expect(within(selectListbox(sourceSelect)).queryByRole('option', { name: 'हिन्दी' })).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('searchbox', { name: '搜索源语言' }), { target: { value: '' } });
-    fireEvent.change(sourceSelect, { target: { value: 'bo' } });
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索选项' }), { target: { value: '' } });
+    changeControl(sourceSelect, { target: { value: 'bo' } });
     expect(sourceSelect).toHaveValue('bo');
-    expect(within(sourceSelect).getAllByRole('option')).toHaveLength(123);
-    fireEvent.change(screen.getByRole('searchbox', { name: '搜索源语言' }), { target: { value: 'pinyin' } });
+    expect(within(selectListbox(sourceSelect)).getAllByRole('option')).toHaveLength(123);
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索选项' }), { target: { value: 'pinyin' } });
     expect(sourceSelect).toHaveValue('bo');
-    expect(within(sourceSelect).queryByRole('option', { name: '拼音' })).not.toBeInTheDocument();
+    expect(within(selectListbox(sourceSelect)).queryByRole('option', { name: '拼音' })).not.toBeInTheDocument();
+
+    const targetList = selectListbox(targetSelect);
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索选项' }), { target: { value: 'bn' } });
+    fireEvent.click(within(targetList).getByRole('option', { name: 'বাংলা' }));
+    expect(targetSelect).toHaveValue('bn');
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
 
   });
 
@@ -1513,7 +1525,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByRole('button', { name: '双语 SRT' })).toBeEnabled();
     expect(screen.getByRole('textbox', { name: '横屏字幕 1' })).toHaveValue('译文在上');
     expect(screen.getByLabelText('横屏字幕原文 1')).toHaveValue('Source below');
-    fireEvent.change(screen.getByLabelText('横屏字幕原文 1'), { target: { value: 'Corrected English source' } });
+    changeControl(screen.getByLabelText('横屏字幕原文 1'), { target: { value: 'Corrected English source' } });
     expect(screen.getByLabelText('横屏字幕原文 1')).toHaveValue('Corrected English source');
     expect(screen.getByText(/等待自动保存/)).toBeVisible();
   });

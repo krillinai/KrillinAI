@@ -73,6 +73,7 @@ export function verifyCreatorRuntime(root, platform, arch) {
     if (!executableNames.has(name)) throw new Error(`Creator Runtime executable is missing: ${name}`);
   }
   verifyYtDlpRuntime(manifest.ytDlp, resourcesByPath);
+  if (manifest.nlp !== undefined) verifyNlpRuntime(manifest.nlp, manifest.ytDlp, resourcesByPath);
   const localProviders = new Set(['fasterwhisper', 'whispercpp', 'whisperkit']);
   if (manifest.resources.some(resource => (
     resource.kind === 'model'
@@ -82,6 +83,29 @@ export function verifyCreatorRuntime(root, platform, arch) {
     throw new Error('Creator Runtime must load local transcription dependencies on demand');
   }
   return manifest;
+}
+
+function verifyNlpRuntime(descriptor, ytDlp, resourcesByPath) {
+  if (descriptor?.engine !== 'spacy' || typeof descriptor.version !== 'string' || !descriptor.version
+    || !Array.isArray(descriptor.models) || descriptor.models.length === 0) {
+    throw new Error('Creator Runtime NLP descriptor is invalid');
+  }
+  assertDescriptorKeys(descriptor, ['engine', 'version', 'executable', 'packageMetadata', 'models']);
+  assertRuntimeResource(resourcesByPath, descriptor.executable, 'executable', 'NLP Python executable');
+  assertRuntimeResource(resourcesByPath, descriptor.packageMetadata, 'asset', 'spaCy package metadata');
+  if (ytDlp.mode === 'python' && descriptor.executable !== ytDlp.executable) {
+    throw new Error('Creator Runtime NLP must reuse the bundled yt-dlp Python');
+  }
+  const languages = new Set();
+  for (const model of descriptor.models) {
+    if (typeof model?.language !== 'string' || !model.language || languages.has(model.language)
+      || typeof model.name !== 'string' || !model.name || typeof model.version !== 'string' || !model.version) {
+      throw new Error('Creator Runtime NLP model descriptor is invalid');
+    }
+    assertDescriptorKeys(model, ['language', 'name', 'version', 'metadata']);
+    assertRuntimeResource(resourcesByPath, model.metadata, 'asset', 'NLP model metadata');
+    languages.add(model.language);
+  }
 }
 
 function verifyYtDlpRuntime(descriptor, resourcesByPath) {

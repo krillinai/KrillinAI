@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Check, CircleCheck, CircleAlert, FolderOpen, LogIn, Moon, Save, Sun, UserRound } from 'lucide-react';
 import type {
@@ -520,7 +521,7 @@ function GeneralSettings(props: {
         ) : (
           <label className="settings-row settings-control-row" htmlFor="settings-desktop-close-behavior">
             <span>{t('settings.closeWindow')}</span>
-            <select
+            <AppSelect
               id="settings-desktop-close-behavior"
               className="settings-select"
               value={props.desktopCloseBehavior}
@@ -530,7 +531,7 @@ function GeneralSettings(props: {
             >
               <option value="hide">{t('settings.hideToMenuBar')}</option>
               <option value="quit">{t('settings.quit')}</option>
-            </select>
+            </AppSelect>
           </label>
         )}
         {props.desktopTelemetryEnabled === undefined ? null : (
@@ -875,7 +876,7 @@ function SettingsSelectRow<Value extends string>(props: {
   return (
     <label className="settings-row settings-control-row" htmlFor={props.id}>
       <span>{props.label}</span>
-      <select
+      <AppSelect
         id={props.id}
         className="settings-select"
         value={props.value}
@@ -884,7 +885,7 @@ function SettingsSelectRow<Value extends string>(props: {
         {props.options.map(option => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
-      </select>
+      </AppSelect>
     </label>
   );
 }

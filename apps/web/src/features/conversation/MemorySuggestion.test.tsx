@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -40,7 +41,7 @@ describe('MemorySuggestion', () => {
 
     await user.clear(screen.getByRole('textbox', { name: '记忆建议内容' }));
     await user.type(screen.getByRole('textbox', { name: '记忆建议内容' }), '默认运行全量测试');
-    await user.selectOptions(screen.getByRole('combobox', { name: '记忆建议范围' }), 'project');
+    await selectOption(screen.getByRole('combobox', { name: '记忆建议范围' }), 'project');
     await user.click(screen.getByRole('button', { name: '保存记忆建议' }));
 
     expect(onSave).toHaveBeenCalledWith({

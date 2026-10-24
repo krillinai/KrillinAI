@@ -261,9 +261,10 @@ func TestTranslationNLPRealSpacy(t *testing.T) {
 	if err != nil || !validTranslationNLPResult(texts, result, "en") {
 		t.Fatalf("真实NLP失败: result=%+v err=%v", result, err)
 	}
-	want := []string{"whatever it might be,", "I quite often pick up the Rationalist", "or the Idealist philosophers uh"}
-	if len(result.Segments[0]) < 7 || !reflect.DeepEqual(result.Segments[0][4:7], want) {
-		t.Fatalf("真实NLP没有保留示例切口: %q", result.Segments[0])
+	for _, part := range result.Segments[0] {
+		if strings.HasSuffix(part, "the Rationalist") || strings.HasPrefix(part, "or the Idealist") {
+			t.Fatalf("真实 NLP 切断共享中心词的名词并列: %q", result.Segments[0])
+		}
 	}
 	for _, part := range result.Segments[1] {
 		if strings.HasSuffix(part, "two") || strings.HasPrefix(part, "or three") {

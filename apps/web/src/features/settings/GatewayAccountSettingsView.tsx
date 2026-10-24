@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { useEffect, useRef, useState } from 'react';
 import { CreditCard, ExternalLink, LogIn, LogOut, MoreHorizontal, RefreshCw } from 'lucide-react';
 import type { GatewayAccountState, GatewayAuthorization } from '@opencreator/protocol';
@@ -106,7 +107,7 @@ export function GatewayAccountSettingsView(props: {
     : state.authState === 'authorizing' ? confirmingAuthorization ? l('正在确认登录结果…', 'Confirming sign-in…') : l('请在浏览器中完成登录', 'Complete sign-in in your browser')
     : state.authState === 'signing_out' ? l('正在退出登录…', 'Signing out…')
     : state.authState === 'expired' ? l('登录已过期，请重新登录', 'Session expired; sign in again')
-    : signedIn && state.activationError?.code === 'supplier_migrating' ? l('正在切换模型供应商，完成后将自动恢复。', 'Switching model supplier. Services will resume automatically.')
+    : signedIn && state.activationError?.code === 'supplier_migrating' ? l('官方服务维护中，完成后将自动恢复。', 'Official service is under maintenance and will resume automatically.')
     : signedIn && profile ? l('已登录', 'Signed in')
     : signedIn ? state.activationState === 'ready' && state.source === 'gateway' ? l('已登录，可以开始创作', 'Signed in and ready to create')
       : state.activationState === 'loading' ? l('已登录，正在连接模型服务…', 'Signed in; connecting to model service…')
@@ -118,16 +119,16 @@ export function GatewayAccountSettingsView(props: {
       <button type="button" className="gateway-account__icon" title={l('刷新账户', 'Refresh account')} aria-label={l('刷新账户', 'Refresh account')} disabled={busy || !service} onClick={() => void action(() => refresh(false, true))}><RefreshCw size={16}/></button>
     </div> : null}
     {state?.account && !profile ? <p className="gateway-account__email">{state.account.email}</p> : null}
-    {signedIn && !compact && state.transport === 'supplier-direct' && state.supplier === 'chatanywhere' && service?.setRegion ? <label>{l('连接区域', 'Connection Region')}<select aria-label={l('连接区域', 'Connection Region')} value={state.supplierRegion ?? 'auto'} disabled={busy} onChange={event => { const next = event.target.value as 'auto' | 'domestic' | 'overseas'; void action(async () => update(await service.setRegion!(next))); }}>
+    {signedIn && !compact && state.transport === 'supplier-direct' && state.supplier === 'chatanywhere' && service?.setRegion ? <label>{l('连接区域', 'Connection Region')}<AppSelect aria-label={l('连接区域', 'Connection Region')} value={state.supplierRegion ?? 'auto'} disabled={busy} onChange={event => { const next = event.target.value as 'auto' | 'domestic' | 'overseas'; void action(async () => update(await service.setRegion!(next))); }}>
       <option value="auto">{l('默认（国内线路）', 'Default (Mainland route)')}</option><option value="domestic">{l('国内', 'Mainland China')}</option><option value="overseas">{l('海外', 'Overseas')}</option>
-    </select></label> : null}
+    </AppSelect></label> : null}
     {profile ? <div className="gateway-account__identity"><h2>{signedIn ? state.account?.email ?? l('OpenCreator 账户', 'OpenCreator Account') : l('OpenCreator 账户', 'OpenCreator Account')}</h2>{status}</div> : status}
     {state?.activationError && (!profile || !signedIn) ? <p role="alert">{state.activationError.code === 'device_expired' ? l('登录授权已过期，请重新登录。', 'Authorization expired. Please sign in again.')
       : !signedIn ? l('登录未完成，请重新登录。', 'Sign-in did not complete. Please try again.')
       : state.activationError.code === 'model_catalog_unavailable' ? l('模型列表暂时无法获取，请重试。', 'The model list is temporarily unavailable. Try again.')
       : state.activationError.code === 'credits_migration_required' ? l('原有积分需要迁移，请联系管理员。', 'Your existing credits need migration. Contact an administrator.')
       : state.activationError.code === 'no_available_models' ? l('当前没有可用的文本模型。', 'No compatible text models are available.')
-      : state.activationError.code === 'supplier_migrating' ? l('正在切换模型供应商，完成后将自动恢复。', 'Switching model supplier. Services will resume automatically.')
+      : state.activationError.code === 'supplier_migrating' ? l('官方服务维护中，完成后将自动恢复。', 'Official service is under maintenance and will resume automatically.')
       : state.activationError.code === 'active_tasks' ? l('请等待当前任务结束后再连接官方服务。', 'Wait for the current tasks to finish before connecting official services.') : l('模型服务暂不可用，请重新连接。', 'Model service is unavailable. Please reconnect.')}</p> : null}
     {signedIn && profile ? <details ref={accountMenu} className="gateway-account__menu"><summary title={l('账号菜单', 'Account menu')} aria-label={l('账号菜单', 'Account menu')}><MoreHorizontal size={20}/></summary><div>
       <button type="button" disabled={busy || !service} onClick={() => void action(() => refresh(false, true))}><RefreshCw size={16}/>{l('刷新模型', 'Refresh models')}</button>

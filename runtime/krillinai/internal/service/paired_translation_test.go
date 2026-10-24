@@ -891,8 +891,20 @@ func TestAudioTranslationWorkerStopsOnUpstreamFailure(t *testing.T) {
 	config.Conf.App.TranslateMaxAttempts = 9
 	for _, failure := range []bool{false, true} {
 		t.Run(fmt.Sprint(failure), func(t *testing.T) {
-			calls := 0
+			calls, splitCalls := 0, 0
 			svc := Service{ChatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
+				if strings.HasPrefix(prompt, "Task: translation_source_split\n") {
+					splitCalls++
+					_, payload, _ := strings.Cut(prompt, "Input JSON:\n")
+					var input struct {
+						Text string `json:"text"`
+					}
+					if err := json.Unmarshal([]byte(payload), &input); err != nil {
+						return "", err
+					}
+					data, err := json.Marshal(map[string]any{"segments": []string{input.Text}})
+					return string(data), err
+				}
 				calls++
 				if failure {
 					return "", fmt.Errorf("LLM disconnected")
@@ -915,8 +927,8 @@ func TestAudioTranslationWorkerStopsOnUpstreamFailure(t *testing.T) {
 			if failure {
 				want = 1
 			}
-			if calls != want || (err != nil) != failure {
-				t.Fatalf("calls=%d want=%d error=%v", calls, want, err)
+			if calls != want || splitCalls != 1 || (err != nil) != failure {
+				t.Fatalf("translation calls=%d want=%d split calls=%d error=%v", calls, want, splitCalls, err)
 			}
 		})
 	}

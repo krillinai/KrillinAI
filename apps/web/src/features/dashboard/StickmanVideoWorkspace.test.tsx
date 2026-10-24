@@ -1,3 +1,4 @@
+import { changeControl } from '../../test/select-option.js';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ComponentProps, ReactNode } from 'react';
 import {
@@ -76,11 +77,11 @@ describe('StickmanVideoWorkspace', () => {
     renderWorkspace(job());
 
     const duration = screen.getByRole('combobox', { name: '目标时长' });
-    fireEvent.change(duration, { target: { value: '300' } });
+    changeControl(duration, { target: { value: '300' } });
     expect(duration).toHaveValue('300');
     expect(screen.queryByRole('spinbutton', { name: '自定义时长（秒）' })).not.toBeInTheDocument();
 
-    fireEvent.change(duration, { target: { value: 'custom' } });
+    changeControl(duration, { target: { value: 'custom' } });
     const custom = screen.getByRole('spinbutton', { name: '自定义时长（秒）' });
     expect(custom).toHaveValue(90);
     fireEvent.change(custom, { target: { value: '' } });
@@ -96,14 +97,14 @@ describe('StickmanVideoWorkspace', () => {
   it.each([30, 60, 300, 600])('keeps custom input visible when the typed duration matches the %s-second preset', durationSeconds => {
     renderWorkspace(job());
     const duration = screen.getByRole('combobox', { name: '目标时长' });
-    fireEvent.change(duration, { target: { value: 'custom' } });
+    changeControl(duration, { target: { value: 'custom' } });
     const custom = screen.getByRole('spinbutton', { name: '自定义时长（秒）' });
     fireEvent.change(custom, { target: { value: String(durationSeconds) } });
     fireEvent.blur(custom);
     expect(duration).toHaveValue('custom');
     expect(custom).toHaveValue(durationSeconds);
     expect(custom).toBeInTheDocument();
-    fireEvent.change(duration, { target: { value: '300' } });
+    changeControl(duration, { target: { value: '300' } });
     expect(duration).toHaveValue('300');
     expect(screen.queryByRole('spinbutton', { name: '自定义时长（秒）' })).not.toBeInTheDocument();
   });
@@ -129,7 +130,7 @@ describe('StickmanVideoWorkspace', () => {
       };
     });
     renderWorkspace(persisted, new Map(), applyAction);
-    fireEvent.change(screen.getByRole('combobox', { name: '目标时长' }), { target: { value: 'custom' } });
+    changeControl(screen.getByRole('combobox', { name: '目标时长' }), { target: { value: 'custom' } });
     const custom = screen.getByRole('spinbutton', { name: '自定义时长（秒）' });
     for (const value of ['', '1', '12', '125']) fireEvent.change(custom, { target: { value } });
     await waitFor(() => expect(persisted.state.targetDurationSeconds).toBe(125));
@@ -453,7 +454,7 @@ describe('StickmanVideoWorkspace', () => {
     const scriptScroll = container.querySelector<HTMLElement>('.stickman-step-scroll');
     expect(scriptScroll).not.toBeNull();
     scriptScroll!.scrollTop = 240;
-    fireEvent.change(narration, { target: { value: '直接修改后的旁白' } });
+    changeControl(narration, { target: { value: '直接修改后的旁白' } });
     expect(screen.getByText('有未保存修改')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '上一步' }));
     const sourceScroll = container.querySelector<HTMLElement>('.stickman-step-scroll');
@@ -515,7 +516,7 @@ describe('StickmanVideoWorkspace', () => {
     renderWorkspace(persisted.job, contents, applyAction);
 
     const narration = await screen.findByRole('textbox', { name: '第 1 段旁白' });
-    fireEvent.change(narration, { target: { value: '修改后继续下一步' } });
+    changeControl(narration, { target: { value: '修改后继续下一步' } });
     fireEvent.click(screen.getByRole('button', { name: '下一步' }));
 
     await waitFor(() => expect(applyAction).toHaveBeenCalledTimes(1));

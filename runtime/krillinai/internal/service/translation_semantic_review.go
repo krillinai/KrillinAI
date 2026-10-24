@@ -22,6 +22,7 @@ func (t *Translator) translateSemanticBatch(ctx context.Context, input pairedTra
 		return remaining, t.completeSegmentedBatch(ctx, input, nil, originLang, targetLang, save)
 	}
 	accepted := make(map[string]pairedSentence)
+	t.translationProgress.working(input.Sentences, "初译")
 	remaining, err := t.translateContentBatch(ctx, input, originLang, targetLang, func(sentence pairedSentence, complete bool) error {
 		if complete {
 			accepted[sentence.ID] = sentence
@@ -53,6 +54,13 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 	if t.segmentTranslation {
 		return t.completeSegmentedBatch(ctx, input, accepted, originLang, targetLang, save)
 	}
+	var acceptedSources []pairedTranslationSource
+	for _, source := range input.Sentences {
+		if _, ok := accepted[source.ID]; ok {
+			acceptedSources = append(acceptedSources, source)
+		}
+	}
+	t.translationProgress.working(acceptedSources, "审校")
 	var err error
 	input, err = finishFallbackSentences(input, accepted, save)
 	if err != nil {
@@ -144,6 +152,7 @@ func (t *Translator) completeSemanticBatch(ctx context.Context, input pairedTran
 		}
 	}
 	// 先应用内容修正，再把需要显示拆分的句子合批排版。
+	t.translationProgress.working(acceptedSources, "排版")
 	layout := input
 	layout.Sentences = nil
 	for _, source := range input.Sentences {

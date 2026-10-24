@@ -1,3 +1,5 @@
+import SuggestedInput from '../../components/forms/SuggestedInput.js';
+import AppSelect from '../../components/forms/Select.js';
 import {
   createDefaultCreatorServicesConfig,
   creatorProviderCatalogById,
@@ -577,11 +579,11 @@ function TextModelSettings(props: SettingsGroupProps & {
         </div>
         {props.mode === 'custom' ? <label className="creator-services-field is-wide">
           <span>{l('供应商', 'Provider')}</span>
-          <select value={props.providerId} onChange={event => props.onProviderIdChange(event.target.value)}>
+          <AppSelect value={props.providerId} onChange={event => props.onProviderIdChange(event.target.value)}>
             {llmProviderOptions.map(provider => (
               <option key={provider.id} value={provider.id}>{provider.label}</option>
             ))}
-          </select>
+          </AppSelect>
         </label> : null}
         {props.mode === 'custom' ? <OpenAiFields
           id="llm"
@@ -1369,27 +1371,22 @@ function TextField(props: {
   return (
     <label className={props.wide ? 'creator-services-field is-wide' : 'creator-services-field'} htmlFor={props.id}>
       <span>{props.label}</span>
-      <input
+      <SuggestedInput
         id={props.id}
         aria-label={props.label}
         type="text"
         value={props.value}
         placeholder={props.placeholder}
-        list={props.suggestions?.length ? `${props.id}-suggestions` : undefined}
+        suggestions={props.suggestions ?? []}
         spellCheck={false}
         autoComplete="off"
         aria-invalid={props.error === undefined ? undefined : true}
         aria-describedby={props.error === undefined ? undefined : `${props.id}-error`}
-        onChange={event => props.onChange(event.target.value)}
+        onChange={props.onChange}
       />
       {props.error === undefined ? null : (
         <span id={`${props.id}-error`} className="creator-services-field-error">{props.error}</span>
       )}
-      {props.suggestions?.length ? (
-        <datalist id={`${props.id}-suggestions`}>
-          {props.suggestions.map(value => <option key={value} value={value} />)}
-        </datalist>
-      ) : null}
     </label>
   );
 }
@@ -1415,7 +1412,7 @@ function ModelField(props: {
     <label className="creator-services-field" htmlFor={props.id}>
       <span>{props.label}</span>
       {props.suggestions?.length ? (
-        <select
+        <AppSelect
           aria-label={props.label}
           value={showCustomInput ? '__custom__' : props.value}
           aria-invalid={props.error === undefined ? undefined : true}
@@ -1431,7 +1428,7 @@ function ModelField(props: {
         >
           {props.suggestions.map(value => <option key={value} value={value}>{value}</option>)}
           <option value="__custom__">{l('自定义模型', 'Custom model')}</option>
-        </select>
+        </AppSelect>
       ) : null}
       {(!props.suggestions?.length || showCustomInput) ? (
         <input

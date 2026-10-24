@@ -28,6 +28,7 @@ import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
+import { OfficialTaskModelFields } from './official-services.js';
 import { coverPanelAdapter } from './creator-panel-adapters.js';
 import {
   captureCreatorClientFailure,
@@ -763,6 +764,7 @@ export default function CoverGeneratorWorkspace(props: {
                   )}</p>
                 </div>
               </div>
+              <OfficialTaskModelFields modalities={isYoutubeUrl(youtubeUrl) ? ['text', 'image'] : ['image']} disabled={submitting || generating} />
               <div className="media-generation-control">
                 <span>{l('封面风格', 'Thumbnail style')}</span>
                 <div className="cover-style-grid" role="radiogroup" aria-label={l('封面风格', 'Thumbnail style')}>

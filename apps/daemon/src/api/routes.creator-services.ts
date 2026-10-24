@@ -206,8 +206,10 @@ export async function registerCreatorServicesRoutes(
             provider,
             voiceId: request.body.voiceId,
             ...(typeof request.body.model === 'string' ? { model: request.body.model } : {}),
+            ...(typeof request.body.language === 'string' ? { language: request.body.language } : {}),
             ...(typeof request.body.text === 'string' ? { text: request.body.text } : {})
           });
+          if (result.language) reply.header('Content-Language', result.language);
           return reply
             .header('Content-Type', result.mime)
             .header('Content-Length', String(result.content.length))

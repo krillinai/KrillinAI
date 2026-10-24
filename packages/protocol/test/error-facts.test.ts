@@ -77,3 +77,12 @@ it('sanitizes public diagnostic fields and validates the sanitized result', () =
   expect(safePublicRequestId('sk-private-key')).toBeUndefined();
   expect(safePublicRequestId('https://private.test')).toBeUndefined();
 });
+
+
+it('blocks relay identities in historical provider facts and error descriptions', () => {
+  for (const value of ['88api/gpt-image-2 failed', 'ChatAnywhere quota exhausted', 'openrouter.ai route error', 'API Mart request error']) {
+    expect(safePublicErrorMessage(value)).toBeUndefined();
+    expect(safePublicErrorCode(value.replaceAll(' ', '_'))).toBeUndefined();
+  }
+  expect(safePublicErrorMessage('The image violates the content policy')).toBe('The image violates the content policy');
+});

@@ -33,6 +33,15 @@ describe('Creator Runtime package contract', () => {
     });
   });
 
+  it('accepts spaCy and models bound to the existing portable Python', () => {
+    createFixture({ nlp: true });
+    expect(verifyCreatorRuntime(root, process.platform, process.arch).nlp).toMatchObject({ engine: 'spacy', models: [{ language: 'en' }] });
+    createFixture({ nlp: true, mutateManifest(manifest) { manifest.nlp.models[0].metadata = 'missing-model/meta.json'; } });
+    expect(() => verifyCreatorRuntime(root, process.platform, process.arch)).toThrow(/NLP model metadata is not a manifest-pinned asset/);
+    createFixture({ nlp: true, mutateManifest(manifest) { manifest.nlp.packageMetadata = 'missing-spacy/METADATA'; } });
+    expect(() => verifyCreatorRuntime(root, process.platform, process.arch)).toThrow(/spaCy package metadata is not a manifest-pinned asset/);
+  });
+
   it.each(['python', 'standalone'])('validates the bundled Node runtime in %s mode', ytDlpMode => {
     createFixture({ ytDlpMode, javascriptRuntime: true });
     expect(verifyCreatorRuntime(root, process.platform, process.arch).ytDlp.javascriptRuntime).toMatchObject({
@@ -135,6 +144,10 @@ function createFixture(options = {}) {
     primary: join(bin, `krillinai-cli${suffix}`),
     ffmpeg: join(bin, `ffmpeg${suffix}`),
     ffprobe: join(bin, `ffprobe${suffix}`),
+    ...(options.nlp ? {
+      spacyMetadata: join(root, 'yt-dlp-runtime', 'python', 'site-packages', 'spacy-3.8.16.dist-info', 'METADATA'),
+      nlpModel: join(root, 'yt-dlp-runtime', 'python', 'site-packages', 'en_core_web_md', 'meta.json')
+    } : {}),
     ...(options.javascriptRuntime ? { node: join(bin, `node${suffix}`) } : {}),
     ...(ytDlpMode === 'standalone'
       ? {
@@ -204,6 +217,11 @@ function createFixture(options = {}) {
     platform: process.platform,
     arch: process.arch,
     ytDlp,
+    ...(options.nlp ? { nlp: {
+      engine: 'spacy', version: '3.8.16', executable: ytDlp.executable,
+      packageMetadata: resources.find(resource => resource.path.endsWith('/METADATA')).path,
+      models: [{ language: 'en', name: 'en_core_web_md', version: '3.8.0', metadata: resources.find(resource => resource.path.endsWith('/meta.json')).path }]
+    } } : {}),
     resources
   };
   options.mutateManifest?.(manifest);

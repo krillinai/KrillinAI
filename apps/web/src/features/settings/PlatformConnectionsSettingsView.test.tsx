@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
@@ -91,7 +92,7 @@ it('preserves browser profile selection and the original macOS connection interf
   ] });
   render(<PlatformConnectionsSettingsView connected service={service} />);
   const row = within(screen.getByRole('group', { name: 'YouTube' }));
-  await user.selectOptions(await row.findByRole('combobox', { name: '浏览器账号' }), 'b'.repeat(24));
+  await selectOption(await row.findByRole('combobox', { name: '浏览器账号' }), 'b'.repeat(24));
   await user.click(row.getByRole('button', { name: '连接' }));
   expect(service.connectYouTube).toHaveBeenCalledWith('b'.repeat(24));
   expect(screen.queryByRole('button', { name: '下载浏览器连接器' })).not.toBeInTheDocument();

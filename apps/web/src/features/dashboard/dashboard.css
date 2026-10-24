@@ -642,7 +642,7 @@
 }
 
 .video-translation-field input,
-.video-translation-field select,
+.video-translation-field :is(select, .app-select-trigger),
 .video-translation-url-field > div {
   width: 100%;
   height: 40px;
@@ -782,18 +782,18 @@
   border-radius: 7px;
 }
 
-.video-translation-select-wrap select {
+.video-translation-select-wrap :is(select, .app-select-trigger) {
   appearance: none;
   padding-block: 0;
   padding-inline: 12px 40px;
   outline: 0;
 }
 
-.video-translation-language-row select {
+.video-translation-language-row :is(select, .app-select-trigger) {
   font-family: var(--font), var(--creator-subtitle-fallback-families);
 }
 
-.video-translation-select-wrap svg {
+.video-translation-select-wrap > svg {
   position: absolute;
   top: 50%;
   inset-inline-end: 12px;
@@ -865,7 +865,7 @@
   line-height: 1.4;
 }
 
-.video-translation-subtitle-import-fields select {
+.video-translation-subtitle-import-fields :is(select, .app-select-trigger) {
   padding: 0 10px;
 }
 
@@ -2859,7 +2859,7 @@
 
 .creator-tool-field input,
 .creator-tool-field textarea,
-.creator-tool-field select {
+.creator-tool-field :is(select, .app-select-trigger) {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--border);
@@ -2872,7 +2872,7 @@
 }
 
 .creator-tool-field input,
-.creator-tool-field select {
+.creator-tool-field :is(select, .app-select-trigger) {
   height: 40px;
   padding: 0 11px;
 }
@@ -2886,7 +2886,7 @@
 
 .creator-tool-field input:focus,
 .creator-tool-field textarea:focus,
-.creator-tool-field select:focus,
+.creator-tool-field :is(select, .app-select-trigger):focus,
 .creator-tool-url-input:focus-within,
 .cover-youtube-field > div:focus-within {
   border-color: var(--border-strong);
@@ -9046,12 +9046,12 @@
 
 .stickman-story-panel .creator-tool-field input:focus,
 .stickman-story-panel .creator-tool-field textarea:focus,
-.stickman-story-panel .creator-tool-field select:focus {
+.stickman-story-panel .creator-tool-field :is(select, .app-select-trigger):focus {
   border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
-.creator-workspace-page .stickman-story-panel select:focus-visible {
+.creator-workspace-page .stickman-story-panel :is(select, .app-select-trigger):focus-visible {
   outline: 0;
 }
 
@@ -9680,7 +9680,7 @@
   font-weight: 580;
 }
 
-.stickman-storyboard-motion select {
+.stickman-storyboard-motion :is(select, .app-select-trigger) {
   min-width: 92px;
   min-height: 26px;
   padding: 2px 24px 2px 8px;
@@ -10629,7 +10629,7 @@
   font-size: 11px;
 }
 
-.auto-clip-summary select,
+.auto-clip-summary :is(select, .app-select-trigger),
 .auto-clip-summary > button {
   height: 34px;
   padding: 0 9px;
@@ -11436,7 +11436,7 @@
   font-size: 11px;
 }
 
-.auto-clip-result-actions select,
+.auto-clip-result-actions :is(select, .app-select-trigger),
 .auto-clip-result-actions button {
   height: 34px;
   padding: 0 9px;
@@ -12332,14 +12332,14 @@
 
 .creator-workspace-page input:focus-visible,
 .creator-workspace-page textarea:focus-visible,
-.creator-workspace-page select:focus-visible {
+.creator-workspace-page :is(select, .app-select-trigger):focus-visible {
   outline: 1px solid var(--border-strong);
   outline-offset: 1px;
 }
 
 .creator-workspace-page .creator-tool-field input:focus-visible,
 .creator-workspace-page .creator-tool-field textarea:focus-visible,
-.creator-workspace-page .creator-tool-field select:focus-visible,
+.creator-workspace-page .creator-tool-field :is(select, .app-select-trigger):focus-visible,
 .creator-workspace-page .creator-tool-url-input input:focus-visible,
 .creator-workspace-page .cover-youtube-field > div input:focus-visible,
 .creator-workspace-page .tool-agent-composer textarea:focus-visible {
@@ -12461,6 +12461,16 @@
   margin-bottom: 26px;
 }
 
+.video-translation-model-setting {
+  margin-top: 20px;
+}
+
+.video-translation-model-setting > p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .video-translation-step-heading h2,
 .video-translation-dropzone h2 {
   margin: 0;
@@ -12493,7 +12503,7 @@
   box-sizing: border-box;
 }
 
-.video-translation-bilibili-parts select {
+.video-translation-bilibili-parts :is(select, .app-select-trigger) {
   padding: 0 12px;
 }
 
@@ -14459,7 +14469,7 @@
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
-  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width 700ms linear;
 }
 
 @keyframes creator-progress-indeterminate {
@@ -14473,6 +14483,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .creator-collaboration-stage-progress > span { transition: none; }
   .video-download-row-progress[data-indeterminate="true"] > span,
   .creator-collaboration-stage-progress[data-indeterminate="true"] > span {
     width: 100%;
@@ -14800,9 +14811,14 @@
 .creator-collaboration-suggestions button:focus-visible,
 .creator-collaboration-header > button:focus-visible,
 .creator-collaboration-approval button:focus-visible,
-.creator-collaboration-stage:focus-visible {
+.creator-collaboration-stage:focus {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.creator-collaboration-panel:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .video-result-pane-actions > button:last-child:not(:disabled) {

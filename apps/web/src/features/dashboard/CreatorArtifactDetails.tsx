@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { readCreatorResultSnapshots, type CreatorArtifact, type CreatorJob } from '@opencreator/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -103,9 +104,9 @@ export default function CreatorArtifactDetails() {
       <summary>{l('产物版本与来源', 'Artifact versions and sources')}</summary>
       {open ? <section aria-label={l('产物详情', 'Artifact details')}>
         <label>{l('浏览产物（不改变项目选择）', 'Browse artifacts (keeps project selection)')}
-          <select value={artifact.id} onChange={event => { setArtifactId(event.target.value); setCompareId(''); setProjectVersion(undefined); }}>
+          <AppSelect value={artifact.id} onChange={event => { setArtifactId(event.target.value); setCompareId(''); setProjectVersion(undefined); }}>
             {[...job.artifacts].reverse().map(item => <option key={item.id} value={item.id}>{label(item)}</option>)}
-          </select>
+          </AppSelect>
         </label>
         <dl>
           <dt>{l('类型 / 产物版本', 'Type / artifact version')}</dt><dd>{artifact.kind} · V{artifact.version}</dd>
@@ -125,20 +126,20 @@ export default function CreatorArtifactDetails() {
             : l(`来源记录缺失：${id}`, `Source record missing: ${id}`)}</li>;
         })}</ul> : <p>{l('未记录上游产物', 'No upstream artifacts recorded')}</p>}
         <label>{l('包含此产物的项目版本', 'Project versions containing this artifact')}
-          <select value={selectedProject?.version ?? ''} disabled={!projects.length} onChange={event => setProjectVersion(Number(event.target.value))}>
+          <AppSelect value={selectedProject?.version ?? ''} disabled={!projects.length} onChange={event => setProjectVersion(Number(event.target.value))}>
             {!projects.length ? <option value="">{l('无快照，只可浏览和下载', 'No snapshot; browse and download only')}</option> : null}
             {projects.map(snapshot => <option key={snapshot.version} value={snapshot.version}>V{snapshot.version} · {snapshot.description}</option>)}
-          </select>
+          </AppSelect>
         </label>
         <p>{l('采用整个项目结果版本；保留所有历史文件与过期状态，不更改生成设置。', 'Selects the whole project result version. Keeps history, stale status, and generation settings.')}</p>
         <button type="button" disabled={!selectedProject || selectedProject.version === current?.version || busy || pending} onClick={() => void adopt()}>{pending ? l('保存中…', 'Saving…') : l('采用项目版本', 'Use project version')}</button>
         {busy ? <p>{l('请等待当前阶段完成后切换', 'Wait for the active stage before switching')}</p> : null}
         <h3>{l('历史版本对比', 'Compare versions')}</h3>
         <label>{l('对比版本', 'Comparison version')}
-          <select value={comparison?.id ?? ''} onChange={event => setCompareId(event.target.value)}>
+          <AppSelect value={comparison?.id ?? ''} onChange={event => setCompareId(event.target.value)}>
             <option value="">{l('选择同类型历史产物', 'Choose a previous artifact of this type')}</option>
             {versions.filter(item => item.id !== artifact.id).map(item => <option key={item.id} value={item.id}>{label(item)}</option>)}
-          </select>
+          </AppSelect>
         </label>
         <div className="creator-artifact-comparison">
           {[artifact, ...(comparison ? [comparison] : [])].map((item, index) => <div key={item.id}>

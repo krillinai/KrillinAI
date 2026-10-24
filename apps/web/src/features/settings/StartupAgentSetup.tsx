@@ -1,3 +1,5 @@
+import SuggestedInput from '../../components/forms/SuggestedInput.js';
+import AppSelect from '../../components/forms/Select.js';
 import { creatorProviderCatalogById } from '@opencreator/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, LogIn, Monitor } from 'lucide-react';
@@ -200,18 +202,15 @@ export function StartupAgentSetup(props: {
         ) : !loading && snapshot !== undefined ? (
           <form className="startup-agent-setup__form" onSubmit={event => { event.preventDefault(); void saveProvider(); }}>
             <label>{l('供应商', 'Provider')}
-              <select value={providerId} onChange={event => selectProvider(event.target.value)}>
+              <AppSelect value={providerId} onChange={event => selectProvider(event.target.value)}>
                 {llmProviderOptions.map(provider => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
-              </select>
+              </AppSelect>
             </label>
             <label>{l('模型名称', 'Model name')}
-              <input required list="startup-agent-models" value={model} onChange={event => setModel(event.target.value)} placeholder="gpt-5.6-sol" />
+              <SuggestedInput required aria-label={l('模型名称', 'Model name')} value={model}
+                suggestions={creatorProviderCatalogById.llm[providerId]?.models.map(option => option.id) ?? []}
+                onChange={setModel} placeholder="gpt-5.6-sol" />
             </label>
-            <datalist id="startup-agent-models">
-              {creatorProviderCatalogById.llm[providerId]?.models.map(option => (
-                <option key={option.id} value={option.id} />
-              ))}
-            </datalist>
             <label>Base URL
               <input required={providerId !== 'openai'} type="url" value={baseUrl} onChange={event => setBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1" />
             </label>

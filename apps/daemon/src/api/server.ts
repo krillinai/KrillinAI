@@ -241,6 +241,7 @@ import { registerCreatorServicesRoutes } from './routes.creator-services.js';
 import { registerGatewayAccountRoutes } from './routes.gateway-account.js';
 import { createGatewayAccountService, type GatewayAccountService } from '../gateway/account-service.js';
 import { createGatewayClient, GatewayError, type GatewayClient } from '../gateway/client.js';
+import { createOfficialVoicePreview, createOfficialVoicePreviewLanguages } from '../gateway/voice-preview.js';
 import { createGatewayRuntimeBindings } from '../gateway/runtime-bindings.js';
 import { createOfficialFetch } from '../gateway/official-fetch.js';
 import { createOfficialModelAccess } from '../gateway/model-access.js';
@@ -515,7 +516,7 @@ export async function buildServer(input: BuildServerInput) {
   await purgeLegacyStickmanJobs({ db, jobsRoot: creatorJobsRoot });
   migrateStickmanVisualAssetState({ db });
   let gatewayCreatorSource: ReturnType<typeof createGatewayCreatorSource> | undefined;
-  const creatorRepository = createCreatorRepository(db, { serviceBinding: () => gatewayCreatorSource?.snapshot() ?? { source: 'manual' } });
+  const creatorRepository = createCreatorRepository(db, { serviceBinding: templateId => gatewayCreatorSource?.snapshot(templateId) ?? { source: 'manual' } });
   const creatorIssueService = createCreatorIssueService(creatorRepository, {
     onChanged(issue) {
       if (issue.scope.kind !== 'creator-job') return;
@@ -723,8 +724,12 @@ export async function buildServer(input: BuildServerInput) {
       storedCreatorServicesConfigStore,
       localCodexTextModelDefaults
     );
-  gatewayCreatorSource = createGatewayCreatorSource({ account: gatewayAccount, manual: manualCreatorServicesConfigStore, getLocalOrigin: getAgentToolBaseUrl, readJobBinding: creatorRepository.getServiceBinding, readJobState: id => creatorRepository.getJob(id)?.state, readStageRun: creatorRepository.getStageRun, ledger: creatorProviderRequestLedger, directRequestsRoot: join(dataDir, 'gateway', 'requests') });
+  gatewayCreatorSource = createGatewayCreatorSource({ account: gatewayAccount, manual: manualCreatorServicesConfigStore, getLocalOrigin: getAgentToolBaseUrl, readJobBinding: creatorRepository.getServiceBinding, readJobState: id => creatorRepository.getJob(id)?.state, readJobTemplateId: id => creatorRepository.getJob(id)?.templateId, readStageRun: creatorRepository.getStageRun, ledger: creatorProviderRequestLedger, directRequestsRoot: join(dataDir, 'gateway', 'requests') });
   const creatorServicesConfigStore = gatewayCreatorSource.store;
+  // Validation must resolve the same frozen binding and task model choices as execution.
+  const readCreatorConfigForJob = (jobId: string) => gatewayCreatorSource!.runForJob(
+    jobId, `preflight:${jobId}`, () => creatorServicesConfigStore.read()
+  );
   if (stickmanContentRuntimeManager) stickmanContentRuntimeManager = createRuntimeSource(stickmanContentRuntimeManager, gatewayAccount.peekState, () => officialManagers.get('stickman'));
   let getCreatorYtDlpRuntime: ((sourceUrl?: string) => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
   const youtubeConnection = new PlatformConnectionService({
@@ -775,6 +780,11 @@ export async function buildServer(input: BuildServerInput) {
     resourceRoot: creatorRuntimeRoot,
     workRoot: join(creatorJobsRoot, '.tts'),
     configStore: creatorServicesConfigStore,
+    officialPreviewLanguages: createOfficialVoicePreviewLanguages({ origin: gatewayClient.origin,
+      fetcher: createOfficialFetch({ readProxy: readCommonProxy }) }),
+    officialPreview: createOfficialVoicePreview({ origin: gatewayClient.origin,
+      getState: () => gatewayAccount.peekState(),
+      fetcher: createOfficialFetch({ readProxy: readCommonProxy }) }),
     verificationCachePath: krillinVerificationCachePath,
     ensureRuntimeReady: () => ensureKrillinRuntimeReady()
   });
@@ -1039,6 +1049,7 @@ export async function buildServer(input: BuildServerInput) {
   }
   const creatorPreflight = createCreatorPreflight({
     assertServiceSource: gatewayCreatorSource.assertJob,
+    readConfigForJob: readCreatorConfigForJob,
     validateOfficialModel: gatewayAccount.validateModel,
     readCodexImageStatus,
     videoMetadataService,
@@ -1118,7 +1129,7 @@ export async function buildServer(input: BuildServerInput) {
           assertCreatorPresetStageRequirement({
             job,
             stageId,
-            services: await creatorServicesConfigStore.read()
+            services: await readCreatorConfigForJob(job.id)
           });
         },
         onJobChanged(job) {
@@ -1242,6 +1253,7 @@ export async function buildServer(input: BuildServerInput) {
         creator: creatorService,
         dispatcher: creatorCommandDispatcher,
         configStore: creatorServicesConfigStore,
+        readConfigForJob: readCreatorConfigForJob,
         videoMetadataService
       });
   coverWorkflow = creatorStageRunner === undefined
@@ -1249,7 +1261,8 @@ export async function buildServer(input: BuildServerInput) {
     : createCoverWorkflow({
         creator: creatorService,
         dispatcher: creatorCommandDispatcher,
-        configStore: creatorServicesConfigStore
+        configStore: creatorServicesConfigStore,
+        readConfigForJob: readCreatorConfigForJob
       });
   stickmanVideoWorkflow = creatorStageRunner === undefined
     ? undefined
@@ -1257,6 +1270,7 @@ export async function buildServer(input: BuildServerInput) {
         creator: creatorService,
         dispatcher: creatorCommandDispatcher,
         configStore: creatorServicesConfigStore,
+        readConfigForJob: readCreatorConfigForJob,
         repository: creatorRepository,
         providerLedger: creatorProviderRequestLedger
       });

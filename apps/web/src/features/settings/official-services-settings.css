@@ -218,7 +218,7 @@
 
 .official-services-notice { margin: 16px 0 0; color: var(--success); font-size: 13px; }
 
-.official-services-model-select select {
+.official-services-model-select :is(select, .app-select-trigger) {
   appearance: none;
   width: 100%;
   min-width: 0;
@@ -229,11 +229,11 @@
   text-overflow: ellipsis;
 }
 
-.official-services-model-select select:hover:not(:disabled) {
+.official-services-model-select :is(select, .app-select-trigger):hover:not(:disabled) {
   border-color: var(--border-strong);
 }
 
-.official-services-model-select select:disabled {
+.official-services-model-select :is(select, .app-select-trigger):disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -252,7 +252,7 @@
 
 .ai-services-mode button:focus-visible,
 .official-services-settings button:focus-visible,
-.official-services-model-select select:focus-visible {
+.official-services-model-select :is(select, .app-select-trigger):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

@@ -18,8 +18,8 @@ const brands = [
 
 export function modelBrand(model: ModelIdentity) {
   if (/openrouter/i.test(model.id)) return undefined;
-  return brands.find(brand => brand.match.test(model.id))
-    ?? brands.find(brand => brand.match.test(model.name ?? ''));
+  return brands.find(brand => brand.match.test(model.name ?? ''))
+    ?? brands.find(brand => brand.match.test(model.id));
 }
 
 export default function ModelBrandIcon(props: { model: ModelIdentity; className?: string }) {

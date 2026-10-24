@@ -53,6 +53,7 @@ func (t *Translator) finishTranslationResult(ctx context.Context, result []paire
 	}
 	var failures []types.SubtitleTranslationFailure
 	translated := 0
+	layoutPending := 0
 	for _, sentence := range result {
 		if sentence.OmittedHesitation {
 			continue
@@ -61,6 +62,9 @@ func (t *Translator) finishTranslationResult(ctx context.Context, result []paire
 			failures = append(failures, types.SubtitleTranslationFailure{SentenceID: sentence.ID, SourceText: sentence.FullSource, Reason: sentence.TranslationFallbackReason})
 		} else {
 			translated++
+			if sentence.LayoutFallback {
+				layoutPending++
+			}
 		}
 	}
 	scope := t.translationReportScope
@@ -68,6 +72,7 @@ func (t *Translator) finishTranslationResult(ctx context.Context, result []paire
 		scope = checkpoint.dir
 	}
 	t.translationTask.SetTranslationFailures(scope, failures)
+	t.translationTask.SetTranslationLayoutWarnings(scope, layoutPending)
 	if len(failures) > 0 {
 		t.translationNotice(types.TranslationWarnings(failures)[0])
 		if err := ctx.Err(); err != nil {

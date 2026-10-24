@@ -87,6 +87,7 @@ func (t *Translator) translationNotice(message string) {
 	if t.onRecovery != nil {
 		t.onRecovery(message)
 	}
+	t.translationProgress.notice("正在恢复翻译，已保留已有结果")
 }
 
 func waitTranslationRetry(ctx context.Context, delay time.Duration) error {
@@ -113,10 +114,24 @@ func translationRequestStatus(err error) int {
 }
 
 func isTransientTranslationRequestError(err error) bool {
+	if permanentTranslationServiceError(err) {
+		return false
+	}
 	status := translationRequestStatus(err)
 	var networkError net.Error
 	return status == http.StatusTooManyRequests || status >= 500 && status < 600 ||
 		errors.Is(err, context.DeadlineExceeded) || errors.As(err, &networkError)
+}
+
+func permanentTranslationServiceError(err error) bool {
+	status := translationRequestStatus(err)
+	message := strings.ToLower(fmt.Sprint(err))
+	var apiError *openaiapi.APIError
+	if errors.As(err, &apiError) {
+		message += " " + strings.ToLower(fmt.Sprint(apiError.Code, " ", apiError.Type))
+	}
+	return status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusPaymentRequired ||
+		status == http.StatusTooManyRequests && (strings.Contains(message, "insufficient_quota") || strings.Contains(message, "quota_exceeded") || strings.Contains(message, "billing"))
 }
 
 const translationMaxAttempts = 3
@@ -154,6 +169,7 @@ func (t *Translator) requestTranslation(ctx context.Context, prompt string, maxT
 			break
 		}
 		log.GetLogger().Warn("字幕翻译接口临时失败，退避后重试", zap.Int("request_retry", failures+1), zap.Error(err))
+		t.translationProgress.notice("翻译服务暂时失败，正在重试")
 		if err := waitTranslationRetry(ctx, time.Second<<min(failures, 4)); err != nil {
 			return "", err
 		}
@@ -362,7 +378,7 @@ func (t *Translator) translatePlainSentence(ctx context.Context, input pairedTra
 		return pairedSentence{}, false, err
 	}
 	var item pairedTranslationOutputSentence
-	if err := json.Unmarshal([]byte(util.ExtractJSONObject(response, "target_text")), &item); err != nil {
+	if err := json.Unmarshal([]byte(util.ExtractJSONObject(response, "sentence_id")), &item); err != nil || item.textConflict {
 		noteTranslationTextIssue("plain_translation", source.ID, "invalid_response_json", translationMaxAttempts)
 		return pairedSentence{}, false, nil
 	}

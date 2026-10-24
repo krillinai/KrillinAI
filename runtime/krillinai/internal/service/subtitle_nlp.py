@@ -82,7 +82,9 @@ def split_connectors(text, nlp):
             continue
         # A coordinator of adverbs/function words is not a clause/list boundary.
         # Dependency POS generalizes to e.g. English/French/Spanish repetitions.
-        if token.dep_ == "cc" and token.head.pos_ not in {"VERB", "AUX", "NOUN", "PROPN"}:
+        # Noun coordination can share its head: "Rationalist or Idealist philosophers".
+        # Keep it together now that NLP parts become actual translation units.
+        if token.dep_ == "cc" and token.head.pos_ not in {"VERB", "AUX"}:
             continue
         if i + 1 < len(doc) and doc[i + 1].text in {"'s", "'re", "'ve", "'ll", "'d"}:
             continue

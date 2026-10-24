@@ -23,6 +23,25 @@ afterEach(() => {
 });
 
 describe('cover workflow', () => {
+  it.each(['analyze-source', 'generate'])('checks task configuration instead of global defaults for %s', async stageId => {
+    const fixture = setup(stageId === 'analyze-source'
+      ? { sourceType: 'youtube', sourceUrl: 'https://youtu.be/task-config' }
+      : { prompt: 'A clear product thumbnail' });
+    const selected = createDefaultCreatorServicesConfig();
+    selected.llm.apiKey = 'local-token';
+    selected.image.openai.apiKey = 'local-token';
+    const readConfigForJob = vi.fn(async () => selected);
+    const workflow = createCoverWorkflow({
+      creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read: fixture.readConfig }, readConfigForJob
+    });
+    try {
+      await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, stageId)).resolves.toBeUndefined();
+      expect(readConfigForJob).toHaveBeenCalledWith(fixture.jobId);
+      expect(fixture.readConfig).not.toHaveBeenCalled();
+    } finally { fixture.db.close(); }
+  });
+
   it('checks only image configuration for prompt-only generation', async () => {
     const fixture = setup({ prompt: 'A clear product thumbnail' });
     fixture.config.image.openai.apiKey = 'image-key';

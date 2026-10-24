@@ -6,6 +6,26 @@ import CreatorResizableLayout from './CreatorResizableLayout.js';
 describe('CreatorResizableLayout', () => {
   afterEach(() => { document.documentElement.dir = 'ltr'; });
 
+  it('reveals the Agent pane for each details request and falls back to the panel before a stage exists', () => {
+    const agentPanel = <aside className="creator-collaboration-panel" aria-label="Task details" tabIndex={-1}>
+      <article data-stage-run-id="previous-stage" tabIndex={-1}>Previous stage</article>
+      <article data-stage-run-id="current-stage" tabIndex={-1}>Current stage</article>
+    </aside>;
+    const content = (request?: { key: number; stageRunId?: string }) => <LanguageProvider initialPreference="zh-CN">
+      <CreatorResizableLayout workspace={<div>Workspace</div>} agentPanel={agentPanel} agentPanelRequest={request} />
+    </LanguageProvider>;
+    const { rerender } = render(content());
+    expect(screen.getByRole('tab', { name: '创作' })).toHaveAttribute('aria-selected', 'true');
+    rerender(content({ key: 1, stageRunId: 'current-stage' }));
+    expect(screen.getByRole('tab', { name: 'Agent' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Current stage')).toHaveFocus();
+    fireEvent.click(screen.getByRole('tab', { name: '创作' }));
+    expect(screen.getByRole('tab', { name: '创作' })).toHaveAttribute('aria-selected', 'true');
+    rerender(content({ key: 2 }));
+    expect(screen.getByRole('tab', { name: 'Agent' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('complementary', { name: 'Task details' })).toHaveFocus();
+  });
+
   it('follows the pointer and arrow keys when the workspace starts on the right', () => {
     render(
       <LanguageProvider initialPreference="ar-SA">

@@ -26,7 +26,7 @@
 .startup-agent-setup__choices button { flex: 1; }
 .startup-agent-setup__card button,
 .startup-agent-setup__card input,
-.startup-agent-setup__card select {
+.startup-agent-setup__card :is(select, .app-select-trigger) {
   min-height: 40px;
   padding: 8px 12px;
   border: 1px solid var(--border);

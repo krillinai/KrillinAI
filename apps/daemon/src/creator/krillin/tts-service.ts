@@ -101,6 +101,7 @@ export type KrillinTtsSynthesisResult = {
   model: string;
   voiceId: string;
   format: 'mp3' | 'wav';
+  language?: string;
 };
 
 export type KrillinTtsService = ReturnType<typeof createKrillinTtsService>;
@@ -131,6 +132,8 @@ export function createKrillinTtsService(input: {
   ensureRuntimeReady?(): Promise<void>;
   executeUtility?: (input: ExecuteUtilityInput) => Promise<KrillinUtilityResponse>;
   executeSynthesis?: (input: ExecuteSynthesisInput) => Promise<ExecuteSynthesisResult>;
+  officialPreview?: (request: CreatorTtsPreviewRequest) => Promise<KrillinTtsSynthesisResult | undefined>;
+  officialPreviewLanguages?: (model: string) => Promise<Record<string, string[]>>;
 }) {
   const runUtility = input.executeUtility ?? (async utility => {
     return await executePackagedKrillinUtility({
@@ -159,7 +162,11 @@ export function createKrillinTtsService(input: {
       const selected = gateway.catalog?.find(candidate => candidate.modality === 'speech' && candidate.id === (model || gateway.models.speech));
       if (model && model !== gateway.models.speech && !selected) throw new KrillinTtsServiceError('VALIDATION_FAILED', 'Select an official speech model', 400);
       const defaultVoice = selected?.capabilities.includes('default_voice') ?? gateway.capabilities?.speech?.includes('default_voice');
-      return { provider: 'openai', model: selected?.id ?? gateway.models.speech ?? '', voices: (defaultVoice ? [gatewayDefaultVoiceId] : selected?.voices ?? gateway.speechVoices ?? []).map(id => ({ id, name: id === gatewayDefaultVoiceId ? 'Default voice' : id, provider: 'openai' as const, kind: 'builtin' as const })) };
+      const selectedModel = selected?.id ?? gateway.models.speech ?? '';
+      // Sample discovery must not hide voices used for ordinary speech generation.
+      const languages: Record<string, string[]> | undefined = await input.officialPreviewLanguages?.(selectedModel).catch(() => ({}));
+      return { provider: 'openai', model: selectedModel, voices: (defaultVoice ? [gatewayDefaultVoiceId] : selected?.voices ?? gateway.speechVoices ?? []).map(id => ({ ...selected?.voiceProfiles?.[id], id, name: id === gatewayDefaultVoiceId ? 'Default voice' : id, provider: 'openai' as const, kind: 'builtin' as const,
+        ...(languages ? { previewLanguages: languages[id] ?? [] } : {}) })) };
     }
     if (provider === 'edge-tts') {
       return { provider, model: '', voices: [] };
@@ -284,7 +291,12 @@ export function createKrillinTtsService(input: {
 
   return {
     listVoices,
-    preview(request: CreatorTtsPreviewRequest) {
+    async preview(request: CreatorTtsPreviewRequest) {
+      const stored = await input.officialPreview?.(request);
+      if (stored) return stored;
+      if (gatewayCreatorBinding(await input.configStore.read())) {
+        throw new KrillinTtsServiceError('creator_tts_upstream_error', 'This voice sample is temporarily unavailable', 503);
+      }
       return synthesize({
         text: request.text?.trim() || '你好，这是当前音色的试听效果。',
         provider: request.provider,

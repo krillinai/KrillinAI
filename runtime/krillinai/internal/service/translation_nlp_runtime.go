@@ -66,7 +66,7 @@ func (r *translationNLPRuntime) exchange(ctx context.Context, data []byte) ([]by
 		return nil, err
 	}
 	if r.cmd == nil {
-		command := exec.CommandContext(r.ctx, translationNLPPython(), "-u", "-I", "-c", r.worker)
+		command := exec.CommandContext(r.ctx, translationNLPPython(), "-B", "-u", "-I", "-c", r.worker)
 		input, err := command.StdinPipe()
 		if err != nil {
 			return nil, err

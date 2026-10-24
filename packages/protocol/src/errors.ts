@@ -1,3 +1,4 @@
+import { gatewayRelayIdentity } from './gateway-account.js';
 import type { OpenCreatorIssue, PublicErrorFacts } from './issues.js';
 
 export type RuntimeErrorCode =
@@ -203,6 +204,7 @@ export function publicErrorKindForCode(code: string): PublicErrorFacts['kind'] |
 
 export function safePublicErrorCode(value: unknown): string | undefined {
   return typeof value === 'string'
+    && !gatewayRelayIdentity.test(value)
     && /^[a-zA-Z0-9._:/-]{1,160}$/.test(value)
     && !/^sk[-_]/i.test(value)
     && !value.split(/[._:/-]/).some(part => part.length >= 32
@@ -245,7 +247,7 @@ export function safePublicRequestId(value: unknown): string | undefined {
 }
 
 export function safePublicErrorMessage(value: unknown): string | undefined {
-  if (typeof value !== 'string' || value.length > 4_000) return undefined;
+  if (typeof value !== 'string' || value.length > 4_000 || gatewayRelayIdentity.test(value)) return undefined;
   const sanitized = value
     .replace(/\b(?:authorization|api[-_ ]?key|(?:access[-_ ]?|refresh[-_ ]?)?token|secret|password)["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|(?:Bearer|Basic)\s+[^\s,;]+|[^\s,;]+)/gi, '[redacted]')
     .replace(/\b(?:Bearer|Basic)\s+[^\s,;]+/gi, '[redacted]')

@@ -27,8 +27,10 @@ type Translator struct {
 	nlpRuntime               *translationNLPRuntime
 	reviseTranslation        bool
 	segmentTranslation       bool
+	sourceSegmentation       bool
 	translationTask          *types.SubtitleTask
 	translationReportScope   string
+	translationProgress      *translationWorkProgress
 }
 
 func NewTranslator() *Translator {
@@ -40,6 +42,7 @@ func newTranslator(completer types.ChatCompleter) *Translator {
 		segmentTranslation: translationFlowDefault == "segmented",
 		reviseTranslation:  translationRevisionDefault == "revised",
 		chatCompleter:      completer,
+		sourceSegmentation: true,
 	}
 }
 

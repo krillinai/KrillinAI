@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorToolShell from './CreatorToolShell.js';
+import { OfficialTaskModelFields } from './official-services.js';
 import {
   captureCreatorClientFailure,
   readCreatorArtifactText,
@@ -277,6 +278,7 @@ export default function ShortVideoScriptWorkspace(props: {
             </div>
           </div>
           <div className="short-video-script-fields">
+            <OfficialTaskModelFields modalities={['text']} disabled={generating} />
             <label className="creator-tool-field">
               <span>{l('主题或素材', 'Topic or source material')}</span>
               <textarea

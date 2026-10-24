@@ -223,6 +223,7 @@ export default function CreatorCollaborationPanel(props: {
     <aside
       className="creator-collaboration creator-collaboration-panel"
       aria-label="OpenCreator"
+      tabIndex={-1}
     >
       <header className="creator-collaboration-header">
         <span aria-hidden="true"><OpenCreatorMark size={18} /></span>
@@ -573,6 +574,7 @@ export function useCreatorTaskProgress(options: {
     : status === 'succeeded' ? l('已有版本保留，可预览或下载最新产出', 'Previous versions are preserved. Preview or download the latest output.')
     : status === 'canceled' || status === 'interrupted' ? l('已有产出保留，继续时从当前阶段重新开始', 'Existing outputs are preserved. Resume to restart this stage.')
     : workflow?.waitingForNext ? l('前一阶段已完成，正在准备下一阶段', 'The previous stage is complete. Preparing the next stage.')
+    : progress?.summary ? progress.summary
     : counted ? l(`已完成 ${progress.completed} / ${progress.total} 段${progress.failed ? ` · ${progress.failed} 段失败` : ''}`, `Completed ${progress.completed} / ${progress.total} segments${progress.failed ? ` · ${progress.failed} failed` : ''}`)
     : progress?.message ?? l('任务正在后台执行，可继续查看字幕', 'The task runs in the background. You can continue reviewing subtitles.');
 
@@ -735,8 +737,10 @@ function CollaborationStageView(props: {
   return (
     <article
       className="creator-collaboration-stage"
+      data-stage-run-id={stage.id}
       data-status={stage.status}
       data-compact={compact || undefined}
+      tabIndex={-1}
     >
       <header>
         <span aria-hidden="true">{stageStatusIcon(stage)}</span>

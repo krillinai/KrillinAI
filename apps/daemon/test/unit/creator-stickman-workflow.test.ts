@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { createCreatorAgentRepository } from '../../src/creator/agent/repository.js';
 import { createCreatorCommandDispatcher } from '../../src/creator/command-dispatcher.js';
@@ -36,6 +36,8 @@ function setup(options: {
   narrationUnits?: number;
   narrationDurationSeconds?: number;
   completionOverride?: CompletionOverride;
+  configStore?: Parameters<typeof createStickmanVideoWorkflow>[0]['configStore'];
+  readConfigForJob?: Parameters<typeof createStickmanVideoWorkflow>[0]['readConfigForJob'];
 } = {}) {
   const narrationUnits = options.narrationUnits ?? 40;
   const segmentCount = options.segmentCount ?? Math.ceil(narrationUnits / 18);
@@ -161,7 +163,8 @@ function setup(options: {
     executors: [content, audio],
     workRoot: join(tempDir, 'jobs')
   });
-  const workflow = createStickmanVideoWorkflow({ creator: service, dispatcher });
+  const workflow = createStickmanVideoWorkflow({ creator: service, dispatcher,
+    configStore: options.configStore, readConfigForJob: options.readConfigForJob });
   return {
     db,
     repository,
@@ -718,8 +721,16 @@ describe('stickman video workflow', () => {
     }
   });
 
-  it('continues all missing shots after an ordinary failure with a monotonic generation', async () => {
-    const context = setup({ segmentCount: 2, narrationUnits: 20 });
+  it.each([false, true])('continues missing shots after an ordinary failure using consistent settings (task config: %s)', async taskConfigEnabled => {
+    const taskConfig = createDefaultCreatorServicesConfig();
+    taskConfig.tts.openai.model = 'task-speech';
+    taskConfig.image.provider = 'openai';
+    taskConfig.image.openai.model = 'task-image';
+    taskConfig.image.openai.apiKey = 'mock-key';
+    const readGlobalConfig = vi.fn(async () => createDefaultCreatorServicesConfig());
+    const readConfigForJob = vi.fn(async (_jobId: string) => taskConfig);
+    const context = setup({ segmentCount: 2, narrationUnits: 20,
+      ...(taskConfigEnabled ? { configStore: { read: readGlobalConfig }, readConfigForJob } : {}) });
     const { db, repository, service, runner, workflow } = context;
     try {
       const job = service.createJob({
@@ -788,6 +799,12 @@ describe('stickman video workflow', () => {
       const firstImageStage = service.getJob(job.id)!.stages.find(stage => (
         stage.stageId === 'images' && stage.scopeKey === 'shot-01' && stage.status === 'queued'
       ))!;
+      if (taskConfigEnabled) {
+        expect(readConfigForJob).toHaveBeenCalledWith(job.id);
+        // Both narration and image scheduling must use the task configuration.
+        expect(readConfigForJob.mock.calls.length).toBeGreaterThan(2);
+        expect(readGlobalConfig).not.toHaveBeenCalled();
+      }
       repository.insertArtifact({
         jobId: job.id,
         kind: 'shot_image',

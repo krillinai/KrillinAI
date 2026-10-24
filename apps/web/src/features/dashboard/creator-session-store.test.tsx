@@ -88,6 +88,27 @@ function PendingHarness() {
 }
 
 describe('CreatorSessionStore', () => {
+  it('merges simultaneous task model choices and flushes the complete selection before starting', async () => {
+    let current = job(0, { officialModels: { video: 'saved-video' } });
+    let session!: ReturnType<typeof useCreatorSession>;
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: { patch?: object } }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch } };
+      return { job: current };
+    });
+    function Models() { session = useCreatorSession(); return <output>{JSON.stringify(session.state.officialModels)}</output>; }
+    render(<CreatorSessionProvider initialJob={current} service={{ applyAction, runAgentTurn: vi.fn() } as never}><Models /></CreatorSessionProvider>);
+    await act(async () => {
+      session.updateDraft({ officialModels: { text: 'task-text' } });
+      session.updateDraft({ officialModels: { image: 'task-image' } });
+      session.updateDraft({ officialModels: { speech: 'task-speech' } });
+      session.updateDraft({ officialModels: { transcription: 'task-transcription' } });
+      await session.applyAction({ action: 'run-stage', input: { stageId: 'subtitle' } });
+    });
+    expect(current.state.officialModels).toEqual({ video: 'saved-video', text: 'task-text', image: 'task-image', speech: 'task-speech', transcription: 'task-transcription' });
+    expect(applyAction.mock.calls.map(([, request]) => request.action)).toEqual(['update-settings', 'run-stage']);
+    expect(session.state.officialModels).toEqual(current.state.officialModels);
+  });
+
   it('retains newer download progress when an older control response, snapshot or SSE event arrives', async () => {
     const stage: CreatorStageRun = {
       id: 'download_1', jobId: 'job_1', stageId: 'download', executor: 'download', status: 'running',

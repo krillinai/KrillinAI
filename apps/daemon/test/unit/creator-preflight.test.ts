@@ -130,6 +130,41 @@ describe('creator preflight', () => {
     else expect(result.ready).toContainEqual(expect.objectContaining({ id: 'official-model-catalog:image',
       message: expect.stringContaining('compatible model catalog') }));
   });
+  it('preflights a task image selection before a global image default exists', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-task-model-'));
+    const config = createDefaultCreatorServicesConfig();
+    const job = fakeJob('image-generation', { provider: 'openai', prompt: 'Draw a circle', officialModels: { image: 'new-image' } });
+    const models = [{ id: 'new-image', modality: 'image' as const, capabilities: ['generate'], status: 'ready' as const }];
+    const source = createGatewayCreatorSource({
+      account: { peekState: () => ({ source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models, activationError: null }),
+        modelCredentials: async () => ({ accountId: 'a', modelKey: 'key', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', transport: 'gateway', defaults: {}, models }) },
+      manual: { read: async () => config, write: async c => c, reset: async () => config }, getLocalOrigin: () => 'http://127.0.0.1:39999',
+      readJobState: () => job.state
+    });
+    const result = await createCreatorPreflight({ configStore: source.store,
+      readConfigForJob: id => source.runForJob(id, `preflight:${id}`, () => source.store.read()),
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root,
+      jobsRoot: join(root, 'jobs'), executorIds: ['image'], validateRuntimeAssets: false
+    }).check(job, createImageGenerationTemplate().stages[0]!);
+    expect(result.canStart).toBe(true);
+    expect(result.ready).toContainEqual(expect.objectContaining({ id: 'image-provider', message: expect.stringContaining('new-image') }));
+  });
+  it.each([undefined, 'natural'])('allows basic official speech without style support (%s)', async style => {
+    root = await mkdtemp(join(tmpdir(), 'creator-basic-speech-'));
+    const config = createDefaultCreatorServicesConfig();
+    const source = createGatewayCreatorSource({
+      account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }),
+        modelCredentials: async () => ({ accountId: 'a', modelKey: 'key', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { speech: 'basic-tts' }, models: [] }) },
+      manual: { read: async () => config, write: async c => c, reset: async () => config }, getLocalOrigin: () => 'http://127.0.0.1:39999'
+    });
+    const job = fakeJob('smart-dubbing', { text: 'hello', speed: 1, ...(style ? { style } : {}) });
+    const result = await createCreatorPreflight({ configStore: source.store,
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root,
+      jobsRoot: join(root, 'jobs'), executorIds: ['smart-dubbing'], validateRuntimeAssets: false
+    }).check(job, createSmartDubbingTemplate().stages[0]!);
+    expect(result.blocked.map(item => item.id)).not.toContain('tts-style-capability');
+    expect(result.canStart).toBe(true);
+  });
   it.each([1, 14])('checks the official Stickman reference limit (%s) before generation', async maxReferences => {
     root = await mkdtemp(join(tmpdir(), 'creator-official-references-'));
     const config = createDefaultCreatorServicesConfig();
@@ -151,7 +186,7 @@ describe('creator preflight', () => {
     });
     const job = feature === 'reference'
       ? fakeJob('image-generation', { provider: 'openai', prompt: 'draw', referenceImageArtifactId: 'reference' })
-      : fakeJob('smart-dubbing', { text: 'hello', speed: 1 });
+      : fakeJob('smart-dubbing', { text: 'hello', style: 'professional', speed: 1 });
     const template = feature === 'reference' ? createImageGenerationTemplate() : createSmartDubbingTemplate();
     const result = await createCreatorPreflight({ configStore: source.store, readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root, jobsRoot: join(root, 'jobs'), validateRuntimeAssets: false }).check(job, template.stages[0]!);
     expect(result.blocked.map(item => item.id)).toContain(feature === 'reference' ? 'reference-image-capability' : 'tts-style-capability');

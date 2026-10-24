@@ -1,11 +1,13 @@
+import { changeControl } from '../../test/select-option.js';
 import { StrictMode } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDefaultCreatorServicesConfig, type CreatorArtifact, type CreatorJob, type CreatorJson, type CreatorTtsProvider } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type CreatorArtifact, type CreatorJob, type CreatorJson, type CreatorTtsProvider, type GatewayAccountState } from '@opencreator/protocol';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { CreatorSessionProvider, useCreatorSession } from './creator-session-store.js';
 import { readTranslationContinuation, saveTranslationContinuation } from './video-translation-continuation.js';
 import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
+import { OfficialServicesContext } from './official-services.js';
 
 afterEach(() => { vi.useRealTimers(); sessionStorage.clear(); });
 
@@ -24,7 +26,7 @@ function initialJob(state: Record<string, CreatorJson> = {}, artifacts = [subtit
     description: 'Translated subtitles', artifactRefs: { target_subtitle: [artifacts[0]!.id] }, changedArtifactIds: [artifacts[0]!.id], staleArtifactIds: [], state: { ...value.state } }];
   return value;
 }
-function mount(initial = initialJob(), beforeAction?: (action: string) => Promise<void>, services = configuredSpeech()) {
+function mount(initial = initialJob(), beforeAction?: (action: string) => Promise<void>, services = configuredSpeech(), gateway?: GatewayAccountState | null) {
   let current = initial;
   const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
     await beforeAction?.(request.action);
@@ -40,10 +42,11 @@ function mount(initial = initialJob(), beforeAction?: (action: string) => Promis
   const onBack = vi.fn();
   let push!: (job: CreatorJob) => void;
   function Remote() { push = useCreatorSession().applyRemoteSnapshot; return null; }
-  const view = render(<StrictMode><LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={initial} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+  const workspace = (account: GatewayAccountState | null | undefined) => <StrictMode><LanguageProvider initialPreference="zh-CN"><OfficialServicesContext.Provider value={account}><CreatorSessionProvider initialJob={initial} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
     <Remote /><VideoTranslationWorkspace onBack={onBack} creatorServicesService={services as never} />
-  </CreatorSessionProvider></LanguageProvider></StrictMode>);
-  return { unmount: view.unmount, applyAction, onBack, current: () => current, push: (value: CreatorJob) => { current = value; push(value); } };
+  </CreatorSessionProvider></OfficialServicesContext.Provider></LanguageProvider></StrictMode>;
+  const view = render(workspace(gateway));
+  return { unmount: view.unmount, applyAction, onBack, current: () => current, updateGateway: (value: GatewayAccountState) => view.rerender(workspace(value)), push: (value: CreatorJob) => { current = value; push(value); } };
 }
 function stageCalls(applyAction: ReturnType<typeof mount>['applyAction']) {
   return applyAction.mock.calls.map(([, request]) => request).filter(request => request.action === 'run-stage');
@@ -60,6 +63,97 @@ function configuredSpeech() {
 }
 
 describe('video translation two-step flow', () => {
+  it.each(['text', 'transcription'] as const)('requires confirmation before regenerating a result with a different %s model', async modality => {
+    const gateway: GatewayAccountState = {
+      source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready',
+      account: { id: 'account', email: 'test@example.test', verified: true }, bindingVersion: '1', activationError: null,
+      selectedModels: { text: 'text-old', transcription: 'transcription-old' },
+      models: (['text', 'transcription'] as const).flatMap(kind => ['old', 'new'].map(suffix => ({
+        id: `${kind}-${suffix}`, modality: kind, catalogSchema: 2,
+        capabilities: kind === 'text' ? ['responses', 'chat'] : ['subtitle_timestamps']
+      })))
+    };
+    const session = mount(initialJob({ officialModels: { ...gateway.selectedModels } }), undefined, configuredSpeech(), gateway);
+    const originalSnapshots = JSON.stringify(session.current().state.resultSnapshots);
+    fireEvent.click(screen.getByRole('button', { name: '任务设置' }));
+    const panel = screen.getByRole('complementary', { name: '任务设置' });
+    expect(within(panel).queryByRole('button', { name: '重新翻译字幕' })).not.toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('combobox', { name: modality === 'text' ? '翻译模型' : '语音识别模型' }));
+    fireEvent.click(screen.getByRole('option', { name: `${modality}-new` }));
+    expect(stageCalls(session.applyAction)).toHaveLength(0);
+    fireEvent.click(within(panel).getByRole('button', { name: '重新翻译字幕' }));
+    expect(stageCalls(session.applyAction)).toHaveLength(0);
+    fireEvent.click(within(panel).getByRole('button', { name: '确认重新翻译字幕' }));
+    await waitFor(() => expect(stageCalls(session.applyAction)).toHaveLength(1));
+    expect(stageCalls(session.applyAction)[0]!.input).toEqual({ stageId: 'subtitle', workflow: true, baseResultVersion: 1,
+      ...(modality === 'text' ? { inputResultVersion: 1 } : {}) });
+    expect(session.current().state.officialModels).toEqual({ ...gateway.selectedModels, [modality]: `${modality}-new` });
+    expect(gateway.selectedModels).toEqual({ text: 'text-old', transcription: 'transcription-old' });
+    expect(JSON.stringify(session.current().state.resultSnapshots)).toBe(originalSnapshots);
+  });
+
+  it.each([false, true])('does not request regeneration just by opening a legacy result (catalog arrives late: %s)', late => {
+    const gateway: GatewayAccountState = {
+      source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready',
+      account: { id: 'account', email: 'test@example.test', verified: true }, bindingVersion: '1', activationError: null,
+      selectedModels: { text: 'text-default' }, models: [{ id: 'text-default', modality: 'text', capabilities: ['responses', 'chat'] }]
+    };
+    const session = mount(initialJob(), undefined, configuredSpeech(), late ? null : gateway);
+    fireEvent.click(screen.getByRole('button', { name: '任务设置' }));
+    if (late) session.updateGateway(gateway);
+    expect(screen.queryByRole('button', { name: '重新翻译字幕' })).not.toBeInTheDocument();
+    expect(stageCalls(session.applyAction)).toHaveLength(0);
+  });
+
+  it('lets the user explicitly choose a translation model when the global default is unavailable', async () => {
+    const gateway: GatewayAccountState = {
+      source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready',
+      account: { id: 'account', email: 'test@example.test', verified: true }, bindingVersion: '1', activationError: null,
+      selectedModels: { speech: 'grok-tts' }, models: [
+        { id: 'grok-4.7', modality: 'text', capabilities: ['responses', 'chat'], status: 'temporarily_unavailable' },
+        { id: 'oc_b093cbfcc00519d1', name: 'deepseek-v4-pro', catalogSchema: 2, modality: 'text', capabilities: ['responses', 'chat'], status: 'ready' },
+        { id: 'grok-tts', modality: 'speech', capabilities: [], voices: ['alloy'] }
+      ]
+    };
+    const session = mount(initialJob({ currentStep: 1 }, []), undefined, configuredSpeech(), gateway);
+    const model = screen.getByRole('combobox', { name: '翻译模型' });
+    expect(model).toHaveValue('选择模型');
+    expect(screen.getByText('请选择可用的翻译模型后开始。')).toBeVisible();
+    await waitFor(() => expect(session.current().state.officialModels).toEqual({ speech: 'grok-tts' }));
+    expect(stageCalls(session.applyAction)).toHaveLength(0);
+    fireEvent.click(model);
+    expect(screen.getByRole('option', { name: /grok-4.7/ })).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(screen.getByRole('option', { name: 'deepseek-v4-pro' }));
+    await waitFor(() => expect(session.current().state.officialModels).toEqual({ speech: 'grok-tts', text: 'oc_b093cbfcc00519d1' }));
+    expect(model).toHaveValue('deepseek-v4-pro');
+    expect(screen.queryByText('请选择可用的翻译模型后开始。')).not.toBeInTheDocument();
+    expect(stageCalls(session.applyAction)).toHaveLength(0);
+    fireEvent.click(within(screen.getByRole('region', { name: '视频翻译操作区' })).getByRole('button', { name: '开始翻译' }));
+    await waitFor(() => expect(stageCalls(session.applyAction)).toHaveLength(1));
+    expect(session.current().state.officialModels).toEqual({ speech: 'grok-tts', text: 'oc_b093cbfcc00519d1' });
+    expect(gateway.selectedModels).toEqual({ speech: 'grok-tts' });
+  });
+
+  it('shows the saved task LLM and retains it across a reload instead of adopting the account default', async () => {
+    const gateway: GatewayAccountState = {
+      source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready',
+      account: { id: 'account', email: 'test@example.test', verified: true }, bindingVersion: '1', activationError: null,
+      selectedModels: { text: 'global-model' }, models: [
+        { id: 'global-model', modality: 'text', capabilities: ['responses', 'chat'] },
+        { id: 'oc_b093cbfcc00519d1', name: 'deepseek-v4-pro', catalogSchema: 2, modality: 'text', capabilities: ['responses', 'chat'] }
+      ]
+    };
+    const first = mount(initialJob({ currentStep: 1, officialModels: { text: 'oc_b093cbfcc00519d1' } }, []), undefined, configuredSpeech(), gateway);
+    expect(screen.getByRole('combobox', { name: '翻译模型' })).toHaveValue('deepseek-v4-pro');
+    await act(async () => { fireEvent(window, new Event('focus')); });
+    expect(first.current().state.officialModels).toEqual({ text: 'oc_b093cbfcc00519d1' });
+    const saved = first.current();
+    first.unmount();
+    const second = mount(saved, undefined, configuredSpeech(), gateway);
+    expect(screen.getByRole('combobox', { name: '翻译模型' })).toHaveValue('deepseek-v4-pro');
+    expect(stageCalls(second.applyAction)).toHaveLength(0);
+  });
+
   it('shows immediate submission feedback and prevents repeated composition requests', async () => {
     let finish!: () => void;
     const pending = new Promise<void>(resolve => { finish = resolve; });
@@ -90,8 +184,31 @@ describe('video translation two-step flow', () => {
     expect(screen.getByRole('button', { name: 'AI 助手' })).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(within(bar).getByRole('button', { name: '查看详情' }));
     expect(screen.getByRole('button', { name: 'AI 助手' })).toHaveAttribute('aria-pressed', 'true');
+    expect(document.querySelector('[data-stage-run-id="running_tts"]')).toHaveFocus();
     fireEvent.click(within(bar).getByRole('button', { name: '查看详情' }));
     expect(screen.getByRole('button', { name: 'AI 助手' })).toHaveAttribute('aria-pressed', 'true');
+    expect(stageCalls(session.applyAction)).toHaveLength(0);
+  });
+
+  it.each(['running', 'failed'] as const)('opens current task details before subtitles exist when the task is %s', status => {
+    const initial = initialJob({}, []);
+    initial.status = status;
+    initial.stages = [{ id: 'current_subtitle', jobId: initial.id, stageId: 'subtitle', executor: 'test', status, dispatchStatus: 'claimed',
+      claimOwner: null, claimExpiresAt: null, attempt: 1, idempotencyKey: null, scopeKey: null, inputFingerprint: null,
+      progress: { workflow: true, phase: 'downloading', percent: 60 },
+      errorCode: status === 'failed' ? 'creator_stage_failed' : null,
+      errorMessage: status === 'failed' ? 'Download failed' : null,
+      startedAt: initial.createdAt, finishedAt: status === 'failed' ? initial.updatedAt : null }];
+    const session = mount(initial);
+    expect(screen.queryByRole('button', { name: 'AI 助手' })).not.toBeInTheDocument();
+    const detailsButton = within(screen.getByRole('region', { name: '当前任务进度' })).getByRole('button', { name: '查看详情' });
+    const stage = within(screen.getByRole('log', { name: '协作时间线' })).getByRole('article');
+    fireEvent.click(detailsButton);
+    expect(stage).toHaveFocus();
+    expect(screen.getByRole('tab', { name: 'Agent' })).toHaveAttribute('aria-selected', 'true');
+    detailsButton.focus();
+    fireEvent.click(detailsButton);
+    expect(stage).toHaveFocus();
     expect(stageCalls(session.applyAction)).toHaveLength(0);
   });
 
@@ -413,7 +530,7 @@ describe('video translation two-step flow', () => {
     const session = mount();
     fireEvent.click(screen.getByRole('button', { name: '任务设置' }));
     const settings = within(screen.getByRole('complementary', { name: '任务设置' }));
-    fireEvent.change(settings.getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
+    changeControl(settings.getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
     fireEvent.click(settings.getByRole('button', { name: '重新翻译字幕' }));
     expect(screen.getByText(/人工修改保留在历史版本/)).toBeVisible();
     expect(stageCalls(session.applyAction)).toHaveLength(0);
@@ -465,7 +582,7 @@ describe('video translation two-step flow', () => {
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole('button', { name: '任务设置' }));
     const settings = within(screen.getByRole('complementary', { name: '任务设置' }));
-    fireEvent.change(settings.getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
+    changeControl(settings.getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
     fireEvent.click(settings.getByRole('button', { name: '重新翻译字幕' }));
     fireEvent.change(screen.getByRole('textbox', { name: '横屏字幕 1' }), { target: { value: 'Keep my manual correction' } });
     expect(settings.getByRole('button', { name: '确认重新翻译字幕' })).toBeDisabled();

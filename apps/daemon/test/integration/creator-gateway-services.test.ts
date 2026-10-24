@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type GatewayModel } from '@opencreator/protocol';
 import { afterEach, expect, it, vi } from 'vitest';
 import * as module from '../../src/gateway/creator-service-source.js';
 import { createVideoGenerationService } from '../../src/video-generation/service.js';
@@ -13,6 +13,46 @@ import { createCreatorIssueService } from '../../src/creator/issues.js';
 
 const close: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const callback of close.splice(0)) await callback(); });
+
+it.each(['text', 'image', 'video', 'speech', 'transcription'] as const)('uses the saved %s choice only inside its task execution scope', async modality => {
+  const kinds = ['text', 'image', 'video', 'speech', 'transcription'] as const;
+  const defaults = Object.fromEntries(kinds.map(kind => [kind, `${kind}-default`]));
+  const models: GatewayModel[] = kinds.flatMap(kind => ['default', 'task'].map(suffix => ({
+    id: `${kind}-${suffix}`, modality: kind, catalogSchema: 2,
+    capabilities: kind === 'text' ? ['chat', 'responses'] : kind === 'transcription' ? ['subtitle_timestamps'] : ['generate']
+  })));
+  const state = { source: 'gateway' as const, transport: 'gateway' as const, authState: 'signed_in' as const,
+    activationState: 'ready' as const, account: { id: 'a', email: 'a@example.test', verified: true },
+    bindingVersion: 'a:1', selectedModels: { ...defaults }, models, activationError: null };
+  const credentials = { accountId: 'a', transport: 'gateway' as const, modelKey: 'test-key', keyVersion: '1',
+    bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { ...defaults }, models };
+  const manual = createDefaultCreatorServicesConfig();
+  const fetcher = vi.fn<typeof fetch>();
+  const source = module.createGatewayCreatorSource({
+    account: { peekState: () => state, modelCredentials: async () => credentials },
+    manual: { read: async () => manual, write: async config => config, reset: async () => manual },
+    getLocalOrigin: () => 'http://127.0.0.1:39999', fetcher,
+    readJobBinding: () => ({ source: 'gateway', accountId: 'a', bindingVersion: 'a:1', models: { ...defaults },
+      capabilities: Object.fromEntries(kinds.map(kind => [kind, models.find(model => model.id === defaults[kind])!.capabilities])) }),
+    readJobState: () => ({ officialModels: { [modality]: `${modality}-task` } })
+  });
+  close.push(() => source.revoke());
+  const outside = await source.store.read();
+  await source.runForJob('task', 'stage', async () => {
+    const config = await source.store.read();
+    const expected = { ...defaults, [modality]: `${modality}-task` };
+    expect(module.gatewayCreatorBinding(config)?.models).toEqual(expected);
+    expect(config.llm.model).toBe(expected.text);
+    expect(config.image.openai.model).toBe(expected.image);
+    expect(config.tts.openai.model).toBe(expected.speech);
+    expect(config.transcription.openai.model).toBe(expected.transcription);
+  });
+  expect(module.gatewayCreatorBinding(outside)?.models).toEqual(defaults);
+  expect(module.gatewayCreatorBinding(await source.store.read())?.models).toEqual(defaults);
+  expect(state.selectedModels).toEqual(defaults);
+  expect(credentials.defaults).toEqual(defaults);
+  expect(fetcher).not.toHaveBeenCalled();
+});
 
 it.each(['failed', 'outcome_unknown'] as const)('reconciles a rejected Krillin stream with the gateway state (%s)', async remoteState => {
   const root = await mkdtemp(join(tmpdir(), 'oc-gateway-krillin-error-'));

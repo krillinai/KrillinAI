@@ -51,7 +51,7 @@ export function createModelSelectionProbe(input: {
       let failureFacts: PublicErrorFacts | undefined;
       async function request(resource: string, body: unknown, method = 'POST', contentType = 'application/json'): Promise<Response> {
         if (gateway) {
-          if (resource.startsWith('images/') && method === 'POST') { const native = await chatAnywhereImage(resource, body, contentType, model); body = native.body; contentType = native.contentType; }
+          if (resource.startsWith('images/') && method === 'POST' && model.catalogSchema !== 2) { const native = await chatAnywhereImage(resource, body, contentType, model); body = native.body; contentType = native.contentType; }
           const response = await input.fetcher(`${scope.baseUrl}/${resource}`, { method, redirect: 'error', signal, headers: { Authorization: `Bearer ${scope.modelKey}`, 'Content-Type': contentType, 'Idempotency-Key': randomUUID() }, ...(method === 'POST' ? { body: Buffer.isBuffer(body) ? new Uint8Array(body) : JSON.stringify(body) } : {}) });
           if (!response.ok) {
             failureFacts = await errorFacts(response, scope.modelKey, signal);
@@ -78,7 +78,7 @@ export function createModelSelectionProbe(input: {
             const tools = [{ type: 'function', name: 'model_probe', description: 'Confirm connectivity.',
               parameters: { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'], additionalProperties: false } }];
             const result = await (await request('responses', { model: model.id, input: 'Call model_probe with ok=true.',
-              tools, tool_choice: { type: 'function', name: 'model_probe' }, max_output_tokens: 256, stream: false })).json() as {
+              tools, tool_choice: 'auto', max_output_tokens: 256, stream: false })).json() as {
                 status?: string; output?: Array<{ type?: string; name?: string; arguments?: string }>;
               };
             if (result.status !== 'completed' || !result.output?.some(item => {

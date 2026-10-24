@@ -1,5 +1,6 @@
 import type {
   CreatorJob,
+  CreatorServicesConfig,
   CreatorStageRun,
   ImageGenerationProvider
 } from '@opencreator/protocol';
@@ -18,13 +19,14 @@ export function createCoverWorkflow(input: {
   creator: CreatorService;
   dispatcher: Pick<CreatorCommandDispatcher, 'dispatch'>;
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
+  readConfigForJob?(jobId: string): Promise<CreatorServicesConfig>;
 }) {
   async function validateStage(job: CreatorJob, stageId: string): Promise<void> {
     if (job.templateId !== 'cover' || job.templateVersion < 2) return;
     validateCoverSettings(job);
     if (stageId === 'analyze-source') {
       validateYoutubeSource(job);
-      const config = await input.configStore.read();
+      const config = await (input.readConfigForJob?.(job.id) ?? input.configStore.read());
       if (!config.llm.apiKey.trim()) {
         setConfigurationNeeded(input.creator, job.id, {
           code: 'creator_llm_config_missing',
@@ -52,7 +54,7 @@ export function createCoverWorkflow(input: {
       }
       throw error;
     }
-    const config = await input.configStore.read();
+    const config = await (input.readConfigForJob?.(job.id) ?? input.configStore.read());
     const provider = readImageProvider(job.state.provider, config.image.provider);
     if (!hasImageCredentials(config, provider)) {
       setConfigurationNeeded(input.creator, job.id, {

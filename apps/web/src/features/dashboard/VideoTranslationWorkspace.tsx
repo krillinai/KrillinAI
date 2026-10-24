@@ -1,4 +1,5 @@
-import { normalizeSubtitleRenderCues } from '@opencreator/protocol';
+import AppSelect from '../../components/forms/Select.js';
+import { gatewayModelIdMatches, normalizeSubtitleRenderCues } from '@opencreator/protocol';
 import {
   useCallback,
   useEffect,
@@ -66,7 +67,7 @@ import {
 } from './creator-session-store.js';
 import {
   readCreatorResultSnapshots,
-  creatorLanguages, creatorLanguage, searchCreatorLanguages, creatorTranscriptionModel, transcriptionLanguageSupport,
+  creatorLanguages, creatorLanguage, creatorTranscriptionModel, transcriptionLanguageSupport,
   type TranscriptionLanguageCapability,
   parseBilibiliVideoSource,
   normalizeVideoSourceUrl,
@@ -347,19 +348,18 @@ const sourceLanguages: LanguageOption[] = sourceLanguageCatalog.map(language => 
 const targetLanguages: LanguageOption[] = creatorLanguages.map(language => ({ value: language.code, label: language.nativeName }));
 
 function LanguageSelect(props: { label: string; value: string; onChange(value: string): void; source?: boolean; l: LocalizeCopy }) {
-  const [query, setQuery] = useState('');
   const selectId = useId();
-  const matches = query.trim() ? searchCreatorLanguages(query, props.source) : props.source ? sourceLanguageCatalog : creatorLanguages;
-  const options: LanguageOption[] = matches.map(language => ({ value: language.code, label: language.nativeName }));
-  if (!options.some(option => option.value === props.value)) options.unshift({ value: props.value, label: props.value === 'auto' ? props.l('请选择语言', 'Select a language') : creatorLanguage(props.value)?.nativeName ?? props.value });
+  const options: (LanguageOption & { searchText: string })[] = (props.source ? sourceLanguageCatalog : creatorLanguages).map(language => ({
+    value: language.code, label: language.nativeName,
+    searchText: [language.englishName, language.chineseName, ...language.aliases].join(' ')
+  }));
+  if (!options.some(option => option.value === props.value)) options.unshift({ value: props.value, label: props.value === 'auto' ? props.l('请选择语言', 'Select a language') : creatorLanguage(props.value)?.nativeName ?? props.value, searchText: '' });
   return <div className="video-translation-field">
     <label htmlFor={selectId}>{props.label}</label>
-    <input type="search" aria-label={props.l(`搜索${props.label}`, `Search ${props.label.toLowerCase()}`)} placeholder={props.l('搜索语言或代码', 'Search language or code')} value={query} onChange={event => setQuery(event.target.value)} />
     <div className="video-translation-select-wrap">
-      <select id={selectId} value={props.value} onChange={event => props.onChange(event.target.value)}>
-        {options.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-      </select>
-      <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+      <AppSelect id={selectId} value={props.value} onChange={event => props.onChange(event.target.value)}>
+        {options.map(language => <option key={language.value} value={language.value} data-search={language.searchText}>{language.label}</option>)}
+      </AppSelect>
     </div>
   </div>;
 }
@@ -483,9 +483,10 @@ function translationChanges(
   version: TranslationResultVersion,
   settings: TranslationSettingsSnapshot,
   source: TranslationSourceSnapshot,
-  subtitleNeedsRegeneration: boolean
+  subtitleNeedsRegeneration: boolean,
+  subtitleModelChanged = false
 ) {
-  const subtitleInputsChanged = !canReuseSubtitleCues(version, settings, source)
+  const subtitleInputsChanged = subtitleModelChanged || !canReuseSubtitleCues(version, settings, source)
     || version.settings.bilingual !== settings.bilingual
     || version.settings.subtitlePosition !== settings.subtitlePosition;
   const subtitleStyleChanged = !sameSubtitleStyle(version.settings, settings);
@@ -512,13 +513,15 @@ export function videoTranslationRegenerationStage(
   settings: TranslationSettingsSnapshot,
   source: TranslationSourceSnapshot,
   subtitleNeedsRegeneration: boolean,
-  staleArtifactKinds: ReadonlySet<string> = new Set()
+  staleArtifactKinds: ReadonlySet<string> = new Set(),
+  subtitleModelChanged = false
 ): TranslationStageId | undefined {
   const changes = translationChanges(
     version,
     settings,
     source,
-    subtitleNeedsRegeneration
+    subtitleNeedsRegeneration,
+    subtitleModelChanged
   );
   if (changes.subtitleInputsChanged) return 'subtitle';
   if (
@@ -737,6 +740,25 @@ export function subtitleArtifactsForResultVersion(
     );
     return artifact === undefined ? [] : [[variant, artifact]];
   })) as Partial<Record<SubtitleResultVariant, CreatorArtifact>>;
+}
+
+export function videoTranslationReportNotice(artifact: CreatorArtifact | undefined, l: LocalizeCopy): string {
+  if (!artifact) return '';
+  const status = artifact.metadata.translationStatus;
+  const layoutNotice = status === 'layout_pending' || artifact.metadata.translationLayoutPending === true
+    ? l('部分字幕长度超过显示目标，已保留完整译文，可在编辑器调整。',
+      'Some subtitles exceed the display target; their complete translations are preserved for editing.') : '';
+  if (status === 'partial') {
+    const count = typeof artifact.metadata.translationFailedCount === 'number' ? artifact.metadata.translationFailedCount : 0;
+    const contentNotice = typeof artifact.metadata.editedFromArtifactId === 'string'
+      ? l(`自动生成时有 ${count} 条字幕未译；当前字幕已编辑，请核对。`, `${count} subtitle items were untranslated during generation. The subtitles have since been edited; please review them.`)
+      : l(`部分完成：${count} 条字幕尚未翻译，已保留原文。`, `Partially complete: ${count} subtitle items are untranslated and retain their source text.`);
+    return [contentNotice, layoutNotice].filter(Boolean).join(' ');
+  }
+  if (status === 'layout_pending') {
+    return l('翻译已完成。', 'Translation is complete. ') + layoutNotice;
+  }
+  return '';
 }
 
 export function subtitleCuesFromArtifact(artifact: CreatorArtifact | undefined): SubtitleCue[] {
@@ -1369,9 +1391,10 @@ function affectedArtifacts(
   source: TranslationSourceSnapshot,
   subtitleNeedsRegeneration: boolean,
   staleArtifactKinds: ReadonlySet<string>,
-  l: LocalizeCopy
+  l: LocalizeCopy,
+  subtitleModelChanged = false
 ) {
-  const changes = translationChanges(version, settings, source, subtitleNeedsRegeneration);
+  const changes = translationChanges(version, settings, source, subtitleNeedsRegeneration, subtitleModelChanged);
   const artifacts = new Set<string>();
 
   if (
@@ -1683,7 +1706,9 @@ export default function VideoTranslationWorkspace(props: {
     'Translation started. Progress will appear in creation activity.'
   );
   const creatorSession = useOptionalCreatorSession();
+  const officialText = useOfficialServices('text');
   const officialSpeech = useOfficialServices('speech');
+  const legacyModelBaselines = useRef(new Map<string, { text?: string; transcription?: string }>());
   const mediaPreviewContextRef = useRef({ session: creatorSession, localize: l });
   mediaPreviewContextRef.current = { session: creatorSession, localize: l };
   const mediaPreviewJobId = creatorSession?.job.id;
@@ -1699,6 +1724,7 @@ export default function VideoTranslationWorkspace(props: {
   const [workspacePhase, setWorkspacePhase] = useState<WorkspacePhase>('configure');
   const [sourceType, setSourceType] = useState<SourceType>('url');
   const subtitleOnly = sourceType === 'subtitle';
+  const officialTranscription = useOfficialServices('transcription', !subtitleOnly);
   const steps = videoSteps;
   const [videoUrl, setVideoUrl] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -1769,6 +1795,7 @@ export default function VideoTranslationWorkspace(props: {
   const [subtitleSaveError, setSubtitleSaveError] = useState('');
   const subtitleSaveWorkRef = useRef<Promise<boolean>>();
   const [subtitleAssistantOpen, setSubtitleAssistantOpen] = useState(false);
+  const [taskDetailsRequest, setTaskDetailsRequest] = useState<{ key: number; stageRunId?: string }>();
   const [draftBaseVersion, setDraftBaseVersion] = useState<number>();
   const [resultProposal, setResultProposal] = useState<ResultProposal>();
   const [resultNoticeState, setResultNoticeState] = useState({ message: '' });
@@ -2343,6 +2370,26 @@ export default function VideoTranslationWorkspace(props: {
   const targetLanguageLabel = languageLabel(targetLanguages, targetLanguage);
   const selectedResult = resultVersions.find(version => version.value === resultVersion);
   const selectedSubtitleOnly = (selectedResult?.source.sourceType ?? sourceType) === 'subtitle';
+  const selectedResultState = readCreatorResultSnapshots(creatorSession?.state.resultSnapshots)
+    .find(snapshot => snapshot.version === selectedResult?.value)?.state;
+  const resultModelChoices = selectedResultState?.officialModels;
+  const resultTextModel = resultModelChoices && typeof resultModelChoices === 'object' && !Array.isArray(resultModelChoices)
+    && typeof resultModelChoices.text === 'string' ? resultModelChoices.text : undefined;
+  const resultTranscriptionModel = resultModelChoices && typeof resultModelChoices === 'object' && !Array.isArray(resultModelChoices)
+    && typeof resultModelChoices.transcription === 'string' ? resultModelChoices.transcription : undefined;
+  // Older versions may not record model choices. Merely opening them must not request regeneration.
+  const baselineKey = `${creatorSession?.job.id}:${selectedResult?.value}`;
+  if (selectedResult && !legacyModelBaselines.current.has(baselineKey)
+    && (officialText.selectable || officialTranscription.selectable)) {
+    legacyModelBaselines.current.set(baselineKey, { text: officialText.selected, transcription: officialTranscription.selected });
+  }
+  const legacyBaseline = legacyModelBaselines.current.get(baselineKey);
+  const baselineTextModel = resultTextModel ?? (legacyBaseline ? legacyBaseline.text : officialText.selected);
+  const baselineTranscriptionModel = resultTranscriptionModel ?? (legacyBaseline ? legacyBaseline.transcription : officialTranscription.selected);
+  const transcriptionModelChanged = officialTranscription.official && selectedResult !== undefined && !selectedSubtitleOnly
+    && officialTranscription.selected !== undefined && !gatewayModelIdMatches(officialTranscription.selected, baselineTranscriptionModel);
+  const subtitleModelChanged = transcriptionModelChanged || (officialText.official && selectedResult !== undefined && !selectedSubtitleOnly
+    && officialText.selected !== undefined && !gatewayModelIdMatches(officialText.selected, baselineTextModel));
   const generationStage = [...(creatorSession?.job.stages ?? [])].reverse().find(stage => (
     ['subtitle', 'tts', 'render-horizontal', 'render-vertical'].includes(stage.stageId)
   ));
@@ -2729,7 +2776,8 @@ export default function VideoTranslationWorkspace(props: {
   const currentResultNotice = resultNotice === translationStartedNotice
     && resultExecution?.status !== 'running' && resultExecution?.status !== 'queued'
     ? '' : resultNotice;
-  const visibleResultNotice = currentResultNotice;
+  const translationReportNotice = videoTranslationReportNotice(selectedSubtitleArtifacts.horizontal, l);
+  const visibleResultNotice = [currentResultNotice, translationReportNotice].filter(Boolean).join(' · ');
   const nextVersion = resultVersions.reduce((highest, version) => Math.max(highest, version.value), 0) + 1;
   const selectedSubtitleContextLabel = subtitleOutputs.length > 1
     ? l('横屏与竖屏字幕', 'Horizontal and vertical subtitles')
@@ -2879,6 +2927,7 @@ export default function VideoTranslationWorkspace(props: {
     && (!settingsMatchSelectedResult
       || !sameSource(draftSourceSnapshot, selectedResult.source));
   const hasPendingChanges = subtitleNeedsRegeneration
+    || subtitleModelChanged
     || hasConfigDraftChanges
     || selectedHasStaleArtifacts;
   const regenerationSettings = hasConfigDraftChanges && selectedResult
@@ -2894,11 +2943,12 @@ export default function VideoTranslationWorkspace(props: {
         regenerationSource,
         subtitleNeedsRegeneration,
         staleArtifactKinds,
-        l
+        l,
+        subtitleModelChanged
       )
     : [];
   const plannedStage = selectedResult && regenerationSettings && regenerationSource
-    ? videoTranslationRegenerationStage(selectedResult, regenerationSettings, regenerationSource, subtitleNeedsRegeneration, staleArtifactKinds)
+    ? videoTranslationRegenerationStage(selectedResult, regenerationSettings, regenerationSource, subtitleNeedsRegeneration, staleArtifactKinds, subtitleModelChanged)
     : undefined;
   const generationLabel = resultProposal === 'voice'
     ? l('配音并合成视频', 'Dub and compose video')
@@ -2908,7 +2958,7 @@ export default function VideoTranslationWorkspace(props: {
         ? l('合成视频', 'Compose video')
         : plannedStage === 'tts' ? l('配音并合成视频', 'Dub and compose video') : l('保存设置', 'Save settings');
   const generationSummary = plannedStage === 'subtitle' && resultProposal !== 'voice'
-    ? l('将按当前语言重新翻译，生成新的字幕结果。人工修改保留在历史版本中。', 'The selected languages will be used to translate again. Manual edits remain in the previous version.')
+    ? l('将按当前语言和模型重新翻译，生成新的字幕结果。人工修改保留在历史版本中。', 'The selected languages and model will be used to translate again. Manual edits remain in the previous version.')
     : resultProposal === 'voice'
       ? l('将根据当前字幕生成配音，然后自动合成到视频。', 'Generate dubbing from the current subtitles, then compose it into the video.')
       : l('将使用当前字幕、样式和配音设置生成视频。已有文件保留在历史版本中。', 'Render a video with the current subtitles, style, and dubbing settings. Previous files remain in version history.');
@@ -3111,7 +3161,7 @@ export default function VideoTranslationWorkspace(props: {
       return readPositiveResultVersion(committedJob.state.resultVersion);
     }
 
-    const inputResultVersion = sourceChanged && stageId === 'subtitle'
+    const inputResultVersion = (sourceChanged || transcriptionModelChanged) && stageId === 'subtitle'
       ? undefined
       : selectedBaseVersion;
     const stageJob = await creatorSession.applyAction({
@@ -3166,7 +3216,9 @@ export default function VideoTranslationWorkspace(props: {
             selectedResult,
             regenerationSettings,
             regenerationSource,
-            subtitleNeedsRegeneration
+            subtitleNeedsRegeneration,
+            staleArtifactKinds,
+            subtitleModelChanged
           )
         : 'subtitle';
       if (sourceType === 'file' && videoFile !== null && !selectedFileRegistered) {
@@ -3475,7 +3527,8 @@ export default function VideoTranslationWorkspace(props: {
         { ...regenerationSettings, ...speech },
         regenerationSource,
         subtitleNeedsRegeneration,
-        staleArtifactKinds
+        staleArtifactKinds,
+        subtitleModelChanged
       ) ?? (proposal === 'video' || proposal === 'voice' ? (videoFormat === 'vertical' ? 'render-vertical' : 'render-horizontal') : undefined);
       await executeRegeneration(stageId, speech);
       setSubtitleImmersive(true);
@@ -3529,7 +3582,7 @@ export default function VideoTranslationWorkspace(props: {
         <label className="video-translation-field">
           <span>{l('字幕字体', 'Subtitle font')}</span>
           <div className="video-translation-select-wrap">
-            <select
+            <AppSelect
               aria-label={l('字幕字体', 'Subtitle font')}
               value={subtitleFont}
               onChange={event => setSubtitleFont(event.target.value as SubtitleFont)}
@@ -3538,15 +3591,14 @@ export default function VideoTranslationWorkspace(props: {
               <option value="sans">{l('无衬线', 'Sans serif')}</option>
               <option value="serif">{l('衬线', 'Serif')}</option>
               <option value="rounded">{l('圆体', 'Rounded')}</option>
-            </select>
-            <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+            </AppSelect>
           </div>
         </label>
 
         <label className="video-translation-field">
           <span>{l('字重', 'Font weight')}</span>
           <div className="video-translation-select-wrap">
-            <select
+            <AppSelect
               aria-label={l('字幕字重', 'Subtitle font weight')}
               value={subtitleWeight}
               onChange={event => setSubtitleWeight(event.target.value as SubtitleWeight)}
@@ -3554,15 +3606,14 @@ export default function VideoTranslationWorkspace(props: {
               {(['regular', 'medium', 'bold'] as const).map(weight => (
                 <option key={weight} value={weight}>{subtitleWeightLabel(weight, l)}</option>
               ))}
-            </select>
-            <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+            </AppSelect>
           </div>
         </label>
 
         <label className="video-translation-field">
           <span>{l('字幕大小', 'Subtitle size')}</span>
           <div className="video-translation-select-wrap">
-            <select
+            <AppSelect
               aria-label={l('字幕大小', 'Subtitle size')}
               value={subtitleSize}
               onChange={event => setSubtitleSize(event.target.value as SubtitleSize)}
@@ -3570,8 +3621,7 @@ export default function VideoTranslationWorkspace(props: {
               {(['small', 'medium', 'large'] as const).map(size => (
                 <option key={size} value={size}>{subtitleSizeLabel(size, l)}</option>
               ))}
-            </select>
-            <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+            </AppSelect>
           </div>
         </label>
       </div>
@@ -3653,6 +3703,13 @@ export default function VideoTranslationWorkspace(props: {
     </>
   );
 
+  const translationModelControl = officialText.official ? <div className="video-translation-model-setting">
+    <OfficialModelField label={l('翻译模型', 'Translation model')} service={officialText} disabled={submitting || activeGenerationStage !== undefined} />
+    {!officialText.ready ? <p role="status">{l('请选择可用的翻译模型后开始。', 'Choose an available translation model before starting.')}</p> : null}
+  </div> : null;
+  const transcriptionModelControl = !subtitleOnly && officialTranscription.official ? <div className="video-translation-model-setting">
+    <OfficialModelField label={l('语音识别模型', 'Transcription model')} service={officialTranscription} disabled={submitting || activeGenerationStage !== undefined} />
+  </div> : null;
   const languageControls = (
     <>
       <div className="video-translation-language-row">
@@ -3701,7 +3758,7 @@ export default function VideoTranslationWorkspace(props: {
     <label className="video-translation-field video-translation-output-format-inline">
       <span>{l('输出画幅', 'Output format')}</span>
       <div className="video-translation-select-wrap">
-        <select
+        <AppSelect
           aria-label={l('输出画幅', 'Output format')}
           value={videoFormat}
           onChange={event => setVideoFormat(event.target.value as VideoFormat)}
@@ -3718,8 +3775,7 @@ export default function VideoTranslationWorkspace(props: {
               {value === 'all' ? l('双画幅', '16:9 + 9:16') : ratio} {localizeFormatLabel(label, l)}
             </option>
           ))}
-        </select>
-        <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+        </AppSelect>
       </div>
     </label>
   );
@@ -3859,6 +3915,7 @@ export default function VideoTranslationWorkspace(props: {
           </div>}
           <TtsVoicePicker
             id="video-translation-voice"
+            catalogKey={officialSpeech.official ? JSON.stringify([officialSpeech.model?.voices, officialSpeech.model?.voiceProfiles]) : undefined}
             provider={ttsProvider}
             model={ttsModel}
             value={voiceCode}
@@ -3898,6 +3955,7 @@ export default function VideoTranslationWorkspace(props: {
       <div className="video-translation-page-inner video-translation-wizard">
         <CreatorResizableLayout
           className="video-translation-collab-layout"
+          agentPanelRequest={taskDetailsRequest}
           workspace={<div
             className="video-translation-wizard-main"
             data-step={currentStep}
@@ -3971,7 +4029,10 @@ export default function VideoTranslationWorkspace(props: {
               outputBusyLabel={taskProgress?.active && !['prepare-source-video', 'preview-source-video'].includes(taskProgress.stage?.stageId ?? '') ? taskProgress.title : undefined}
               videoPreviewRequest={videoPreviewRequest}
               taskProgress={taskProgress ? <CreatorTaskProgressBar task={taskProgress}
-                onDetails={() => setSubtitleAssistantOpen(true)}
+                onDetails={() => {
+                  setSubtitleAssistantOpen(true);
+                  setTaskDetailsRequest(previous => ({ key: (previous?.key ?? 0) + 1, stageRunId: taskProgress.stage?.id }));
+                }}
                 onCancel={activeStage ? requestCancelTask : undefined}
                 onResume={resumableStage ? () => void resumeTask() : undefined}
                 controlPending={taskControlPending}
@@ -4020,7 +4081,7 @@ export default function VideoTranslationWorkspace(props: {
               subtitleReadOnly={submitting}
               immersive={subtitleImmersive && subtitleOutputs.length > 0}
               editorSettings={!selectedSubtitleOnly ? {
-                language: <><p>{l('修改语言后需要重新翻译字幕。人工修改将保留在历史版本中。', 'Language changes require translating again. Manual edits remain in version history.')}</p>{languageControls}<div className="video-translation-toggle-list">{subtitleImportControl}{platformCaptionsControl}</div></>,
+                language: <><p>{l('修改语言或模型后需要重新翻译字幕。人工修改将保留在历史版本中。', 'Language or model changes require translating again. Manual edits remain in version history.')}</p>{languageControls}{translationModelControl}{transcriptionModelControl}<div className="video-translation-toggle-list">{subtitleImportControl}{platformCaptionsControl}</div></>,
                 style: <><p>{l('样式用于视频预览和合成的视频；SRT 文件仅包含字幕文本与时间。', 'Styles apply to video previews and exported videos. SRT files contain subtitle text and timing only.')}</p>{subtitleLayoutControls}{subtitleStyleChoices}</>,
                 voice: dubbingSettings,
                 output: <><p>{l('选择画幅后合成带字幕的视频，字幕和样式修改会用于本次合成。', 'Choose a format to export a video with your current subtitles and style.')}</p>{outputFormatControl}{verticalTitleControls}</>,
@@ -4164,6 +4225,9 @@ export default function VideoTranslationWorkspace(props: {
               </div>
 
               {languageControls}
+
+              {translationModelControl}
+              {transcriptionModelControl}
 
               <div className="video-translation-toggle-list">
                 {subtitleImportControl}
@@ -4523,6 +4587,10 @@ function stageResumeDescription(
   l: LocalizeCopy
 ): string {
   const label = translationStageLabel(stage.stageId, l);
+  if (stage.stageId === 'subtitle' && typeof stage.progress.translationResumeKey === 'string') {
+    return l('继续任务会保留已保存的译文；来源、语言和模型一致时，从尚未完成的内容继续。',
+      'Saved translations are preserved. With the same source, languages and model, the task continues with unfinished content.');
+  }
   if (stage.status === 'queued') {
     return l(
       `已完成阶段和产物会保留。继续任务时，“${label}”会重新进入执行队列。`,

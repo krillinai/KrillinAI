@@ -37,6 +37,7 @@ func TestChatCompletionFallsBackOnProviderErrors(t *testing.T) {
 		{"gateway", 502, `{"error":{"message":"Bad gateway"}}`},
 		{"authentication", 401, `{"error":{"message":"Invalid API key"}}`},
 		{"bad_request", 400, `{"error":{"message":"Invalid model"}}`},
+		{"reasoning_none_unsupported", 400, `{"error":{"message":"reasoning_effort none is unsupported"}}`},
 		{"invalid_json", 200, `{`},
 		{"empty", 200, `{"choices":[]}`},
 		{"truncated", 200, `{"choices":[{"finish_reason":"length","message":{"content":"partial"}}]}`},
@@ -45,6 +46,10 @@ func TestChatCompletionFallsBackOnProviderErrors(t *testing.T) {
 			var primaryCalls, fallbackCalls atomic.Int32
 			primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				primaryCalls.Add(1)
+				var req map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req["reasoning_effort"] != "none" {
+					t.Error("主请求没有显式关闭推理")
+				}
 				if r.Header.Get("Authorization") != "Bearer primary-test-key" {
 					t.Error("主源使用了错误密钥")
 				}
@@ -109,6 +114,42 @@ func TestChatCompletionPrefersPrimaryAfterFallback(t *testing.T) {
 	}
 	if primaryCalls.Load() != 3 || fallbackCalls.Load() != 1 {
 		t.Fatal("主源恢复后仍在使用备用源")
+	}
+}
+
+func TestChatCompletionFallbackUsesItsOwnModelMetadata(t *testing.T) {
+	for _, name := range []string{"gpt-4o-mini", "deepseek-v4.1-flash"} {
+		t.Run(name, func(t *testing.T) {
+			setTestModel(t)
+			previous := config.Conf.LlmFallback
+			t.Cleanup(func() { config.Conf.LlmFallback = previous })
+			config.Conf.Llm.Model = "oc_primary"
+			config.Conf.Llm.ModelName = "deepseek-v4.1-flash"
+			primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&req)
+				if req["reasoning_effort"] != "none" || req["model"] != "oc_primary" {
+					t.Error("primary did not use its own model metadata")
+				}
+				w.WriteHeader(http.StatusBadGateway)
+			}))
+			defer primary.Close()
+			fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&req)
+				if req["model"] != "oc_fallback" || req["reasoning_effort"] != "none" || (req["temperature"] != nil) != (name == "deepseek-v4.1-flash") {
+					t.Error("fallback inherited the primary model's compatibility settings")
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprint(w, `{"choices":[{"message":{"content":"备用译文"}}]}`)
+			}))
+			defer fallback.Close()
+			config.Conf.LlmFallback = config.OpenaiCompatibleConfig{BaseUrl: fallback.URL, ApiKey: "fallback-key", Model: "oc_fallback", ModelName: name}
+			text, err := NewClient(primary.URL, "primary-key", "").ChatCompletion("translate")
+			if err != nil || text != "备用译文" {
+				t.Fatalf("text=%q error=%v", text, err)
+			}
+		})
 	}
 }
 

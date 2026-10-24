@@ -26,10 +26,14 @@ describe('KrillinTtsService', () => {
       account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }), modelCredentials: async () => ({ accountId: 'a', modelKey: 'secret', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { speech: 'official-first' }, models: [{ id: 'official-first', modality: 'speech', capabilities: [], voices: ['first-voice'] }, { id: 'official-second', modality: 'speech', capabilities: supportsStyle ? ['speech_instructions', 'speech_speed'] : [], voices: ['second-voice'] }] }) },
       manual: createConfigStore(createDefaultCreatorServicesConfig()), getLocalOrigin: () => 'http://127.0.0.1:39999'
     });
-    const service = createKrillinTtsService({ resourceRoot: join(root, 'runtime'), workRoot: join(root, 'work'), configStore: source.store, executeUtility });
+    const officialPreviewLanguages = vi.fn(async () => ({ 'second-voice': ['en'], 'first-voice': ['en', 'zh'] }));
+    const service = createKrillinTtsService({ resourceRoot: join(root, 'runtime'), workRoot: join(root, 'work'), configStore: source.store, executeUtility, officialPreviewLanguages });
     await expect(service.listVoices('aliyun', 'personal-model')).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     const result = await service.listVoices('openai', 'official-second');
-    expect(result).toMatchObject({ provider: 'openai', model: 'official-second', voices: [{ id: 'second-voice', provider: 'openai' }] });
+    expect(result).toMatchObject({ provider: 'openai', model: 'official-second', voices: [{ id: 'second-voice', provider: 'openai', previewLanguages: ['en'] }] });
+    expect(officialPreviewLanguages).toHaveBeenCalledWith('official-second');
+    officialPreviewLanguages.mockRejectedValueOnce(new Error('sample catalog unavailable'));
+    expect(await service.listVoices('openai', 'official-second')).toMatchObject({ voices: [{ id: 'second-voice', previewLanguages: [] }] });
     expect((await service.listVoices('openai')).voices.map(voice => voice.id)).toEqual(['first-voice']);
     expect(executeUtility).not.toHaveBeenCalled();
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(new Uint8Array([1, 2, 3]), { headers: { 'Content-Type': 'audio/mpeg' } }));
@@ -46,6 +50,24 @@ describe('KrillinTtsService', () => {
       await styled;
       expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toMatchObject({ instructions: 'Calm', speed: 1.1 });
     } else await expect(styled).rejects.toMatchObject({ code: 'unsupported_capability' });
+  });
+
+  it('projects catalog voice descriptions without changing IDs or inventing absent metadata', async () => {
+    const root = await temporaryRoot();
+    const profile = { gender: 'female' as const, traits: { zh: ['温暖'], en: ['Warm'] },
+      useCases: { zh: ['旁白'], en: ['Narration'] }, sourceUrls: ['https://docs.example/voices'] };
+    const source = createGatewayCreatorSource({
+      account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }),
+        modelCredentials: async () => ({ accountId: 'a', modelKey: 'secret', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { speech: 'speech' },
+          models: [{ id: 'speech', modality: 'speech', capabilities: [], voices: ['known', 'unknown'], voiceProfiles: { known: profile, unadmitted: profile } }] }) },
+      manual: createConfigStore(createDefaultCreatorServicesConfig()), getLocalOrigin: () => 'http://127.0.0.1:39999'
+    });
+    const service = createKrillinTtsService({ resourceRoot: join(root, 'runtime'), workRoot: join(root, 'work'), configStore: source.store, executeUtility: vi.fn() });
+    const result = await service.listVoices('openai', 'speech');
+    expect(result.voices.map(voice => voice.id)).toEqual(['known', 'unknown']);
+    expect(result.voices[0]).toMatchObject({ ...profile, id: 'known', name: 'known' });
+    expect(result.voices[1]).not.toHaveProperty('gender');
+    expect(result.voices[1]).not.toHaveProperty('traits');
   });
 
   it('lists the bundled Qwen3 voice catalog without calling an outdated Runtime', async () => {

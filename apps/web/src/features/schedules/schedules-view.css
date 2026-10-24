@@ -660,7 +660,7 @@
   color: var(--muted);
 }
 
-.schedule-select-control select,
+.schedule-select-control :is(select, .app-select-trigger),
 .schedule-setting-input,
 .schedule-time-input {
   min-width: 0;
@@ -674,13 +674,13 @@
   text-align: right;
 }
 
-.schedule-select-control select {
+.schedule-select-control :is(select, .app-select-trigger) {
   appearance: none;
   padding-right: 24px;
   cursor: pointer;
 }
 
-.schedule-select-control svg {
+.schedule-select-control > svg {
   position: absolute;
   top: 50%;
   right: 0;

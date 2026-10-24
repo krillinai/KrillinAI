@@ -53,13 +53,14 @@
 .creator-task-progress-bar-stages li[data-completed="true"] { color: var(--accent); }
 .creator-task-progress-bar[data-state="succeeded"] .creator-task-progress-bar-percent { font-size: 16px; }
 .creator-task-progress-bar-track { height: 3px; background: color-mix(in srgb, var(--accent) 8%, var(--surface-2)); }
-.creator-task-progress-bar-track > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 0 2px 2px 0; }
+.creator-task-progress-bar-track > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 0 2px 2px 0; transition: width 700ms linear; }
 .creator-task-progress-bar-track[data-indeterminate="true"] { overflow: hidden; }
 .creator-task-progress-bar-track[data-indeterminate="true"] > span { animation: creator-task-progress-bar-indeterminate 1.6s ease-in-out infinite alternate; }
 
 @keyframes creator-task-progress-bar-spin { to { transform: rotate(360deg); } }
 @keyframes creator-task-progress-bar-indeterminate { from { transform: translateX(0); } to { transform: translateX(230%); } }
 @media (prefers-reduced-motion: reduce) { .creator-task-progress-bar-icon[data-spinning="true"] svg, .creator-task-progress-bar-track[data-indeterminate="true"] > span { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .creator-task-progress-bar-track > span { transition: none; } }
 @container video-result-subtitles (max-width: 840px) {
   .creator-task-progress-bar-stages { display: none; }
 }

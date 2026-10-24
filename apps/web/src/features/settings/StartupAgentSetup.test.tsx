@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import type { CodexProviderConfig, CodexRuntimeReadiness, GatewayAccountState } from '@opencreator/protocol';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
@@ -85,7 +86,7 @@ describe('StartupAgentSetup', () => {
     await user.click(screen.getByRole('button', { name: '本地模式' }));
     await user.click(screen.getByRole('button', { name: '自定义模型服务' }));
     expect(screen.getByRole('combobox', { name: '供应商' })).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole('combobox', { name: '供应商' }), 'deepseek');
+    await selectOption(screen.getByRole('combobox', { name: '供应商' }), 'deepseek');
     expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.deepseek.com');
     expect(screen.getByLabelText('模型名称')).toHaveValue('deepseek-v4-pro');
     await user.type(screen.getByLabelText('API Key'), 'custom-key');
@@ -124,7 +125,7 @@ describe('StartupAgentSetup', () => {
     expect(providerSelect).toHaveValue('openai');
     expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.openai.com/v1');
     expect(screen.getByLabelText('模型名称')).toHaveValue('gpt-5.6-sol');
-    await user.selectOptions(providerSelect, 'minimax');
+    await selectOption(providerSelect, 'minimax');
     expect(screen.queryByRole('button', { name: '使用 ChatGPT 登录' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '使用本机 Codex，继续' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.minimax.io');
@@ -160,7 +161,7 @@ describe('StartupAgentSetup', () => {
     const { onReady } = mount(service);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '本地模式' }));
-    await user.selectOptions(await screen.findByRole('combobox', { name: '供应商' }), 'openai');
+    await selectOption(await screen.findByRole('combobox', { name: '供应商' }), 'openai');
     await user.type(screen.getByLabelText('API Key'), 'secret');
     await user.click(screen.getByRole('button', { name: '保存并开始使用' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('模型服务尚未就绪');

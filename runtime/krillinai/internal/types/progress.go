@@ -23,6 +23,14 @@ func (t *SubtitleTask) ReportTranslationRecovery(message string) {
 	}
 }
 
+// Detailed translation work must not replace the legacy task percentage or
+// the audio segment aggregator when no detailed pipeline reporter is present.
+func (t *SubtitleTask) ReportTranslationWorkProgress(progress TaskProgress) {
+	if t != nil && t.detailedProgressReporter != nil {
+		t.detailedProgressReporter(progress)
+	}
+}
+
 func (t *SubtitleTask) ReportProgress(progress TaskProgress) {
 	if t == nil {
 		return

@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import { useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -73,10 +74,10 @@ export function VideoTranslationSubtitleImport(props: { sourceLanguage: string; 
     </div> : null}
     {enabled || props.sourceOnly ? <fieldset className="video-translation-subtitle-import-fields video-translation-field" disabled={props.disabled || busy}>
       {!props.sourceOnly ? <label><span>{l('字幕类型', 'Subtitle type')}</span>
-        <select value={kind} onChange={event => setKind(event.target.value)}>
+        <AppSelect value={kind} onChange={event => setKind(event.target.value)}>
           <option value="source_subtitle">{l('原文字幕（跳过语音识别）', 'Source subtitles (skip transcription)')}</option>
           <option value="target_subtitle">{l('已翻译字幕（跳过识别和翻译）', 'Translated subtitles (skip transcription and translation)')}</option>
-        </select>
+        </AppSelect>
       </label> : null}
       <div className="video-translation-subtitle-file-field">
         <label htmlFor={fileInputId}>{l('UTF-8 SRT 文件', 'UTF-8 SRT file')}</label>

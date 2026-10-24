@@ -342,6 +342,14 @@ export function CreatorSessionProvider(props: {
     options: { semantic?: boolean; persist?: boolean } = {}
   ) => {
     const currentState = { ...confirmedRef.current.state, ...draftRef.current };
+    // Multiple model fields can initialize in the same render. Merge their
+    // individual choices against the latest draft so they cannot overwrite one another.
+    if (isRecord(patch.officialModels)) {
+      patch = { ...patch, officialModels: {
+        ...(isRecord(currentState.officialModels) ? currentState.officialModels : {}),
+        ...patch.officialModels
+      } };
+    }
     const changedPatch = Object.fromEntries(Object.entries(patch).filter(([field, value]) => (
       !sameCreatorJson(currentState[field], value)
     ))) as Record<string, CreatorJson>;

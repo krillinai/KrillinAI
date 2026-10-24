@@ -99,21 +99,23 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 
 	var platformCaptionErr error
 	if IsYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper {
-		reportSubtitleProgress(req, "reading_platform_captions", 5, "正在获取平台字幕")
+		translationEnd := 96
+		if req.PrepareVideo {
+			translationEnd = 85
+		}
+		reportSubtitleProgress(req, "reading_platform_captions", 2, "正在获取平台字幕")
 		stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
-			phase, message, overall := platformSubtitleProgress(percent)
+			phase, message, overall := platformSubtitleProgress(percent, translationEnd)
 			if req.SourceOnly && phase == "translating_subtitles" {
 				phase, message = "collecting_subtitles", "正在生成原文字幕"
 			}
 			reportSubtitleProgress(req, phase, overall, message)
 		})
-		stepParam.TaskPtr.SetTranslationProgressReporter(func(completed, total int) {
-			reportSubtitleProgress(req, "translating_subtitles", 15+completed*70/total, "正在翻译平台字幕", ProgressCounts{completed, total})
-		})
+		forwardSubtitleTranslationProgress(stepParam.TaskPtr, req.ReportProgress, 5, translationEnd, "正在翻译平台字幕")
 		youtubeReq := subtitleYouTubeReq(req, stepParam.TaskPtr)
 		vttFile, err := svc.DownloadYouTubeSubtitle(ctx, youtubeReq)
 		if err == nil {
-			reportSubtitleProgress(req, "processing_platform_captions", 8, "正在解析平台字幕")
+			reportSubtitleProgress(req, "processing_platform_captions", 2, "正在解析平台字幕")
 			youtubeReq.VttFile = vttFile
 			_, err = svc.ProcessYouTubeSubtitle(ctx, youtubeReq)
 			syncSubtitleTranslationReport(manifest, stepParam.TaskPtr)
@@ -222,15 +224,15 @@ func reportSubtitleProgress(req SubtitleRequest, phase string, percent int, mess
 	req.ReportProgress(phase, percent, message, counts...)
 }
 
-func platformSubtitleProgress(percent uint8) (string, string, int) {
+func platformSubtitleProgress(percent uint8, translationEnd int) (string, string, int) {
 	value := int(percent)
 	if value < 40 {
-		return "processing_platform_captions", "正在解析平台字幕", 8 + value*7/40
+		return "processing_platform_captions", "正在解析平台字幕", 2 + value*3/40
 	}
 	if value < 90 {
-		return "translating_subtitles", "正在翻译字幕", 15 + (value-40)*70/50
+		return "translating_subtitles", "正在翻译字幕", 5 + (value-40)*(translationEnd-5)/50
 	}
-	return "collecting_subtitles", "正在生成双语字幕", 87
+	return "collecting_subtitles", "正在生成双语字幕", translationEnd + 1
 }
 
 func audioSubtitleProgressReporter(req SubtitleRequest) func(uint8) {
@@ -388,11 +390,12 @@ func syncSubtitleTranslationReport(manifest *Manifest, task *types.SubtitleTask)
 	manifest.TranslationFailures = task.TranslationFailures()
 	var warnings []string
 	for _, warning := range manifest.Warnings {
-		if !strings.HasPrefix(warning, types.TranslationWarningPrefix) {
+		if !strings.HasPrefix(warning, types.TranslationWarningPrefix) && !strings.HasPrefix(warning, types.TranslationLayoutWarningPrefix) {
 			warnings = append(warnings, warning)
 		}
 	}
 	manifest.Warnings = append(warnings, types.TranslationWarnings(manifest.TranslationFailures)...)
+	manifest.Warnings = append(manifest.Warnings, task.TranslationLayoutWarnings()...)
 }
 
 func failSubtitleStage(req SubtitleRequest, manifest *Manifest, kind ErrorKind, code string, err error) (Response, error) {

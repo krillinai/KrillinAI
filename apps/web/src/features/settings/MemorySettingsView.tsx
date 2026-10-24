@@ -1,3 +1,4 @@
+import AppSelect from '../../components/forms/Select.js';
 import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
@@ -293,7 +294,7 @@ export function MemorySettingsView(props: {
         </label>
         <label>
           <span>{l("范围", "Scope")}</span>
-          <select
+          <AppSelect
             aria-label={l("筛选记忆范围", "Filter memory range")}
             value={scope}
             disabled={!available}
@@ -303,11 +304,11 @@ export function MemorySettingsView(props: {
             <option value="global">{l("全局", "Global")}</option>
             <option value="project">{l("项目", "Projects")}</option>
             <option value="thread">{l("线程", "Thread")}</option>
-          </select>
+          </AppSelect>
         </label>
         <label>
           <span>{l("状态", "Status")}</span>
-          <select
+          <AppSelect
             aria-label={l("筛选记忆状态", "Filter memory status")}
             value={String(enabled)}
             disabled={!available}
@@ -318,7 +319,7 @@ export function MemorySettingsView(props: {
             <option value="all">{l("全部状态", "All status")}</option>
             <option value="true">{l("已启用", "Enabled")}</option>
             <option value="false">{l("已停用", "Disabled")}</option>
-          </select>
+          </AppSelect>
         </label>
         <button
           className="settings-secondary-button"
@@ -485,7 +486,7 @@ function MemoryEditor(props: {
         </label>
         <label>
           <span>{l("范围", "Scope")}</span>
-          <select
+          <AppSelect
             aria-label={l("记忆范围", "Memory scope")}
             value={props.editor.scope}
             disabled={props.saving || props.editor.mode === 'edit'}
@@ -503,12 +504,12 @@ function MemoryEditor(props: {
             <option value="global">{l("全局", "Global")}</option>
             <option value="project">{l("项目", "Projects")}</option>
             <option value="thread">{l("线程", "Thread")}</option>
-          </select>
+          </AppSelect>
         </label>
         {props.editor.scope !== 'global' ? (
           <label>
             <span>{l("目标", "Target")}</span>
-            <select
+            <AppSelect
               aria-label={l("范围目标", "scope target")}
               value={props.editor.scopeKey ?? ''}
               disabled={props.saving || props.editor.mode === 'edit'}
@@ -516,7 +517,7 @@ function MemoryEditor(props: {
             >
               {options.length === 0 ? <option value="">{l("无可用目标", "No target available")}</option> : null}
               {options.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
-            </select>
+            </AppSelect>
           </label>
         ) : null}
       </div>

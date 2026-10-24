@@ -1,3 +1,4 @@
+import { gatewayRelayIdentity } from '@opencreator/protocol';
 import { safePublicErrorCode, safePublicErrorMessage, sanitizePublicErrorFacts, type OpenCreatorIssue, type PublicErrorFacts } from '@opencreator/protocol';
 import type { AppLanguage } from '../../i18n/language.js';
 import { createLocalizedCopy, type LocalizeCopy } from '../../i18n/localized-copy.js';
@@ -272,7 +273,7 @@ export function issueDiagnosticText(issue: OpenCreatorIssue, language: AppLangua
 }
 
 function safeFallback(value: string, language: AppLanguage): string {
-  const normalized = value
+  const normalized = (gatewayRelayIdentity.test(value) ? '' : value)
     .replace(/authorization\s*[:=]\s*(?:Bearer|Basic)\s+\S+/gi, '[redacted]')
     .replace(/(?:authorization|api[-_ ]?key|token|secret)\s*[:=]\s*\S+/gi, '[redacted]')
     .replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, '[user directory]')

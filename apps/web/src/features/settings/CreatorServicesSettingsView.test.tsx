@@ -1,3 +1,4 @@
+import { selectOption } from '../../test/select-option.js';
 import {
   createDefaultCreatorServicesConfig,
   type CodexModelListResponse,
@@ -264,11 +265,13 @@ describe('CreatorServicesSettingsView', () => {
     );
 
     await screen.findByRole('heading', { name: 'AI 服务' });
-    await user.selectOptions(screen.getByLabelText('供应商'), 'deepseek');
+    await selectOption(screen.getByLabelText('供应商'), 'deepseek');
     expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.deepseek.com');
     expect(screen.getByLabelText('模型')).toHaveValue('deepseek-v4-pro');
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
     expect(screen.getByRole('option', { name: 'deepseek-v4-flash' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'MiniMax-M2.7' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
 
     await user.click(screen.getByRole('button', { name: '保存配置' }));
     await waitFor(() => expect(service.saveConfig).toHaveBeenCalled());
@@ -298,10 +301,11 @@ describe('CreatorServicesSettingsView', () => {
     );
 
     await screen.findByRole('heading', { name: 'AI 服务' });
-    await user.selectOptions(screen.getByLabelText('供应商'), 'openai');
+    await selectOption(screen.getByLabelText('供应商'), 'openai');
 
     expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.openai.com/v1');
     expect(screen.getByLabelText('模型')).toHaveValue('gpt-5.6-sol');
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
     expect(screen.getByRole('option', { name: 'gpt-5.5' })).toBeInTheDocument();
   });
 
@@ -316,8 +320,8 @@ describe('CreatorServicesSettingsView', () => {
     );
 
     await screen.findByRole('heading', { name: 'AI 服务' });
-    await user.selectOptions(screen.getByLabelText('供应商'), 'deepseek');
-    await user.selectOptions(screen.getByLabelText('模型'), '__custom__');
+    await selectOption(screen.getByLabelText('供应商'), 'deepseek');
+    await selectOption(screen.getByLabelText('模型'), '__custom__');
 
     const customModel = screen.getByPlaceholderText('gpt-5.6-sol');
     await user.clear(customModel);
@@ -336,8 +340,9 @@ describe('CreatorServicesSettingsView', () => {
     );
 
     await screen.findByRole('heading', { name: 'AI 服务' });
-    await user.selectOptions(screen.getByLabelText('供应商'), 'minimax');
+    await selectOption(screen.getByLabelText('供应商'), 'minimax');
     expect(screen.getByLabelText('模型')).toHaveValue('MiniMax-M2.7');
+    await user.click(screen.getByRole('combobox', { name: '模型' }));
     expect(screen.getByRole('option', { name: 'MiniMax-M2.7-highspeed' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'gpt-5.5' })).not.toBeInTheDocument();
   });
@@ -527,6 +532,7 @@ describe('CreatorServicesSettingsView', () => {
     await user.click(screen.getByRole('tab', { name: '视频生成' }));
     expect(screen.getByRole('combobox', { name: '服务商' })).toHaveTextContent('Seedance');
     expect(screen.getByLabelText('默认模型')).toHaveValue('doubao-seedance-2-5-260628');
+    await user.click(screen.getByRole('combobox', { name: '默认模型' }));
     expect(screen.getByRole('option', { name: 'doubao-seedance-2-5-260628' })).toBeInTheDocument();
     expect(screen.getByLabelText('API Key')).toHaveAttribute('type', 'password');
     await user.click(screen.getByRole('combobox', { name: '服务商' }));

@@ -50,9 +50,32 @@ type pairedTranslationOutput struct {
 }
 
 type pairedTranslationOutputSentence struct {
-	ID         string                     `json:"sentence_id"`
-	FullTarget string                     `json:"target_text"`
-	Segments   []pairedTranslationSegment `json:"segments"`
+	ID           string                     `json:"sentence_id"`
+	FullTarget   string                     `json:"target_text"`
+	Segments     []pairedTranslationSegment `json:"segments"`
+	textConflict bool
+}
+
+// Some providers return the complete translation as text. Accept that alias
+// only when it is unambiguous; a conflicting item must not discard its peers.
+func (s *pairedTranslationOutputSentence) UnmarshalJSON(data []byte) error {
+	type outputSentence pairedTranslationOutputSentence
+	var value struct {
+		outputSentence
+		Target *string `json:"target_text"`
+		Text   *string `json:"text"`
+	}
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*s = pairedTranslationOutputSentence(value.outputSentence)
+	if value.Target != nil {
+		s.FullTarget = *value.Target
+	} else if value.Text != nil {
+		s.FullTarget = *value.Text
+	}
+	s.textConflict = value.Target != nil && value.Text != nil && strings.TrimSpace(*value.Target) != strings.TrimSpace(*value.Text)
+	return nil
 }
 
 type pairedTranslationSegment struct {
@@ -118,6 +141,13 @@ func buildPairedTranslationBatches(texts []string, originLang, targetLang types.
 }
 
 func buildPairedTranslationBatchesWithNLP(texts []string, hints [][]string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	return buildPairedTranslationBatchesWithGroups(texts, hints, nil, originLang, targetLang, limit, batchSize, plans...)
+}
+
+func buildPairedTranslationBatchesWithGroups(texts []string, hints [][]string, groups []int, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	if len(groups) != 0 && len(groups) != len(texts) {
+		return nil, fmt.Errorf("源文意群与原句组数量不一致")
+	}
 	if len(hints) != 0 && len(hints) != len(texts) {
 		return nil, fmt.Errorf("NLP边界建议与完整句数量不一致")
 	}
@@ -167,6 +197,20 @@ func buildPairedTranslationBatchesWithNLP(texts []string, hints [][]string, orig
 		}
 		if len(input.Sentences) == 0 {
 			return nil, fmt.Errorf("第%d句超过翻译请求预算，无法安全提交", start+1)
+		}
+		end := start + len(input.Sentences)
+		if len(groups) > 0 && end < len(texts) && groups[end] == groups[end-1] {
+			// 尽量把尾部尚未放全的原句组移到下一批；超大单组仍按预算拆批。
+			cut := end - 1
+			for cut > start && groups[cut-1] == groups[end] {
+				cut--
+			}
+			if cut > start {
+				input.Sentences = input.Sentences[:cut-start]
+				input.Before, input.After = translationBatchContext(texts, start, cut)
+				input.SemanticContext = plan.forSources(input.Sentences)
+				input = fitPairedTranslationSemanticContext(input)
+			}
 		}
 		start += len(input.Sentences)
 		batches = append(batches, input)
@@ -227,24 +271,39 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	var err error
 	var plan *translationSemanticPlan
 	var hints [][]string
+	var sourceUnits []translationSourceUnit
+	t.translationProgress.prepare(0, "正在整理原文翻译单元")
 	if t.preparedTranslation != nil {
 		texts, plan = t.preparedTranslation.Texts, t.preparedTranslation.Plan
 		hints = t.preparedTranslation.NLPHints
+		sourceUnits = t.preparedTranslation.SourceUnits
 	} else {
-		texts, err = t.prepareTranslationSentences(ctx, texts, originLang)
-		if err != nil {
-			return nil, err
+		if t.sourceSegmentation && !t.segmentTranslation {
+			prepared, prepareErr := t.prepareSourceTranslation(ctx, texts, originLang)
+			if prepareErr != nil {
+				return nil, prepareErr
+			}
+			texts, sourceUnits = prepared.Texts, prepared.SourceUnits
+		} else {
+			texts, err = t.prepareTranslationSentences(ctx, texts, originLang)
+			if err != nil {
+				return nil, err
+			}
+			hints, err = t.prepareTranslationNLPHints(ctx, texts, originLang)
+			if err != nil {
+				return nil, err
+			}
 		}
-		hints, err = t.prepareTranslationNLPHints(ctx, texts, originLang)
-		if err != nil {
-			return nil, err
-		}
+		t.translationProgress.prepare(len(texts), "正在整理字幕语境")
+		t.translationProgress.prepared(40)
 		plan, err = t.prepareTranslationSemanticPlan(ctx, texts, originLang, targetLang)
 		if err != nil {
 			return nil, err
 		}
 	}
-	inputs, err := buildPairedTranslationBatchesWithNLP(texts, hints, originLang, targetLang, limit, batchSize, plan)
+	t.translationProgress.prepare(len(texts), "正在恢复已有翻译结果")
+	t.translationProgress.prepared(100)
+	inputs, err := buildPairedTranslationBatchesWithGroups(texts, hints, sourceUnitGroups(sourceUnits), originLang, targetLang, limit, batchSize, plan)
 	if err != nil {
 		return nil, err
 	}
@@ -285,6 +344,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 				report()
 			}
 		}
+		t.translationProgress.saved(sentence, complete)
 		return nil
 	}
 	commit := func() error {
@@ -357,6 +417,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 					recovered, ok = t.recoverPairedSentence(cached, source, originLang, targetLang)
 				}
 				if ok {
+					t.translationProgress.saved(recovered, false)
 					if recovered.LayoutFallback {
 						recovered.LayoutVersion = 0
 					}
@@ -444,6 +505,9 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 	var result []pairedSentence
 	var issues []error
 	for i, item := range output.Sentences {
+		if item.textConflict {
+			issues = append(issues, fmt.Errorf("句子%s的target_text与text冲突", item.ID))
+		}
 		sentence := pairedSentence{ID: item.ID, FullTarget: item.FullTarget}
 		for _, segment := range item.Segments {
 			sentence.Source = append(sentence.Source, segment.Source)
@@ -643,11 +707,12 @@ func subtitlePositionTime(spans []subtitleTimingSpan, position int, ending bool)
 	return span.start + (span.end-span.start)*int64(max(0, position-span.from))/int64(span.to-span.from)
 }
 
-// BatchTranslateSrtBlocks 按完整句子翻译，以两侧单行长度重新生成成对字幕和共享时间轴。
+// BatchTranslateSrtBlocks 按已准备的源文单元合批翻译，生成成对字幕和共享时间轴。
 // 有词级时间时沿用词时间；仅有 cue 时间时在原 cue 内按原文字符位置估算边界。
 func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util.SrtBlock, originLang, targetLang string, taskPtr *types.SubtitleTask, wordTimings ...[]VttWord) ([]*util.SrtBlock, error) {
 	local := *t
 	local.translationTask = taskPtr
+	local.translationProgress = newTranslationWorkProgress(taskPtr.ReportTranslationWorkProgress)
 	t = &local
 	var texts []string
 	var spans []subtitleTimingSpan

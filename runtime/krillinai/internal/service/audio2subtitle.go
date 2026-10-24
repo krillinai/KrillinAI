@@ -420,6 +420,16 @@ func (s Service) transcribeAudio(
 			err = fmt.Errorf("audioToSubtitle transcribeAudio panic recovered: %v", r)
 		}
 	}()
+	cachePath := audioTranscriptionCheckpointPath(audioFilePath, taskBasePath, language)
+	if cachePath != "" {
+		var cached types.TranscriptionData
+		if data, readErr := os.ReadFile(cachePath); readErr == nil && json.Unmarshal(data, &cached) == nil && validAudioTranscriptionCheckpoint(&cached) {
+			if reportProgress != nil {
+				reportProgress(100)
+			}
+			return &cached, nil
+		}
+	}
 
 	if transcriber, ok := s.Transcriber.(types.ProgressTranscriber); ok {
 		transcriptionData, err = transcriber.TranscriptionWithProgress(
@@ -437,6 +447,11 @@ func (s Service) transcribeAudio(
 	}
 
 	_ = util.SaveToDisk(transcriptionData, filepath.Join(taskBasePath, fmt.Sprintf(types.SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern, id)))
+	if cachePath != "" && validAudioTranscriptionCheckpoint(transcriptionData) {
+		if cacheErr := saveTranslationPresegmentationJSON(cachePath, transcriptionData); cacheErr != nil {
+			log.GetLogger().Warn("转录检查点保存失败，当前转录结果仍可继续使用", zap.Error(cacheErr))
+		}
+	}
 
 	if transcriptionData.Text == "" {
 		log.GetLogger().Info("audioToSubtitle transcribeAudio TranscriptionData.Text is empty", zap.Any("audioFilePath", audioFilePath), zap.Any("taskBasePath", taskBasePath))

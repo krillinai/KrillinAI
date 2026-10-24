@@ -13,6 +13,10 @@ const translationFillerPolicy = `仅译文忽略无实际语义的犹豫音（�
 Subtitle speech cleanup: omit nonsemantic hesitation sounds, e.g. English uh/um/erm, French euh, German äh/ähm, or en/嗯 when context clearly identifies a hesitation. Do not render them as 嗯、呃 or copy them into the target. Apply during drafting, editing, alignment and review; omission is not lost meaning. Preserve actual words (Spanish/French en, German um), affirmative mm-hmm/嗯, negation, uncertainty, emotion, and quoted/demonstrated sounds. Never delete by substring. In segmented-ID tasks ONLY, a group of ONLY unambiguous hesitation sounds may have an empty translation. In complete-parent/layout tasks, absorb such a group into an adjacent nonempty pair. Never invent content or repeat a neighbor to fill a group. All other groups need nonempty contextual translations.`
 
 func withTranslationFillerPolicy(prompt string) string {
+	// 纯切分冻结已有原译，不能再附加删除犹豫音的编辑指令。
+	if strings.HasPrefix(prompt, "Task: translation_length_split\n") {
+		return prompt
+	}
 	if strings.Contains(prompt, translationFillerPolicy) {
 		return prompt
 	}

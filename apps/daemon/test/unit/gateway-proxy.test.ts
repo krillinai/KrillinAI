@@ -9,6 +9,9 @@ import { createDirectRuntime } from '../../src/gateway/direct-runtime.js';
 import Fastify from 'fastify';
 import { createGatewayCreatorSource } from '../../src/gateway/creator-service-source.js';
 import { createDefaultCreatorServicesConfig, gatewayRecommendedModelId } from '@opencreator/protocol';
+import { openRuntimeDatabase } from '../../src/storage/database.js';
+import { createCreatorRepository } from '../../src/creator/repository.js';
+import { CreatorProviderRequestLedger } from '../../src/creator/provider-requests.js';
 
 const bootstrap: GatewayBootstrap = { schemaVersion: 3, transport: 'gateway', supplier: 'chatanywhere', keyRotation: false,
   account: { id: 'wallet-user', email: 'wallet@example.test', verified: true }, keyVersion: 'gateway-v1', bindingVersion: 'wallet-user:gateway:v1',
@@ -88,6 +91,39 @@ it.each([400, 402, 404, 422, 429, 500, 502])('preserves gateway %s and sanitized
     expect(failure).toHaveBeenCalledWith('gpt-4o-mini', 'text', expect.objectContaining({ httpStatus: status, upstreamCode: 'invalid_parameter' }));
     expect(fetcher).toHaveBeenCalledOnce(); expect(recover).not.toHaveBeenCalled();
   } finally { await runtime.close(); }
+});
+
+it.each([400, 422, 429])('records a definitive gateway %s rejection despite a trace ID without querying an unaccepted request', async status => {
+  const root = await mkdtemp(join(tmpdir(), 'gateway-admission-test-'));
+  const db = openRuntimeDatabase(join(root, 'runtime.sqlite'));
+  const repository = createCreatorRepository(db);
+  const job = repository.createJob({ projectId: 'project_test', templateId: 'video-translation', templateVersion: 2, status: 'running', state: {} });
+  const stage = repository.createStageRun({ jobId: job.id, stageId: 'subtitle', executor: 'krillin', status: 'running' });
+  const ledger = new CreatorProviderRequestLedger(repository);
+  const fetcher = vi.fn<typeof fetch>(async () => Response.json({ error: { code: 'output_too_large', message: 'Requested output exceeds the gateway limit of 4096 tokens' } },
+    { status, headers: { 'X-Request-ID': 'trace_admission_rejected' } }));
+  const manual = createDefaultCreatorServicesConfig();
+  const source = createGatewayCreatorSource({ account: {
+    peekState: () => ({ source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready',
+      account: bootstrap.account, bindingVersion: bootstrap.bindingVersion, models: bootstrap.models, selectedModels: bootstrap.defaults, activationError: null }),
+    modelCredentials: async () => ({ accountId: bootstrap.account.id, transport: 'gateway', modelKey: 'device-test', keyVersion: '1',
+      bindingVersion: bootstrap.bindingVersion, baseUrl: bootstrap.baseUrl, models: bootstrap.models, defaults: bootstrap.defaults })
+  }, manual: { read: async () => manual, write: async value => value, reset: async () => manual },
+  getLocalOrigin: () => 'http://127.0.0.1:39999', ledger, fetcher });
+  const app = Fastify();
+  try {
+    await source.register(app);
+    await source.runForJob(job.id, stage.id, async () => {
+      const config = await source.store.read();
+      const result = await app.inject({ method: 'POST', url: '/internal/krillin-llm/gateway/v1/chat/completions',
+        headers: { Authorization: `Bearer ${config.llm.apiKey}` }, payload: { model: config.llm.model, messages: [{ role: 'user', content: 'Translate' }], max_tokens: 6500 } });
+      expect(result.statusCode).toBe(status);
+    });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(ledger.requestsForStage(stage.id)).toEqual([expect.objectContaining({ status: 'failed', remoteTaskId: null })]);
+  } finally {
+    await source.revoke(); await app.close(); db.close(); await rm(root, { recursive: true, force: true });
+  }
 });
 
 it('forwards Creator text, image, speech and subtitles through the gateway with native image parameters', async () => {
@@ -177,7 +213,7 @@ it('migrates defaults, follows new recommendations when idle and persists explic
   let busy = false;
   const activation = vi.fn(async (_value: GatewayBootstrap) => undefined), probe = vi.fn();
   const client = { origin: 'https://gateway.example', bootstrap: vi.fn(async () => structuredClone(current)), refresh: vi.fn(), startDevice: vi.fn(), pollDevice: vi.fn(), cancelDevice: vi.fn(), logout: vi.fn(), avatar: vi.fn(),
-    request: vi.fn(async (path: string) => path === '/api/v1/client/models' ? { models: current.models, defaults: current.defaults, catalogVersion: current.defaults.text } : { account: current.account }) };
+    request: vi.fn(async (path: string) => path?.startsWith('/api/v1/client/models') ? { models: current.models, defaults: current.defaults, catalogVersion: current.defaults.text } : { account: current.account }) };
   const create = () => createGatewayAccountService({ dataDir: root, client, activateRuntime: activation, closeRuntime: async () => undefined, hasActiveTasks: () => busy, hasPendingTasks: () => true, automaticPolling: false, probeModel: probe });
   let service = create();
   try {

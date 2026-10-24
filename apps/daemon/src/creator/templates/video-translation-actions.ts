@@ -3,6 +3,7 @@ import {
   parseBilibiliVideoSource,
   supportedVideoSourcePlatform,
   type CreatorJob,
+  type CreatorServicesConfig,
   type CreatorStageRun,
   type CreatorTtsProvider
 } from '@opencreator/protocol';
@@ -17,6 +18,7 @@ export function createVideoTranslationWorkflow(input: {
   creator: CreatorService;
   dispatcher: Pick<CreatorCommandDispatcher, 'dispatch'>;
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
+  readConfigForJob?(jobId: string): Promise<CreatorServicesConfig>;
   videoMetadataService?: VideoMetadataService;
 }) {
   async function validateStage(job: CreatorJob, stageId: string): Promise<void> {
@@ -28,7 +30,7 @@ export function createVideoTranslationWorkflow(input: {
       validateSource(job);
       await validateBilibiliSource(job, input.videoMetadataService);
       if (job.state.sourceType !== 'subtitle' && job.artifacts.some(artifact => artifact.id === job.state.importedTargetSubtitleId && artifact.kind === 'target_subtitle' && artifact.status === 'completed')) return;
-      const config = await input.configStore.read();
+      const config = await (input.readConfigForJob?.(job.id) ?? input.configStore.read());
       if (
         config.llm.source === 'custom'
         && (
@@ -50,7 +52,7 @@ export function createVideoTranslationWorkflow(input: {
       return;
     }
     if (stageId !== 'tts' || job.state.dubbing !== true) return;
-    const config = await input.configStore.read();
+    const config = await (input.readConfigForJob?.(job.id) ?? input.configStore.read());
     if (!hasTtsCredentials(config, job)) {
       setConfigurationNeeded(input.creator, job.id, {
         code: 'creator_tts_config_missing',

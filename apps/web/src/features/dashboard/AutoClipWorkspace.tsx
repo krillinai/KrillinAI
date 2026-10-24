@@ -21,6 +21,7 @@ import type { VideoMetadataService } from '../../services/video-metadata-service
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
+import { OfficialTaskModelFields } from './official-services.js';
 import {
   createCreatorArtifactObjectUrl,
   useOptionalCreatorSession
@@ -469,6 +470,7 @@ export default function AutoClipWorkspace(props: {
                 </div>
               </div>
               <div className="auto-clip-setting-sections">
+                <OfficialTaskModelFields modalities={['text', 'transcription']} disabled={analyzing || rendering} />
                 <section className="auto-clip-setting-section" aria-labelledby="auto-clip-content-settings-title">
                   <header>
                     <h3 id="auto-clip-content-settings-title">{l('内容识别', 'Content analysis')}</h3>

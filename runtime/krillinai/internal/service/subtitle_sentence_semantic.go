@@ -30,7 +30,7 @@ func (t *Translator) prepareTranslationSentences(ctx context.Context, texts []st
 				return nil, err
 			}
 			sentence = strings.Join(strings.Fields(sentence), " ")
-			// 模型预算与字幕排版独立；所有入口只在这里进行一次预分句。
+			// 旧预处理路径的预算保护；音频与 VTT 默认改由 prepareSourceTranslation 先拆意群。
 			parts, err := splitTranslationSentenceForBudget(sentence, translationSentenceBytes, language)
 			if err != nil {
 				parts, err = splitSubtitleText(sentence, func(s string) bool { return len(s) <= translationSentenceBytes })
@@ -77,6 +77,10 @@ func validTranslationSentenceParts(text string, parts []string, language types.S
 }
 
 func validTranslationSentencePartsWithLimit(text string, parts []string, language types.StandardLanguageCode, maxParts int) bool {
+	return validTranslationSentencePartsWithBudget(text, parts, language, maxParts, translationSentenceBytes)
+}
+
+func validTranslationSentencePartsWithBudget(text string, parts []string, language types.StandardLanguageCode, maxParts, maxBytes int) bool {
 	if len(parts) < 2 || len(parts) > maxParts || !subtitleSegmentsPreserveText(text, parts) || !subtitleSegmentsHaveSafeBoundaries(parts) {
 		return false
 	}
@@ -89,11 +93,11 @@ func validTranslationSentencePartsWithLimit(text string, parts []string, languag
 	position := 0
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		if !hasSubtitleContent(part) || len(part) > translationSentenceBytes {
+		if !hasSubtitleContent(part) || len(part) > maxBytes {
 			return false
 		}
 		position += len(part)
-		if !translationBudgetBoundaryAllowed(protected, position, translationSentenceBytes) || !translationBudgetBoundaryAllowed(wordSpans, position, translationSentenceBytes) {
+		if !translationBudgetBoundaryAllowed(protected, position, maxBytes) || !translationBudgetBoundaryAllowed(wordSpans, position, maxBytes) {
 			return false
 		}
 		position += len(text[position:]) - len(strings.TrimLeftFunc(text[position:], unicode.IsSpace))

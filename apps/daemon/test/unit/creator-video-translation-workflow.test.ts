@@ -126,6 +126,28 @@ describe('video translation workflow', () => {
     fixture.db.close();
   });
 
+  it.each(['subtitle', 'tts'])('uses task configuration instead of incomplete global defaults for %s', async stageId => {
+    const fixture = setup({ dubbing: true });
+    const global = createDefaultCreatorServicesConfig();
+    global.llm.source = 'custom';
+    global.llm.model = '';
+    const selected = structuredClone(global);
+    selected.llm = { ...selected.llm, baseUrl: 'http://127.0.0.1/v1', model: 'deepseek-v4-pro', apiKey: 'local-token' };
+    selected.tts.openai.apiKey = 'local-token';
+    const read = vi.fn(async () => global);
+    const readConfigForJob = vi.fn(async () => selected);
+    const workflow = createVideoTranslationWorkflow({
+      creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read }, readConfigForJob
+    });
+    try {
+      await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, stageId)).resolves.toBeUndefined();
+      expect(readConfigForJob).toHaveBeenCalledWith(fixture.jobId);
+      expect(read).not.toHaveBeenCalled();
+      expect(fixture.service.getJob(fixture.jobId)!.stages).toHaveLength(0);
+    } finally { fixture.db.close(); }
+  });
+
   it.each([
     'https://www.youtube.com/watch?v=xVWS7yHdzCU',
     'https://youtu.be/tAkC-ZdaqWs?si=6LcL-jgzdBaZ1IFD',

@@ -13,10 +13,11 @@ import (
 const defaultRequestTimeout = 2 * time.Minute
 
 type Client struct {
-	client         *openai.Client
-	requestTimeout time.Duration
-	fallback       *Client
-	fallbackModel  string
+	client            *openai.Client
+	requestTimeout    time.Duration
+	fallback          *Client
+	fallbackModel     string
+	fallbackModelName string
 }
 
 func NewClient(baseUrl, apiKey, proxyAddr string) *Client {
@@ -25,6 +26,7 @@ func NewClient(baseUrl, apiKey, proxyAddr string) *Client {
 	if fallback.BaseUrl != "" && fallback.ApiKey != "" && fallback.Model != "" {
 		client.fallback = newClient(fallback.BaseUrl, fallback.ApiKey, proxyAddr, defaultRequestTimeout)
 		client.fallbackModel = fallback.Model
+		client.fallbackModelName = fallback.ModelName
 	}
 	return client
 }

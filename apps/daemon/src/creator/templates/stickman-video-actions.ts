@@ -2,6 +2,7 @@ import type {
   CreatorArtifact,
   CreatorJob,
   CreatorProviderRequest,
+  CreatorServicesConfig,
   CreatorStageRun
 } from '@opencreator/protocol';
 import { readFile } from 'node:fs/promises';
@@ -48,6 +49,7 @@ export function createStickmanVideoWorkflow(input: {
   creator: CreatorService;
   dispatcher: Pick<CreatorCommandDispatcher, 'dispatchWorkflow'>;
   configStore?: Pick<CreatorServicesConfigStore, 'read'>;
+  readConfigForJob?(jobId: string): Promise<CreatorServicesConfig>;
   repository?: CreatorRepository;
   providerLedger?: CreatorProviderRequestLedger;
   providerCapabilities?: CreatorProviderCapabilities;
@@ -425,7 +427,7 @@ export function createStickmanVideoWorkflow(input: {
         quality: typeof job.state.quality === 'string' ? job.state.quality : 'medium'
       };
     }
-    const config = await input.configStore.read();
+    const config = await (input.readConfigForJob?.(job.id) ?? input.configStore.read());
     const settings = resolveCreatorImageSettings({
       config,
       provider: job.state.provider,
@@ -447,7 +449,7 @@ export function createStickmanVideoWorkflow(input: {
         voiceId: typeof job.state.voiceCode === 'string' ? job.state.voiceCode : 'default'
       };
     }
-    const config = await input.configStore.read();
+    const config = await (input.readConfigForJob?.(job.id) ?? input.configStore.read());
     const provider = job.state.ttsProvider === 'openai'
       || job.state.ttsProvider === 'aliyun'
       || job.state.ttsProvider === 'edge-tts'

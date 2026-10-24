@@ -95,6 +95,44 @@ describe('shared native image progress', () => {
 });
 
 describe('video translation component progress', () => {
+  it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('shows saved drafts and pending review without claiming final completion in %s', language => {
+    const localize = createLocalizedCopy(language);
+    const running = { ...stage('subtitle', '', 'running', null, 'subtitle'), progress: {
+      phase: 'translating_subtitles', percent: 30, completed: 0, total: 56,
+      message: '初译 30/56；字幕完成 0/56；正在审校、排版'
+    } };
+    const progress = videoTranslationPanelAdapter.readStageProgress(running, localize);
+    expect(progress).toMatchObject({ percent: 30, completed: 0, total: 56, showMessage: true, showTiming: true });
+    expect(progress.message).toContain('30/56');
+    expect(progress.message).toContain('0/56');
+    expect(progress.message).not.toContain('Waiting for the translation service');
+    expect(videoTranslationPanelAdapter.runningProgressText?.(running, progress, localize)).toContain('0/56');
+    if (language !== 'zh-CN') expect(progress.message).not.toMatch(/\p{Script=Han}/u);
+    for (const message of ['正在整理原文翻译单元', '初译 0/56；字幕完成 0/56；正在整理字幕语境 1/2 段', '初译 30/56；字幕完成 0/56；翻译服务暂时失败，正在重试']) {
+      const detail = videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { ...running.progress, message } }, localize);
+      expect(detail.message).not.toContain('Waiting for the translation service');
+      if (language !== 'zh-CN') expect(detail.message).not.toMatch(/\p{Script=Han}/u);
+    }
+  });
+
+  it('does not display unrecognized translation service messages', () => {
+    const running = { ...stage('subtitle', '', 'running', null, 'subtitle'), progress: {
+      phase: 'translating_subtitles', percent: 15, message: '初译 1/56；字幕完成 0/56；private provider route'
+    } };
+    expect(videoTranslationPanelAdapter.readStageProgress(running, en).message).not.toContain('private provider route');
+  });
+
+  it('keeps saved sentence counts and timing visible during legacy translation recovery', () => {
+    const running = { ...stage('subtitle', '', 'running', null, 'subtitle'), progress: {
+      phase: 'recovering_translation', percent: 62, completed: 38, total: 56, message: 'private provider diagnostic'
+    } };
+    const progress = videoTranslationPanelAdapter.readStageProgress(running, zh);
+    expect(progress).toMatchObject({ percent: 62, completed: 38, total: 56, showTiming: true, showMessage: true });
+    expect(progress.message).toContain('已有结果已保留');
+    expect(progress.message).not.toContain('private provider');
+    expect(videoTranslationPanelAdapter.runningProgressText?.(running, progress, zh)).toContain('38/56');
+  });
+
   it('shows actual completed sentence counts and elapsed time while translating', () => {
     const running = { ...stage('subtitle', '', 'running', null, 'subtitle'), progress: {
       phase: 'translating_subtitles', percent: 5, completed: 0, total: 52

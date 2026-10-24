@@ -131,3 +131,68 @@ func TestSubtitleLayoutReviewPreservesLockedText(t *testing.T) {
 		}
 	}
 }
+
+func TestSubtitleLayoutReviewSplitsOversizedPayloadAndResumesPendingOnly(t *testing.T) {
+	input := pairedTranslationInput{SourceLanguage: "English", TargetLanguage: "简体中文", MaxTargetChars: 75}
+	sentences := make(map[string]pairedSentence)
+	targets := make(map[string]string)
+	for i := 1; i <= 4; i++ {
+		id := fmt.Sprint(i)
+		source := strings.TrimSpace(strings.Repeat("I read books, and I learn. ", 20))
+		target := strings.Repeat("我读书，并从中学习。", 20)
+		sentences[id] = pairedSentence{ID: id, FullSource: source + " " + source, FullTarget: target + target, Source: []string{source, source}, Target: []string{target, target}}
+		targets[id] = target + target
+		input.Sentences = append(input.Sentences, pairedTranslationSource{ID: id, Text: sentences[id].FullSource})
+	}
+	calls := 0
+	firstRun := true
+	translator := &Translator{chatCompleter: semanticTestCompleter(func(_ context.Context, prompt string) (string, error) {
+		calls++
+		if len(prompt) > translationRequestBytes {
+			t.Fatalf("oversized review submitted: %d", len(prompt))
+		}
+		if !firstRun && (strings.Contains(prompt, `"sentence_id":"1"`) || strings.Contains(prompt, `"sentence_id":"3"`) || strings.Contains(prompt, `"sentence_id":"4"`)) {
+			t.Fatal("resume repeated a completed review")
+		}
+		response := layoutReviewTestResponse(prompt, `{"corrections":[]}`)
+		if firstRun {
+			var result map[string]any
+			if err := json.Unmarshal([]byte(response), &result); err != nil {
+				t.Fatal(err)
+			}
+			for _, item := range result["reviews"].([]any) {
+				review := item.(map[string]any)
+				if review["sentence_id"] == "2" {
+					review["aligned"] = false
+				}
+			}
+			data, _ := json.Marshal(result)
+			response = string(data)
+		}
+		return response, nil
+	})}
+	saved := make(map[string]int)
+	save := func(sentence pairedSentence, _ bool) error {
+		saved[sentence.ID]++
+		if sentence.FullTarget != targets[sentence.ID] {
+			t.Fatal("review lost the saved translation")
+		}
+		return nil
+	}
+	if err := translator.reviewPairedLayouts(context.Background(), input, sentences, "en", "zh_cn", save); err != nil {
+		t.Fatal(err)
+	}
+	if calls < 2 || sentences["2"].LayoutReviewed {
+		t.Fatalf("batch was skipped or failed sentence approved: calls=%d reviewed=%t", calls, sentences["2"].LayoutReviewed)
+	}
+	for _, id := range []string{"1", "3", "4"} {
+		if !sentences[id].LayoutReviewed || saved[id] != 1 {
+			t.Fatalf("completed peer was lost or saved repeatedly: id=%s saved=%v", id, saved)
+		}
+	}
+	firstRun = false
+	before := calls
+	if err := translator.reviewPairedLayouts(context.Background(), input, sentences, "en", "zh_cn", save); err != nil || calls != before+1 || !sentences["2"].LayoutReviewed {
+		t.Fatalf("pending review did not recover: calls=%d err=%v", calls, err)
+	}
+}

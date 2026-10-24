@@ -1,9 +1,7 @@
-Split only the supplied overlong source/target pair (sentences[0]); parent_source_text/parent_target_text and terminology are context, not extra output.
-Each side of every segment must be at most max_display_units: wide/fullwidth graphemes count 2, other graphemes/spaces 1; combining marks and joiners add no width. display_target is a soft preference. Use natural clauses or complete phrases, not equal-sized slices. Do not create dangling noun tails such as “书。”, sever modifiers/heads, subjects/predicates, verb/preposition objects, auxiliaries, idioms, names or coordinated quantities. Complete purpose/condition/cause clauses can form successive cues; each cue need not be an independent sentence, but the whole target must read naturally.
-measured_source_hints contain program-counted widths and mechanical candidate cuts, not required cuts. Use them to avoid counting errors while choosing natural bilingual groups. If previous_issue reports an overlong segment, move its boundary earlier or add another group; returning the same overlong span again cannot pass. An existing abandoned start in spontaneous speech may form an interrupted cue with a natural target interruption; do not force its words into a longer grammatical clause.
-Preserve the source verbatim and in order, including punctuation/internal spaces. Keep words, URLs, protected spans and graphemes intact. Every pair must contain corresponding substantive text on both sides, with no line breaks or placeholders.
-Follow the mode specified above for the target. Preserve all meaning, facts, names, terms, quantities, negation, modality, conditions, time and causality; never shorten by deleting information or change other parent pairs. Rewrites undergo independent verification. Correct previous_issue.
-JSON only, returning segments rather than a second full translation:
-{"sentences":[{"sentence_id":"ID","segments":[{"source":"continuous source span","target":"corresponding target span"}]}]}
-
-A complete postmodifier phrase may follow its head in a separate cue if both sides continue naturally, e.g. “a collection of paintings / from different eras” → “一批画作， / 来自不同时代。”. This does not permit internal breaks such as “a / large collection”, missing heads, or borrowing another pair's authors/topics. Preserve each corresponding pair.
+Split this already translated subtitle pair into shorter consecutive bilingual subtitles.
+Each source and target segment must be at most max_display_units. Wide/fullwidth graphemes count as 2; other graphemes and spaces count as 1.
+Insert boundaries only. Preserve ALL source and target wording, punctuation and order exactly. Do not translate, rewrite, add, omit or repeat anything.
+Use the fewest segments that fit. Choose boundaries jointly in both languages: every segment MUST have nonempty source AND target. If a cut would need an empty side or reordered words, choose an earlier or later cut instead.
+Keep corresponding meaning together. Prefer natural phrases or clauses; avoid dangling modifiers, split names and tiny trailing fragments. Subtitles may continue across cues and need not be complete sentences.
+If previous_issue is present, correct that specific error.
+Return JSON only: {"segments":[{"source":"source slice","target":"corresponding target slice"}]}

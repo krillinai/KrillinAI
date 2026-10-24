@@ -18,11 +18,15 @@ import { openRuntimeDatabase } from '../../src/storage/database.js';
 
 const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aC1sAAAAASUVORK5CYII=', 'base64');
 
-async function fixture(prefix: 'ocreq' | 'ocdir', invalidReceipt = false) {
+async function fixture(prefix: 'ocreq' | 'ocdir', invalidReceipt = false, canonical = false) {
   const root = await mkdtemp(join(tmpdir(), 'creator-gateway-image-'));
   const db = openRuntimeDatabase(join(root, 'runtime.sqlite'));
   const model: GatewayModel = { id: 'gpt-image-2', modality: 'image', capabilities: ['generate', 'edit'],
     imageOptions: { maxImages: 1, maxReferences: 1, aspectRatios: ['1:1'], resolutions: ['1K'], qualities: ['low'] } };
+  if (canonical) {
+    model.catalogSchema = 2;
+    model.imageOptions = { maxImages: 1, maxReferences: 1 };
+  }
   const binding = { source: 'gateway' as const, accountId: 'a', bindingVersion: 'a:gateway:v1', supplier: 'chatanywhere' as const,
     models: { image: model.id }, capabilities: { image: model.capabilities } };
   const repository = createCreatorRepository(db, { serviceBinding: () => binding });
@@ -34,6 +38,11 @@ async function fixture(prefix: 'ocreq' | 'ocdir', invalidReceipt = false) {
   const fetcher = vi.fn<typeof fetch>(async (url, options) => {
     expect(String(url)).toMatch(/^https:\/\/gateway\.example\/v1\//);
     if (options?.method === 'POST') {
+      if (canonical) {
+        const body = JSON.parse(String(options.body));
+        expect(body).toMatchObject({ model: model.id, n: 1, prompt: 'A blue square' });
+        for (const key of ['size', 'quality', 'aspect_ratio', 'resolution']) expect(body).not.toHaveProperty(key);
+      }
       const identity = new Headers(options.headers).get('Idempotency-Key')!;
       expect(identity).toBeTruthy();
       identities.push(identity);
@@ -72,7 +81,8 @@ async function fixture(prefix: 'ocreq' | 'ocdir', invalidReceipt = false) {
     executors: [{ id: 'image', run: stage => source.runForJob(stage.job.id, stage.stageRun.id, () => executor.run(stage)) }] });
   const dispatcher = createCreatorCommandDispatcher({ repository, service, receipts: createCreatorAgentRepository(db), queryProviderRequest: source.queryProviderRequest });
   const job = service.createJob({ projectId: 'project', templateId: 'image-generation', templateVersion: 2,
-    state: { prompt: 'A blue square', provider: 'openai', candidateCount: 1, size: '1024x1024', quality: 'low' } });
+    state: { prompt: 'A blue square', provider: 'openai', candidateCount: 1, size: '1024x1024', quality: 'low',
+      ...(canonical ? { aspectRatio: '', resolution: '', officialQuality: '' } : {}) } });
   return { job, repository, dispatcher, runner, source, fetcher, identities, issues,
     async close() { await runner.close(); await source.revoke(); await server.close(); db.close(); await rm(root, { recursive: true, force: true }); } };
 }
@@ -92,6 +102,19 @@ it.each(['ocreq', 'ocdir'] as const)('saves a complete Creator image result from
     expect(f.repository.listIssues(result.id).filter(i => i.status !== 'resolved')).toEqual([]);
     expect(f.identities).toHaveLength(1);
     expect(f.fetcher.mock.calls.some(([url]) => String(url).endsWith('/result'))).toBe(true);
+  } finally { await f.close(); }
+});
+
+it('saves a catalog image without leaking legacy size or empty options into the canonical request', async () => {
+  const f = await fixture('ocreq', false, true);
+  try {
+    const command = f.dispatcher.dispatch(f.job.id, { action: 'run-stage', expectedRevision: f.job.revision,
+      idempotencyKey: 'canonical-generate', input: { stageId: 'generate' } }, 'user');
+    await f.runner.runStageRun(command.commandReceipt.stageRunId!);
+    const result = f.repository.getJob(f.job.id)!;
+    expect(result.status).toBe('completed');
+    expect(await readFile(result.artifacts.find(a => a.kind === 'generated_image')!.path!)).toEqual(image);
+    expect(f.identities).toHaveLength(1);
   } finally { await f.close(); }
 });
 

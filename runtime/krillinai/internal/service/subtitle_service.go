@@ -258,7 +258,7 @@ func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSu
 	}
 	failures := taskPtr.TranslationFailures()
 	return &dto.GetVideoSubtitleTaskResData{
-		Warnings:            types.TranslationWarnings(failures),
+		Warnings:            append(types.TranslationWarnings(failures), taskPtr.TranslationLayoutWarnings()...),
 		TranslationFailures: failures,
 		TaskId:              taskPtr.TaskId,
 		ProcessPercent:      percent,

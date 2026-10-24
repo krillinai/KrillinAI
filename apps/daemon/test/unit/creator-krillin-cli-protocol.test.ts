@@ -7,6 +7,7 @@ import {
   createKrillinCliEnvironment,
   outputMappings,
   parseKrillinCliProgressFrame,
+  resolveKrillinNlpPython,
   resolveKrillinCliSource
 } from '../../src/creator/krillin/cli-runner.js';
 import { createKrillinConfigToml } from '../../src/creator/krillin/config-bridge.js';
@@ -188,6 +189,23 @@ describe('KrillinAI CLI protocol', () => {
     } else {
       expect(env.OPENCREATOR_YT_DLP_COMMAND).toBeUndefined();
     }
+  });
+
+  it('binds NLP to the manifest-pinned interpreter and ignores inherited Python settings', () => {
+    const root = process.platform === 'win32' ? 'C:\\OpenCreator' : '/opt/opencreator';
+    const manifest = {
+      nlp: { executable: 'python/python.exe' },
+      resources: [{ path: 'python/python.exe', kind: 'executable' }]
+    };
+    const python = resolveKrillinNlpPython(root, manifest as never);
+    const env = createKrillinCliEnvironment({ KRILLINAI_NLP_PYTHON: '/untrusted/python', PYTHONPATH: '/untrusted' }, '/runtime', root, '/dependencies', undefined, python);
+    expect(env.KRILLINAI_NLP_PYTHON).toBe(python);
+    expect(env.PYTHONPATH).toBeUndefined();
+    expect(() => resolveKrillinNlpPython(root, { ...manifest, resources: [] } as never)).toThrow('Missing manifest-pinned NLP Python');
+    expect(() => resolveKrillinNlpPython(root, {
+      nlp: { executable: '../python' }, resources: [{ path: '../python', kind: 'executable' }]
+    } as never)).toThrow('resource_path_escape');
+    expect(resolveKrillinNlpPython(root, { resources: [] } as never)).toBeUndefined();
   });
 
   it('parses and constrains progress frames while ignoring result frames', () => {

@@ -1,3 +1,4 @@
+import { gatewayModelDisplayName, gatewayModelIdMatches } from '@opencreator/protocol';
 import {
   creatorPromptMaxLength,
   defaultVideoGenerationModels,
@@ -140,7 +141,7 @@ export default function VideoGenerationWorkspace(props: {
     [model, modelDefaults, provider]
   );
   const activeModel = official.official ? official.model?.id ?? '' : model;
-  const selectedModelLabel = videoModelLabel(activeModel);
+  const selectedModelLabel = official.model ? gatewayModelDisplayName(official.model, l('官方模型', 'Official model')) : videoModelLabel(activeModel);
   const availableSizes = official.official ? gatewayVideoSizes(official.model).map(videoSizeOption) : sizes;
   const selectedSize = availableSizes.find(item => item.value === size) ?? videoSizeOption(size);
   const referenceDuration = official.model?.videoOptions?.referenceDuration;
@@ -220,7 +221,7 @@ export default function VideoGenerationWorkspace(props: {
   const resultModel = readArtifactString(selectedResult?.artifact, 'model')
     ?? readOptionalModel(resultSettings?.model)
     ?? modelDefaults[resultProvider.value];
-  const resultModelLabel = videoModelLabel(resultModel);
+  const resultModelLabel = gatewayModelDisplayName(official.models.find(candidate => gatewayModelIdMatches(candidate.id, resultModel)) ?? { id: resultModel, name: modelLabels[resultModel] }, l('官方模型', 'Official model'));
 
   useEffect(() => {
     if (official.official) return;
@@ -1003,7 +1004,7 @@ function createVideoModelOptions(
 }
 
 function videoModelLabel(model: string): string {
-  return modelLabels[model] ?? model;
+  return modelLabels[model] ?? gatewayModelDisplayName({ id: model }, 'OpenCreator');
 }
 
 function videoSizeOption(value: string): typeof sizes[number] {

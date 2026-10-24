@@ -151,6 +151,27 @@ func TestSubtitleFinalLengthRecoveryIntegration(t *testing.T) {
 					content = []byte(`{"reviews":[{"sentence_id":"1","aligned":true,"natural_boundaries":true,"reason":"固定样例配对与切口对应"}],"corrections":[]}`)
 				case strings.HasPrefix(prompt, "任务：translation_length_boundary_review\n"):
 					content = []byte(`{"acceptable":true,"reason":"阅读的原因与向朋友分享两段均保持完整。"}`)
+				case strings.HasPrefix(prompt, "Task: translation_length_split\n"):
+					_, payload, _ := strings.Cut(prompt, "Input JSON:\n")
+					var input struct {
+						Source string `json:"source"`
+						Target string `json:"target"`
+						Limit  int    `json:"max_display_units"`
+					}
+					if err := json.Unmarshal([]byte(payload), &input); err != nil || input.Source != source || input.Target != target || input.Limit != 75 {
+						t.Errorf("局部切分未冻结原译或显示上限: %+v err=%v", input, err)
+						http.Error(w, "invalid local split input", http.StatusBadRequest)
+						return
+					}
+					splits.Add(1)
+					segments := []any{map[string]string{"source": source, "target": target}}
+					if ready.Load() {
+						segments = []any{
+							map[string]string{"source": "I read books because they help me understand the world,", "target": "我读书是因为书能帮助我理解世界，"},
+							map[string]string{"source": "and I share what I learn with my friends.", "target": "我也会把学到的东西分享给朋友。"},
+						}
+					}
+					content, _ = json.Marshal(map[string]any{"segments": segments})
 				default:
 					_, payload, _ := strings.Cut(prompt, "输入 JSON：\n")
 					var input struct {
@@ -165,18 +186,7 @@ func TestSubtitleFinalLengthRecoveryIntegration(t *testing.T) {
 						return
 					}
 					segments := []any{map[string]string{"source": source, "target": target}}
-					if strings.HasPrefix(prompt, "任务：translation_length_split\n") {
-						splits.Add(1)
-						if ready.Load() {
-							if input.Sentences[0].TargetText != target {
-								t.Error("续跑未冻结已有完整译文")
-							}
-							segments = []any{
-								map[string]string{"source": "I read books because they help me understand the world,", "target": "我读书是因为书能帮助我理解世界，"},
-								map[string]string{"source": "and I share what I learn with my friends.", "target": "我也会把学到的东西分享给朋友。"},
-							}
-						}
-					} else if input.Sentences[0].TargetText == "" {
+					if input.Sentences[0].TargetText == "" {
 						translations.Add(1)
 					}
 					content, _ = json.Marshal(map[string]any{"sentences": []any{map[string]any{"sentence_id": "1", "target_text": target, "segments": segments}}})

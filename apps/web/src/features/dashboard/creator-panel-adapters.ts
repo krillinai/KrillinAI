@@ -15,6 +15,7 @@ export type NormalizedCreatorActivity = {
 };
 
 export type CreatorStageProgressView = {
+  summary?: string;
   detailsHref?: string;
   showMessage?: boolean;
   showTiming?: boolean;
@@ -122,6 +123,7 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
       processing_platform_captions: l('解析平台字幕', 'Processing platform captions'),
       fallback_to_transcription: l('切换到语音转录', 'Switching to audio transcription', 'Byter till ljudtranskription'),
       translating_subtitles: l('翻译字幕', 'Translating subtitles'),
+      recovering_translation: l('恢复字幕处理，已有结果已保留', 'Recovering subtitle processing; existing results are saved', 'Återställer undertextbearbetning; befintliga resultat är sparade'),
       importing_subtitles: l('读取字幕文件', 'Reading subtitle file'),
       collecting_subtitles: l('生成双语字幕', 'Generating bilingual subtitles'),
       preparing_original_media: l('准备原始视频', 'Preparing the original video'),
@@ -155,6 +157,7 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
     if (progress.total !== null && progress.total > 0 && progress.completed !== null) {
       const amount = `${progress.completed}/${progress.total}`;
       if (progress.phase === 'translating_subtitles') return l(`翻译字幕，已完成 ${amount} 句`, `Translating subtitles, ${amount} sentences completed`);
+      if (progress.phase === 'recovering_translation') return l(`正在恢复字幕处理，已完成 ${amount} 句`, `Recovering subtitle processing, ${amount} sentences completed`, `Återställer undertextbearbetning, ${amount} meningar klara`);
       if (progress.phase === 'processing_audio') return l(`处理音频，字幕翻译完成 ${amount} 段`, `Processing audio, ${amount} segments translated`);
       if (progress.phase === 'transcribing_audio') return l(`识别语音，已完成 ${amount} 段`, `Transcribing audio, ${amount} segments completed`);
       if (progress.phase === 'generating_voice') return l(`生成配音，已完成 ${amount} 段`, `Generating dubbing, ${amount} segments completed`);
@@ -227,10 +230,15 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
     const phaseLabel = phase === null ? null : videoTranslationPanelAdapter.phaseLabel(phase, localize);
     const translating = phase === 'translating_subtitles';
     const detailed = phase !== null && videoTranslationDetailedPhases.has(phase);
-    const detailMessage = translating
-      ? localize('正在等待翻译服务返回结果，进度随已完成的句子更新。', 'Waiting for the translation service. Progress updates as sentences are completed.')
-      : localizeVideoProgressMessage(standard.message ?? readString(legacy?.message), localize) ?? phaseLabel;
+    const rawMessage = standard.message ?? readString(legacy?.message);
+    const localizedMessage = localizeVideoProgressMessage(rawMessage, localize);
+    const detailMessage = localizedMessage
+      ?? (translating
+        ? localize('正在等待翻译服务返回结果，进度随已完成的句子更新。', 'Waiting for the translation service. Progress updates as sentences are completed.')
+        : phaseLabel);
     return {
+      summary: translating && localizedMessage !== null && /^初译 \d+\/\d+；字幕完成 \d+\/\d+；/.test(rawMessage ?? '')
+        ? detailMessage ?? undefined : undefined,
       percent: standard.percent ?? readFiniteNumber(legacy?.percent),
       phase,
       showTiming: detailed,
@@ -312,13 +320,24 @@ function videoTranslationTaskProgress(job: CreatorJob, l: CreatorPanelLocalize):
 const videoTranslationDetailedPhases = new Set([
   'preparing_source', 'reading_platform_captions', 'processing_platform_captions',
   'preparing_original_media', 'preparing_audio', 'downloading_media', 'extracting_audio',
-  'transcribing_audio', 'processing_audio', 'translating_subtitles', 'planning_voice',
+  'transcribing_audio', 'processing_audio', 'translating_subtitles', 'recovering_translation', 'planning_voice',
   'generating_voice', 'fitting_voice', 'assembling_voice', 'muxing_voice',
   'preparing_render', 'rendering_video'
 ]);
 
 function localizeVideoProgressMessage(message: string | null, l: CreatorPanelLocalize): string | null {
   if (message === null) return null;
+  const subtitleWork = /^初译 (\d+)\/(\d+)；字幕完成 (\d+)\/(\d+)；(.+)$/.exec(message);
+  if (subtitleWork) {
+    const detail = localizeSubtitleWorkStep(subtitleWork[5]!, l);
+    if (detail !== null) return l(
+      `初译 ${subtitleWork[1]}/${subtitleWork[2]}；字幕完成 ${subtitleWork[3]}/${subtitleWork[4]}；${detail}`,
+      `Drafts ${subtitleWork[1]}/${subtitleWork[2]}; subtitles finished ${subtitleWork[3]}/${subtitleWork[4]}; ${detail}`,
+      `Utkast ${subtitleWork[1]}/${subtitleWork[2]}; färdiga undertexter ${subtitleWork[3]}/${subtitleWork[4]}; ${detail}`
+    );
+  }
+  const subtitleStep = localizeSubtitleWorkStep(message, l);
+  if (subtitleStep !== null) return subtitleStep;
   const audio = /^音频分段 (\d+)\/(\d+)；语音识别 (\d+)\/(\d+) 段；字幕翻译 (\d+)\/(\d+) 段(?:；第 (\d+) 段识别 (\d+)%)?(?:；第 (\d+) 段已翻译 (\d+)\/(\d+) 句)?$/.exec(message);
   if (audio) {
     const base = l(`音频分段 ${audio[1]}/${audio[2]}；语音识别 ${audio[3]}/${audio[4]} 段；字幕翻译 ${audio[5]}/${audio[6]} 段`, `Audio split ${audio[1]}/${audio[2]}; transcribed ${audio[3]}/${audio[4]} segments; translated ${audio[5]}/${audio[6]} segments`);
@@ -348,6 +367,34 @@ function localizeVideoProgressMessage(message: string | null, l: CreatorPanelLoc
   if (connecting) return l(message, `Connecting to the source to download ${connecting[1] === '视频' ? 'video' : 'audio'}`);
   const downloaded = /^(视频|音频)下载完成，正在处理媒体文件$/.exec(message);
   if (downloaded) return l(message, `${downloaded[1] === '视频' ? 'Video' : 'Audio'} download complete; processing media files`);
+  return null;
+}
+
+// Only known service statuses are displayed. Raw model/service diagnostics can
+// contain private routing information and belong in the diagnostic view.
+function localizeSubtitleWorkStep(message: string, l: CreatorPanelLocalize): string | null {
+  const labels: Record<string, string> = {
+    '正在整理原文翻译单元': l('正在整理原文翻译单元', 'Preparing source translation units', 'Förbereder översättningsenheter'),
+    '正在整理字幕语境': l('正在整理字幕语境', 'Preparing subtitle context', 'Förbereder undertextkontext'),
+    '正在汇总字幕语境': l('正在汇总字幕语境', 'Summarizing subtitle context', 'Sammanfattar undertextkontext'),
+    '正在恢复已有翻译结果': l('正在恢复已有翻译结果', 'Restoring saved translations', 'Återställer sparade översättningar'),
+    '正在整理字幕结果': l('正在整理字幕结果', 'Collecting subtitle results', 'Samlar undertextresultat'),
+    '翻译服务暂时失败，正在重试': l('翻译服务暂时失败，正在重试', 'Translation service temporarily failed; retrying', 'Översättningstjänsten misslyckades tillfälligt; försöker igen'),
+    '翻译服务暂时失败，保留已有结果继续处理': l('翻译服务暂时失败，保留已有结果继续处理', 'Translation service temporarily failed; continuing with saved results', 'Översättningstjänsten misslyckades tillfälligt; fortsätter med sparade resultat'),
+    '正在恢复翻译，已保留已有结果': l('正在恢复翻译，已保留已有结果', 'Recovering translation; existing results are saved', 'Återställer översättningen; befintliga resultat är sparade')
+  };
+  if (labels[message]) return labels[message];
+  const context = /^正在整理字幕语境 (\d+)\/(\d+) 段$/.exec(message);
+  if (context) return l(message, `Preparing subtitle context ${context[1]}/${context[2]} sections`, `Förbereder undertextkontext ${context[1]}/${context[2]} avsnitt`);
+  if (/^正在(?:初译|审校|排版)(?:、(?:初译|审校|排版))*$/.test(message)) {
+    const steps: Record<string, string> = {
+      初译: l('初译', 'drafting', 'utkast'),
+      审校: l('审校', 'reviewing', 'granskning'),
+      排版: l('排版', 'laying out subtitles', 'undertextlayout')
+    };
+    const detail = message.slice(2).split('、').map(step => steps[step]).join(l('、', ', ', ', '));
+    return l(`正在${detail}`, `In progress: ${detail}`, `Pågår: ${detail}`);
+  }
   return null;
 }
 

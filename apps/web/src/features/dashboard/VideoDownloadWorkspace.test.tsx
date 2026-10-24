@@ -1,3 +1,4 @@
+import { changeControl } from '../../test/select-option.js';
 import type {
   CreatorActionRequest,
   CreatorActionResponse,
@@ -429,7 +430,7 @@ describe('VideoDownloadWorkspace', () => {
     expect(language).toHaveValue('en');
     expect(screen.getByText(/音频: .*\(en\)/)).toBeInTheDocument();
 
-    fireEvent.change(language, { target: { value: 'es' } });
+    changeControl(language, { target: { value: 'es' } });
 
     expect(language).toHaveValue('es');
     expect(screen.getByText(/音频: .*\(es\)/)).toBeInTheDocument();

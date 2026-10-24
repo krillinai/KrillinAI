@@ -41,7 +41,7 @@ func TestBatchTranslateSrtBlocksKeepsOriginalAfterReviewAndRepairExhaustion(t *t
 						return "invalid-json", nil
 					}
 					return `{"accepted_ids":[],"reason":"一本书改变了原文的大量藏书。"}`, nil
-				case strings.HasPrefix(prompt, "任务：translation_length_split\n"):
+				case strings.HasPrefix(prompt, "Task: translation_length_split\n"):
 					splits++
 					return `{"sentences":[]}`, nil
 				}
@@ -96,7 +96,7 @@ func TestSubtitleRepairBatchFailureKeepsOriginalsAndContinues(t *testing.T) {
 		}
 		return nil
 	})
-	if err != nil || completed != 3 || calls != 3 {
+	if err != nil || completed != 3 || calls != 2 {
 		t.Fatalf("completed=%d calls=%d err=%v", completed, calls, err)
 	}
 }

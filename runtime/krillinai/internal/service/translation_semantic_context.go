@@ -215,6 +215,10 @@ func (t *Translator) semanticJSON(ctx context.Context, task, prompt string, inpu
 	// 损坏缓存的部分字段不能混入随后模型返回的 JSON。
 	reflect.ValueOf(result).Elem().SetZero()
 	if err != nil {
+		if permanentTranslationServiceError(err) {
+			return false, err
+		}
+		t.translationProgress.notice("翻译服务暂时失败，保留已有结果继续处理")
 		return false, nil
 	}
 	data := util.ExtractJSONObject(response, key)
@@ -264,11 +268,15 @@ func (t *Translator) prepareTranslationSemanticPlan(ctx context.Context, texts [
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	// 实验路径的内容指纹包含最终语境计划。可选摘要失败后也必须
-	// 固定已采用的降级计划，否则恢复时摘要偶然成功会导致全片重译。
+	// 内容指纹包含最终语境计划。可选摘要失败后也必须固定已采用
+	// 的降级计划，否则恢复时摘要偶然成功会导致全片重译。
 	planPath := ""
-	if t.segmentTranslation && t.checkpointDir != "" {
-		identity, _ := json.Marshal([]any{"segment-plan-v1", segmentedFlowVersion(), translationSemanticContextPrompt, translationSemanticSummaryPrompt, texts, originLang, targetLang, config.Conf.Llm.Model, config.Conf.Llm.BaseUrl})
+	if t.checkpointDir != "" {
+		version := "legacy-plan-v1"
+		if t.segmentTranslation {
+			version = "segment-plan-v1"
+		}
+		identity, _ := json.Marshal([]any{version, segmentedFlowVersion(), translationSemanticContextPrompt, translationSemanticSummaryPrompt, texts, originLang, targetLang, config.Conf.Llm.Model, config.Conf.Llm.BaseUrl})
 		hash := sha256.Sum256(identity)
 		planPath = filepath.Join(t.checkpointDir, "translation-plans", hex.EncodeToString(hash[:])+".json")
 		var cached translationSemanticPlan
@@ -278,7 +286,9 @@ func (t *Translator) prepareTranslationSemanticPlan(ctx context.Context, texts [
 	}
 	plan := &translationSemanticPlan{}
 	var summaries []string
-	for _, sources := range translationSemanticSections(texts) {
+	sections := translationSemanticSections(texts)
+	for index, sources := range sections {
+		t.translationProgress.prepare(len(texts), fmt.Sprintf("正在整理字幕语境 %d/%d 段", index+1, len(sections)))
 		var result translationSemanticContext
 		input := struct {
 			SourceLanguage string                      `json:"source_language"`
@@ -301,9 +311,11 @@ func (t *Translator) prepareTranslationSemanticPlan(ctx context.Context, texts [
 		start, _ := strconv.Atoi(sources[0].ID)
 		end, _ := strconv.Atoi(sources[len(sources)-1].ID)
 		plan.Sections = append(plan.Sections, translationSemanticSection{start, end, result})
+		t.translationProgress.prepared(40 + (index+1)*50/len(sections))
 	}
 	// 分层汇总所有章节，限制每次请求的大小；不截掉长视频后半段。
 	for len(summaries) > 1 {
+		t.translationProgress.prepare(len(texts), "正在汇总字幕语境")
 		var next []string
 		for start := 0; start < len(summaries); {
 			end := start + 1
@@ -424,9 +436,10 @@ func compactTranslationSemanticContext(value *translationBatchSemanticContext) *
 }
 
 type preparedTranslationContext struct {
-	Texts    []string
-	NLPHints [][]string
-	Plan     *translationSemanticPlan
+	Texts       []string
+	NLPHints    [][]string
+	Plan        *translationSemanticPlan
+	SourceUnits []translationSourceUnit
 }
 
 // 音频转录可乱序完成；翻译前按原始顺序读取全部片段，共享全片主题，
@@ -438,16 +451,30 @@ func (t *Translator) prepareAudioTranslationContexts(ctx context.Context, items 
 		if _, exists := prepared[item.Id]; exists {
 			return nil, fmt.Errorf("重复音频段%d", item.Id)
 		}
-		texts, err := t.prepareTranslationSentences(ctx, []string{item.Data}, originLang)
+		var value *preparedTranslationContext
+		if t.sourceSegmentation && !t.segmentTranslation {
+			var err error
+			value, err = t.prepareSourceTranslation(ctx, []string{item.Data}, originLang)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			texts, err := t.prepareTranslationSentences(ctx, []string{item.Data}, originLang)
+			if err != nil {
+				return nil, err
+			}
+			value = &preparedTranslationContext{Texts: texts}
+		}
+		prepared[item.Id] = value
+		allTexts = append(allTexts, value.Texts...)
+	}
+	var hints [][]string
+	if !t.sourceSegmentation || t.segmentTranslation {
+		var err error
+		hints, err = t.prepareTranslationNLPHints(ctx, allTexts, originLang)
 		if err != nil {
 			return nil, err
 		}
-		prepared[item.Id] = &preparedTranslationContext{Texts: texts}
-		allTexts = append(allTexts, texts...)
-	}
-	hints, err := t.prepareTranslationNLPHints(ctx, allTexts, originLang)
-	if err != nil {
-		return nil, err
 	}
 	plan, err := t.prepareTranslationSemanticPlan(ctx, allTexts, originLang, targetLang)
 	if err != nil {

@@ -246,7 +246,7 @@ async function setupCatalogAccount(hasActiveTasks = () => false, deferStartupAct
   f.client.bootstrap.mockResolvedValue(raw);
   const request = vi.spyOn(f.client, 'request').mockImplementation(async (path?: string) => {
     if (path === '/api/v1/client/probe-credentials') throw new Error('Automatic probing must not request credentials');
-    return path === '/api/v1/client/models' ? { models: raw.models } : { account: raw.account };
+    return path?.startsWith('/api/v1/client/models') ? { models: raw.models } : { account: raw.account };
   });
   return { ...f, raw, fetcher, request,
     setCatalogIDs(value: string[]) { ids = value; failure = undefined; }, setFailure(status: number) { failure = status; },
@@ -888,7 +888,7 @@ it('recovers a rejected cached model key through binding sync without inference 
   raw = { ...await f.client.bootstrap('access-1'), transport: 'openrouter-direct', baseUrl: 'https://openrouter.ai/api/v1',
     modelKey: 'rejected-key', keyRotation: false, modelUsePolicy: 'cached-key-v1' };
   f.client.bootstrap.mockResolvedValue(raw);
-  vi.spyOn(f.client, 'request').mockImplementation(async (path?: string) => path === '/api/v1/client/models' ? { models: raw.models } : { account: raw.account });
+  vi.spyOn(f.client, 'request').mockImplementation(async (path?: string) => path?.startsWith('/api/v1/client/models') ? { models: raw.models } : { account: raw.account });
   const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
   expect(f.service.peekState()).toMatchObject({ authState: 'signed_in', activationState: 'blocked' });
   raw = { ...raw, modelKey: 'replacement-key', keyVersion: '2' }; f.client.bootstrap.mockResolvedValue(raw);
@@ -947,7 +947,7 @@ it('coordinates concurrent direct uses and refreshes a replaced user key private
   f.client.bootstrap.mockImplementation(async () => binding);
   vi.spyOn(f.client, 'request').mockImplementation(async (path?: string, _access?: string, body?: unknown) => {
     if (path === '/api/v1/client/usage') { states.push(body as { busy: boolean; pending: boolean }); return { keyVersion: currentVersion }; }
-    if (path === '/api/v1/client/models') return { models: binding.models };
+    if (path?.startsWith('/api/v1/client/models')) return { models: binding.models };
     return { account: binding.account };
   });
   const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
@@ -971,7 +971,7 @@ it('automatically requests migration on restart and defers it for pending suppli
   const original = { ...await f.client.bootstrap('access-1'), keyRotation: true };
   f.client.bootstrap.mockResolvedValue(original);
   vi.spyOn(f.client, 'request').mockImplementation(async (path?: string) => path === '/api/v1/client/usage'
-    ? { keyVersion: original.keyVersion } : path === '/api/v1/client/models' ? { models: original.models } : { account: original.account });
+    ? { keyVersion: original.keyVersion } : path?.startsWith('/api/v1/client/models') ? { models: original.models } : { account: original.account });
   const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
   await f.service.close();
   for (const pending of [true, false]) {
@@ -996,7 +996,7 @@ it.each([false, true])('旧轮换凭据收到迁移提示后切换网关，无�
   f.client.bootstrap.mockResolvedValue(gateway);
   const request = vi.spyOn(f.client, 'request').mockImplementation(async path => {
     if (path === '/api/v1/client/usage') throw new GatewayError('gateway_migrated', 409, { path, reason: 'http', httpStatus: 409 });
-    return path === '/api/v1/client/models' ? { models: gateway.models } : { account: gateway.account };
+    return path?.startsWith('/api/v1/client/models') ? { models: gateway.models } : { account: gateway.account };
   });
   try {
     await f.service.initialize();
@@ -1119,7 +1119,7 @@ it('refreshes the official catalog when idle, preserving choices and deferring p
   const image = { id: 'image', modality: 'image' as const, capabilities: ['edit'] };
   let catalog: GatewayBootstrap['models'] = [first, second];
   f.client.bootstrap.mockImplementation(async () => ({ schemaVersion: 1, account: { id: '1', email: '1@example.test', verified: true }, modelKey: 'private-key', keyVersion: '1', bindingVersion: 'catalog-version', baseUrl: 'https://gateway.example/v1', models: catalog, defaults: { text: 'first' } }));
-  vi.spyOn(f.client, 'request').mockImplementation(async (path?: string) => path === '/api/v1/client/models' ? { models: catalog } : { account: { id: '1', email: '1@example.test', verified: true } });
+  vi.spyOn(f.client, 'request').mockImplementation(async (path?: string) => path?.startsWith('/api/v1/client/models') ? { models: catalog } : { account: { id: '1', email: '1@example.test', verified: true } });
   const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
   await f.service.selectModel('text', 'second');
   const start = Date.now(); const clock = vi.spyOn(Date, 'now').mockReturnValue(start + 31_000);

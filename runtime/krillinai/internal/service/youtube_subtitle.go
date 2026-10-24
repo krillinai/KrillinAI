@@ -703,8 +703,10 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 
 	// 用于跟踪已处理的单词，避免重复
 	processedWords := make(map[string]bool)
-	// 用于跟踪单词文本，避免同一个单词重复添加
-	seenWordTexts := make(map[string]bool)
+	// YouTube 滚动字幕会在相邻 cue 重显上一行。只消除这种有时间和
+	// cue 结构证据的重复，不能按全文词表删除稍后真正再次说出的单词。
+	var cueLines, previousCueLines []string
+	var previousStart, previousEnd float64
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -717,6 +719,9 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 
 		// 检查是否是时间戳行（可能包含align等属性）
 		if matches := timestampLineRegex.FindStringSubmatch(line); len(matches) >= 3 {
+			previousCueLines, cueLines = cueLines, nil
+			previousStart, _ = s.parseVttTime(blockStartTime)
+			previousEnd, _ = s.parseVttTime(blockEndTime)
 			blockStartTime = matches[1]
 			blockEndTime = matches[2]
 			log.GetLogger().Debug("发现时间戳", zap.String("开始", blockStartTime), zap.String("结束", blockEndTime))
@@ -732,6 +737,8 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 			if strings.TrimSpace(cleanedLine) == "" {
 				continue
 			}
+			visibleLine := strings.TrimSpace(wordTimeRegex.ReplaceAllString(styleTagRegex.ReplaceAllString(cleanedLine, ""), ""))
+			cueLines = append(cueLines, visibleLine)
 
 			// 优先处理包含内联时间戳的行（这些是真正的单词级时间戳数据）
 			if wordTimeRegex.MatchString(cleanedLine) {
@@ -758,8 +765,6 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 					if !processedWords[wordKey] {
 						words = append(words, word)
 						processedWords[wordKey] = true
-						// 同时记录这个单词文本已经被处理过
-						seenWordTexts[strings.ToLower(word.Text)] = true
 						log.GetLogger().Debug("添加带时间戳的单词",
 							zap.String("文本", word.Text),
 							zap.String("开始", word.Start),
@@ -778,9 +783,16 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 
 				// 检查是否为有效的单个单词
 				if s.isValidSingleWord(trimmedLine) {
-					// 检查这个单词文本是否已经被处理过（忽略大小写）
-					wordTextLower := strings.ToLower(trimmedLine)
-					if seenWordTexts[wordTextLower] {
+					start, _ := s.parseVttTime(blockStartTime)
+					end, _ := s.parseVttTime(blockEndTime)
+					rollingRepeat := false
+					if start >= previousEnd && start-previousEnd <= 0.021 &&
+						(len(previousCueLines) > 1 || previousEnd-previousStart <= 0.021 || end-start <= 0.021) {
+						for _, previous := range previousCueLines {
+							rollingRepeat = rollingRepeat || previous == trimmedLine
+						}
+					}
+					if rollingRepeat {
 						log.GetLogger().Debug("跳过重复单词",
 							zap.String("文本", trimmedLine),
 							zap.String("时间", blockStartTime+" -> "+blockEndTime))
@@ -805,7 +817,6 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 						}
 						words = append(words, word)
 						processedWords[wordKey] = true
-						seenWordTexts[wordTextLower] = true
 						log.GetLogger().Debug("添加单个单词",
 							zap.String("文本", trimmedLine),
 							zap.String("开始", blockStartTime),
