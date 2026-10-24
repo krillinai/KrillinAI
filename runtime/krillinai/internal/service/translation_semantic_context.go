@@ -445,6 +445,12 @@ type preparedTranslationContext struct {
 // 音频转录可乱序完成；翻译前按原始顺序读取全部片段，共享全片主题，
 // 再把有证据的术语作用域映射回各音频段的局部句子ID，保持原有时间定位。
 func (t *Translator) prepareAudioTranslationContexts(ctx context.Context, items []DataWithId[string], originLang, targetLang types.StandardLanguageCode) (map[int]*preparedTranslationContext, error) {
+	if t.semanticSourceUnits && t.nlpRuntime == nil {
+		local := *t
+		local.nlpRuntime = newTranslationNLPRuntime(ctx)
+		defer local.nlpRuntime.close()
+		t = &local
+	}
 	prepared := make(map[int]*preparedTranslationContext, len(items))
 	var allTexts []string
 	for _, item := range items {
@@ -452,7 +458,13 @@ func (t *Translator) prepareAudioTranslationContexts(ctx context.Context, items 
 			return nil, fmt.Errorf("重复音频段%d", item.Id)
 		}
 		var value *preparedTranslationContext
-		if t.sourceSegmentation && !t.segmentTranslation {
+		if t.semanticSourceUnits {
+			texts, err := t.prepareSemanticTranslationUnits(ctx, []string{item.Data}, originLang)
+			if err != nil {
+				return nil, err
+			}
+			value = &preparedTranslationContext{Texts: texts}
+		} else if t.sourceSegmentation && !t.segmentTranslation {
 			var err error
 			value, err = t.prepareSourceTranslation(ctx, []string{item.Data}, originLang)
 			if err != nil {
@@ -469,7 +481,7 @@ func (t *Translator) prepareAudioTranslationContexts(ctx context.Context, items 
 		allTexts = append(allTexts, value.Texts...)
 	}
 	var hints [][]string
-	if !t.sourceSegmentation || t.segmentTranslation {
+	if !t.semanticSourceUnits && (!t.sourceSegmentation || t.segmentTranslation) {
 		var err error
 		hints, err = t.prepareTranslationNLPHints(ctx, allTexts, originLang)
 		if err != nil {

@@ -120,6 +120,9 @@ func (t *Translator) refineTranslationSentenceWithPrompt(ctx context.Context, te
 		return nil, err
 	}
 	prompt := instructions + "\n" + string(input)
+	if len(prompt) > translationRequestBytes {
+		return fallback, nil // 可选分句失败不阻止翻译；之后仍做本地预算保护。
+	}
 	valid := func(parts []string) bool {
 		return (len(fallback) == 1 && len(text) <= translationSentenceBytes && len(parts) == 1 && parts[0] == text) || validTranslationSentencePartsWithLimit(text, parts, language, maxParts)
 	}

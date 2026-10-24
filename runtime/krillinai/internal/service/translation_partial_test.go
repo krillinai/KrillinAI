@@ -226,13 +226,13 @@ func TestPartialLayoutKeepsEarlierVerifiedImprovementAfterLaterFailure(t *testin
 			verified++
 			return `{"acceptable":true,"reason":"完整且逐段对应"}`, nil
 		}
-		if strings.HasPrefix(prompt, "Task: translation_length_split\n") {
-			input, err := decodeFrozenSplitTestInput(prompt)
-			if err == nil && input.Source == best.FullSource {
+		if strings.HasPrefix(prompt, "任务：translation_length_split\n") {
+			input, err := decodePairedTestInput(prompt)
+			if err == nil && input.Sentences[0].Text == best.FullSource {
 				candidate := best
 				candidate.ID = "1"
-				verified++
-				return encodeFrozenSplitTestResponse(candidate), nil
+				data, err := encodePairedTestResponse([]pairedSentence{candidate})
+				return string(data), err
 			}
 		}
 		return "", errors.New("后续片段及父句修复接口不可用")

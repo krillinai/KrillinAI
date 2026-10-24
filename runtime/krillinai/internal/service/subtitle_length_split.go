@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"krillin-ai/internal/types"
 	"krillin-ai/pkg/util"
@@ -11,20 +12,50 @@ import (
 	"strings"
 )
 
-// 普通排版仍使用配置的软目标；最终逐条检查原译双方的上限。
-const subtitleFinalDisplayLimit = 75
+// 生成、拆分与最终检查共用任务配置；无效值沿用全局默认。
+func subtitleDisplayLimit(input pairedTranslationInput) int {
+	if input.MaxTargetChars > 0 {
+		return input.MaxTargetChars
+	}
+	return subtitleTargetLimit()
+}
+
+var errFinalLayoutExhausted = errors.New("单行排版重试耗尽")
+var errFinalLayoutUnavailable = fmt.Errorf("%w：排版服务不可用", errFinalLayoutExhausted)
 
 //go:embed subtitle_length_split_prompt.txt
 var subtitleLengthSplitPrompt string
 
-// 纯切分只发送当前配对及程序实测长度，不发送父句、术语、NLP或全文语境。
 type subtitleLengthSplitInput struct {
-	Source             string `json:"source"`
-	Target             string `json:"target"`
-	SourceDisplayUnits int    `json:"source_display_units"`
-	TargetDisplayUnits int    `json:"target_display_units"`
+	pairedTranslationInput
+	OriginalTarget     string `json:"original_target_text"`
+	DisplayTarget      int    `json:"display_target"`
 	MaxDisplayUnits    int    `json:"max_display_units"`
+	MinSegments        int    `json:"minimum_segments"`
+	AllowTargetRewrite bool   `json:"allow_target_rewrite"`
 	PreviousIssue      string `json:"previous_issue,omitempty"`
+}
+
+// 重拆只发送当前原译配对；父句、全文语境和 NLP 副本留给原有独立核验，
+// 避免重复正文与不断增长的错误反馈挤占重试预算。
+func newSubtitleLengthSplitInput(input pairedTranslationInput, source pairedTranslationSource, rewrite bool, issue string) subtitleLengthSplitInput {
+	limit := subtitleDisplayLimit(input)
+	local := pairedTranslationSource{ID: source.ID, Text: source.Text}
+	if !rewrite {
+		local.TargetText = source.TargetText
+	}
+	return subtitleLengthSplitInput{
+		pairedTranslationInput: pairedTranslationInput{
+			SourceLanguage: input.SourceLanguage, TargetLanguage: input.TargetLanguage,
+			MaxSourceChars: limit, MaxTargetChars: limit, MaxFullwidthChars: limit / 2,
+			PreserveFinalBoundaries: true, AllowLengthOverflow: true,
+			Sentences: []pairedTranslationSource{local},
+		},
+		OriginalTarget: source.TargetText, DisplayTarget: limit,
+		MaxDisplayUnits: limit, AllowTargetRewrite: rewrite,
+		MinSegments:   max(2, (max(subtitleTargetLength(source.Text), subtitleTargetLength(source.TargetText))+limit-1)/limit),
+		PreviousIssue: subtitleTextPreview(issue, 600),
+	}
 }
 
 type subtitleMeasuredSpan struct {
@@ -34,7 +65,7 @@ type subtitleMeasuredSpan struct {
 
 // 只提供可验证的宽度参考，切口仍由模型按两种语言的意群决定。
 func measuredSubtitleSourceHints(text string, target int) []subtitleMeasuredSpan {
-	parts, _ := splitSubtitleSourceHint(text, min(target, subtitleFinalDisplayLimit))
+	parts, _ := splitSubtitleSourceHint(text, target)
 	var hints []subtitleMeasuredSpan
 	for _, part := range parts {
 		hints = append(hints, subtitleMeasuredSpan{part, subtitleTargetLength(part)})
@@ -60,26 +91,38 @@ func newPairedTargetRepetition(original string, targets []string) bool {
 }
 
 func pairedFinalLengthIssue(sentence pairedSentence) error {
+	// 未启用的意群实验路径沿用原75阈值；默认父句路径按任务配置检查。
+	if sentence.SegmentState != nil {
+		return pairedFinalLengthIssueAtLimit(sentence, 75)
+	}
+	limit := sentence.LayoutTarget
+	if limit <= 0 {
+		limit = subtitleTargetLimit()
+	}
+	return pairedFinalLengthIssueAtLimit(sentence, limit)
+}
+
+func pairedFinalLengthIssueAtLimit(sentence pairedSentence, limit int) error {
 	if len(sentence.Source) == 0 || len(sentence.Source) != len(sentence.Target) {
 		return fmt.Errorf("句子%s原译段数不一致或缺少字幕", sentence.ID)
 	}
 	for i := range sentence.Source {
 		source, target := subtitleTargetLength(sentence.Source[i]), subtitleTargetLength(sentence.Target[i])
-		if source > subtitleFinalDisplayLimit || target > subtitleFinalDisplayLimit {
-			return fmt.Errorf("句子%s第%d段超过单行上限%d：原文%d、译文%d显示单位", sentence.ID, i+1, subtitleFinalDisplayLimit, source, target)
+		if source > limit || target > limit {
+			return fmt.Errorf("句子%s第%d段超过单行上限%d：原文%d、译文%d显示单位", sentence.ID, i+1, limit, source, target)
 		}
 	}
 	return nil
 }
 
 // 只比较已经通过内容和意群核验的布局；优先缩短最长条，再减少总超长量。
-func betterPairedLayout(candidate, previous pairedSentence) bool {
+func betterPairedLayout(candidate, previous pairedSentence, limit int) bool {
 	score := func(sentence pairedSentence) (longest, overflow int) {
 		for _, segments := range [][]string{sentence.Source, sentence.Target} {
 			for _, text := range segments {
 				width := subtitleTargetLength(text)
 				longest = max(longest, width)
-				overflow += max(0, width-subtitleFinalDisplayLimit)
+				overflow += max(0, width-limit)
 			}
 		}
 		return
@@ -89,8 +132,14 @@ func betterPairedLayout(candidate, previous pairedSentence) bool {
 	return cl < pl || cl == pl && co < po
 }
 
-// 已合格的配对不再发送。切分失败保留译文和待调整状态，不阻断整片导出。
+// 只处理超长配对；既有父句、上下文、NLP建议和其余合格配对保持不变。
 func (t *Translator) splitLongPairedSubtitles(ctx context.Context, input pairedTranslationInput, sentences map[string]pairedSentence, originLang, targetLang types.StandardLanguageCode, save func(pairedSentence, bool) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := t.batchLongPairedSubtitles(ctx, input, sentences, originLang, targetLang, save); err != nil {
+		return err
+	}
 	for _, source := range input.Sentences {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -99,29 +148,31 @@ func (t *Translator) splitLongPairedSubtitles(ctx context.Context, input pairedT
 		if !exists {
 			continue
 		}
-		if len(original.Source) == 0 || len(original.Source) != len(original.Target) || !subtitleSegmentsPreserveText(original.FullSource, original.Source) || !subtitleSegmentsPreserveText(original.FullTarget, original.Target) {
+		if len(original.Source) == 0 || len(original.Source) != len(original.Target) || !subtitleSegmentsPreserveText(original.FullTarget, original.Target) {
 			return fmt.Errorf("句子%s缺少可恢复的完整配对", source.ID)
 		}
-		if pairedFinalLengthIssue(original) == nil {
-			original.LayoutFallback = false
-			sentences[source.ID] = original
+		if pairedFinalLengthIssueAtLimit(original, subtitleDisplayLimit(input)) == nil {
 			if err := save(original, true); err != nil {
 				return err
 			}
 			continue
 		}
+		// 先保存原译；修正或核验耗尽时沿用这些原有分段完成字幕。
 		original.LayoutFallback = true
 		if err := save(original, false); err != nil {
 			return err
 		}
 		updated, err := t.repairLongPairedSubtitle(ctx, input, original, source, originLang, targetLang)
-		if err != nil {
-			return err
-		}
-		if updated.LayoutFallback {
-			t.translationNotice(fmt.Sprintf("第%s句字幕切分重试已耗尽，已保留原译和原分段或已成功切短的配对继续生成字幕，超长部分仍待调整", source.ID))
-		}
-		if err := ctx.Err(); err != nil {
+		if errors.Is(err, errFinalLayoutExhausted) {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			t.translationNotice(fmt.Sprintf("第%s句字幕校验或修正重试已耗尽，已保留原译和原分段继续生成字幕：%v", source.ID, err))
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			updated = original
+		} else if err != nil {
 			return err
 		}
 		sentences[source.ID] = updated
@@ -132,143 +183,310 @@ func (t *Translator) splitLongPairedSubtitles(ctx context.Context, input pairedT
 	return ctx.Err()
 }
 
+// 候选始终在副本上生成，只有核验通过才返回替换值；耗尽时调用方保留原值。
 func (t *Translator) repairLongPairedSubtitle(ctx context.Context, input pairedTranslationInput, original pairedSentence, source pairedTranslationSource, originLang, targetLang types.StandardLanguageCode) (pairedSentence, error) {
+	limit := subtitleDisplayLimit(input)
+	wasReviewed := original.LayoutReviewed
 	updated := original
+	updated.LayoutReviewed = true
 	updated.Source, updated.Target = nil, nil
+	targetChunks := subtitleExactChunks(original.FullTarget, original.Target)
 	for i, text := range original.Source {
-		if err := ctx.Err(); err != nil {
-			return pairedSentence{}, err
-		}
-		if subtitleTargetLength(text) <= subtitleFinalDisplayLimit && subtitleTargetLength(original.Target[i]) <= subtitleFinalDisplayLimit {
+		if subtitleTargetLength(text) <= limit && subtitleTargetLength(original.Target[i]) <= limit {
 			updated.Source = append(updated.Source, text)
 			updated.Target = append(updated.Target, original.Target[i])
+			updated.LayoutReviewed = updated.LayoutReviewed && wasReviewed
 			continue
 		}
-		local := pairedTranslationSource{ID: source.ID, Text: text, TargetText: original.Target[i]}
-		parts, err := t.splitLongPairedSegment(ctx, input, original, local, originLang, targetLang)
+		local := source
+		local.Text, local.TargetText, local.SourceHint, local.NLPSourceHint = text, original.Target[i], nil, nil
+		activeParent := original
+		activeParent.Source = append(slices.Clone(updated.Source), original.Source[i:]...)
+		activeParent.Target = append(slices.Clone(updated.Target), original.Target[i:]...)
+		activeParent.FullTarget = strings.TrimSpace(strings.Join(targetChunks, ""))
+		parts, err := t.splitLongPairedSegment(ctx, input, activeParent, local, originLang, targetLang)
 		if err != nil {
-			return pairedSentence{}, err
+			if !errors.Is(err, errFinalLayoutExhausted) || len(original.Source) < 2 {
+				return pairedSentence{}, err
+			}
+			if errors.Is(err, errFinalLayoutUnavailable) {
+				updated.Source = append(updated.Source, original.Source[i:]...)
+				updated.Target = append(updated.Target, original.Target[i:]...)
+				updated.LayoutReviewed = wasReviewed && updated.LayoutReviewed
+				break
+			}
+			// 译文中心词可能跨越已有配对。局部无法修复时回到完整父句，
+			// 允许重组全部译文，再独立核验全部信息与每道边界。
+			whole := source
+			whole.Text, whole.TargetText = activeParent.FullSource, activeParent.FullTarget
+			whole.SourceHint, whole.NLPSourceHint = nil, original.NLPSourceHint
+			parts, err = t.splitLongPairedSegment(ctx, input, activeParent, whole, originLang, targetLang, true)
+			if err == nil && !betterPairedLayout(parts, activeParent, limit) {
+				err = fmt.Errorf("%w：父句恢复未改善当前已核验布局", errFinalLayoutExhausted)
+			}
+			if err != nil {
+				if !errors.Is(err, errFinalLayoutExhausted) || ctx.Err() != nil {
+					return pairedSentence{}, err
+				}
+				// 前面已核验的局部结果仍然有效。父句恢复失败时，仅保留
+				// 当前及后续原片段，不能丢掉前面已经取得的更短布局。
+				updated.Source = append(updated.Source, original.Source[i:]...)
+				updated.Target = append(updated.Target, original.Target[i:]...)
+				updated.LayoutReviewed = wasReviewed && updated.LayoutReviewed
+				break
+			}
+			updated = parts
+			updated.DraftTarget, updated.RevisionVersion = original.DraftTarget, original.RevisionVersion
+			targetChunks = []string{parts.FullTarget}
+			break
 		}
 		updated.Source = append(updated.Source, parts.Source...)
 		updated.Target = append(updated.Target, parts.Target...)
-		// 新切口仅通过程序校验，不能冒充完成独立模型边界审校。
-		if len(parts.Source) > 1 {
-			updated.LayoutReviewed = false
+		updated.LayoutReviewed = updated.LayoutReviewed && parts.LayoutReviewed
+		if parts.FullTarget != original.Target[i] {
+			// 原有段间空白从完整译文取回，不重写其他合格片段。
+			suffix := targetChunks[i][len(strings.TrimSpace(original.Target[i])):]
+			targetChunks[i] = parts.FullTarget + suffix
 		}
 	}
-	// 全文始终保留原值，切分不能悄悄改写或补译。
-	if !subtitleSegmentsPreserveText(original.FullSource, updated.Source) || !subtitleSegmentsPreserveText(original.FullTarget, updated.Target) {
-		return pairedSentence{}, fmt.Errorf("句子%s切分未保持完整原译", source.ID)
+	updated.FullTarget = strings.TrimSpace(strings.Join(targetChunks, ""))
+	updated.LayoutFallback = pairedFinalLengthIssueAtLimit(updated, limit) != nil
+	updated.LayoutVersion, updated.LayoutTarget = pairedLayoutVersion, limit
+	if !subtitleSegmentsPreserveText(updated.FullSource, updated.Source) || !subtitleSegmentsPreserveText(updated.FullTarget, updated.Target) {
+		return pairedSentence{}, fmt.Errorf("%w：句子%s超长分段未保持完整原译", errFinalLayoutExhausted, source.ID)
 	}
-	updated.LayoutVersion, updated.LayoutTarget = pairedLayoutVersion, input.MaxTargetChars
-	updated.LayoutFallback = pairedFinalLengthIssue(updated) != nil
+	if err := pairedFinalLengthIssueAtLimit(updated, limit); err != nil && !betterPairedLayout(updated, original, limit) {
+		return pairedSentence{}, fmt.Errorf("%w：%v", errFinalLayoutExhausted, err)
+	}
 	return updated, nil
 }
 
-func (t *Translator) splitLongPairedSegment(ctx context.Context, input pairedTranslationInput, parent pairedSentence, source pairedTranslationSource, originLang, targetLang types.StandardLanguageCode) (pairedSentence, error) {
-	current := pairedSentence{ID: source.ID, FullSource: source.Text, FullTarget: source.TargetText, Source: []string{source.Text}, Target: []string{source.TargetText}, SemanticReviewed: parent.SemanticReviewed}
-	issues := map[string]string{}
-	for attempt := 0; attempt < 3; attempt++ {
-		next := current
-		next.Source, next.Target = nil, nil
-		for i, text := range current.Source {
-			target := current.Target[i]
-			if subtitleTargetLength(text) <= subtitleFinalDisplayLimit && subtitleTargetLength(target) <= subtitleFinalDisplayLimit {
-				next.Source = append(next.Source, text)
-				next.Target = append(next.Target, target)
-				continue
-			}
+// 每轮只处理当前结果中的超长子段。核验失败保留原段，成功短段不再发送。
+func (t *Translator) splitLongPairedSegment(ctx context.Context, input pairedTranslationInput, parent pairedSentence, source pairedTranslationSource, originLang, targetLang types.StandardLanguageCode, rewriteFromStart ...bool) (pairedSentence, error) {
+	limit := subtitleDisplayLimit(input)
+	current := pairedSentence{ID: source.ID, FullSource: source.Text, FullTarget: source.TargetText,
+		Source: []string{source.Text}, Target: []string{source.TargetText}, SemanticReviewed: parent.SemanticReviewed,
+		LayoutTarget: limit, LayoutVersion: pairedLayoutVersion}
+	issues := make(map[string]string)
+	var lastErr error
+	changed := false
+rounds:
+	for round := 0; round < 3; round++ {
+		for i := 0; i < len(current.Source); {
 			if err := ctx.Err(); err != nil {
 				return pairedSentence{}, err
 			}
-			key := text + "\x00" + target
-			issue := issues[key]
-			if issue != "" {
-				issue = fmt.Sprintf("Attempt %d: %s", attempt+1, issue)
-			}
-			request := subtitleLengthSplitInput{Source: text, Target: target, SourceDisplayUnits: subtitleTargetLength(text), TargetDisplayUnits: subtitleTargetLength(target), MaxDisplayUnits: subtitleFinalDisplayLimit, PreviousIssue: issue}
-			payload, _ := json.Marshal(request)
-			prompt := "Task: translation_length_split\n" + subtitleLengthSplitPrompt + "\nInput JSON:\n" + string(payload)
-			if len(prompt) > translationRequestBytes {
-				issues[key] = "The pair exceeds the request budget."
-				next.Source = append(next.Source, text)
-				next.Target = append(next.Target, target)
+			if subtitleTargetLength(current.Source[i]) <= limit && subtitleTargetLength(current.Target[i]) <= limit {
+				i++
 				continue
 			}
-			response, err := t.requestTranslation(ctx, prompt, min(8192, max(1024, pairedTranslationResponseBudget(text, subtitleFinalDisplayLimit))))
+			activeParent := current
+			if parent.FullSource != source.Text {
+				index := lengthPairIndex(parent, source)
+				if index < 0 {
+					return pairedSentence{}, fmt.Errorf("%w：缺少局部配对位置", errFinalLayoutExhausted)
+				}
+				activeParent = replaceLengthPair(parent, index, current)
+			}
+			local := pairedTranslationSource{ID: source.ID, Text: current.Source[i], TargetText: current.Target[i]}
+			key := local.Text + "\x00" + local.TargetText
+			issue := issues[key]
+			if issue == "" {
+				issue = fmt.Sprintf("原文%d、译文%d显示单位；超过%d必须继续拆分", subtitleTargetLength(local.Text), subtitleTargetLength(local.TargetText), limit)
+			}
+			rewrite := round > 0 || len(rewriteFromStart) > 0 && rewriteFromStart[0]
+			candidate, err := t.splitLongPairedSegmentAttempt(ctx, input, activeParent, local, originLang, targetLang, rewrite, issue)
 			if err != nil {
 				if ctx.Err() != nil {
 					return pairedSentence{}, ctx.Err()
 				}
-				// 服务错误不做内容重试，保留本轮及此前已成功切短的片段。
-				next.Source = append(next.Source, current.Source[i:]...)
-				next.Target = append(next.Target, current.Target[i:]...)
-				next.LayoutFallback = pairedFinalLengthIssue(next) != nil
-				return next, nil
-			}
-			if err := ctx.Err(); err != nil {
-				return pairedSentence{}, err
-			}
-			parts, err := parseFrozenSubtitleSplit(response, text, target, originLang)
-			if err == nil && !betterPairedLayout(parts, pairedSentence{Source: []string{text}, Target: []string{target}}) {
-				err = fmt.Errorf("No length improvement: source=%d, target=%d, maximum=%d. Split the overlong pair further.", subtitleTargetLength(text), subtitleTargetLength(target), subtitleFinalDisplayLimit)
-			}
-			if err != nil {
+				if !errors.Is(err, errFinalLayoutExhausted) {
+					return pairedSentence{}, err
+				}
+				lastErr = err
+				if errors.Is(err, errFinalLayoutUnavailable) {
+					break rounds // 请求层已重试，不再重复整轮或回到父句请求。
+				}
 				issues[key] = subtitleTextPreview(err.Error(), 600)
-				next.Source = append(next.Source, text)
-				next.Target = append(next.Target, target)
+				i++
 				continue
 			}
-			next.Source = append(next.Source, parts.Source...)
-			next.Target = append(next.Target, parts.Target...)
-			for j, part := range parts.Source {
-				if subtitleTargetLength(part) > subtitleFinalDisplayLimit || subtitleTargetLength(parts.Target[j]) > subtitleFinalDisplayLimit {
-					issues[part+"\x00"+parts.Target[j]] = fmt.Sprintf("Still over the limit: source=%d, target=%d, maximum=%d. Split only this pair into shorter corresponding groups.", subtitleTargetLength(part), subtitleTargetLength(parts.Target[j]), subtitleFinalDisplayLimit)
-				}
-			}
+			current = replaceLengthPair(current, i, candidate)
+			current.LayoutReviewed = true
+			current.LayoutFallback = pairedFinalLengthIssueAtLimit(current, limit) != nil
+			changed = true
+			i += len(candidate.Source) // 新子段留到下一轮，避免同轮无限细分。
 		}
-		current = next
-		if pairedFinalLengthIssue(current) == nil {
+		if pairedFinalLengthIssueAtLimit(current, limit) == nil {
 			return current, nil
 		}
 	}
-	current.LayoutFallback = pairedFinalLengthIssue(current) != nil
-	return current, nil
+	if changed {
+		current.LayoutFallback = true
+		t.translationNotice(fmt.Sprintf("第%s句排版重试耗尽，已保留通过内容与意群核验的更短分段，仍有字幕超过配置长度%d", source.ID, limit))
+		if err := ctx.Err(); err != nil {
+			return pairedSentence{}, err
+		}
+		return current, nil
+	}
+	return pairedSentence{}, fmt.Errorf("%w：句子%s仍未满足%d单行上限", lastErr, source.ID, limit)
 }
 
-func parseFrozenSubtitleSplit(response, source, target string, originLang types.StandardLanguageCode) (pairedSentence, error) {
-	var output struct {
-		Segments []pairedTranslationSegment `json:"segments"`
-	}
-	if err := json.Unmarshal([]byte(util.ExtractJSONObject(response, "segments")), &output); err != nil {
-		return pairedSentence{}, fmt.Errorf("Invalid JSON; return a segments array only.")
-	}
-	if len(output.Segments) < 2 {
-		return pairedSentence{}, fmt.Errorf("Return at least two corresponding source/target segments; the input is still too long.")
-	}
-	candidate := pairedSentence{FullSource: source, FullTarget: target}
-	for _, pair := range output.Segments {
-		if !hasSubtitleContent(pair.Source) || !hasSubtitleContent(pair.Target) || hasSubtitleLineBreak(pair.Source) || hasSubtitleLineBreak(pair.Target) {
-			return pairedSentence{}, fmt.Errorf("Every segment needs nonempty source and target text on one line.")
-		}
-		candidate.Source = append(candidate.Source, strings.TrimSpace(pair.Source))
-		candidate.Target = append(candidate.Target, strings.TrimSpace(pair.Target))
-	}
-	if !subtitleSegmentsPreserveText(source, candidate.Source) {
-		return pairedSentence{}, fmt.Errorf("Source text was changed, omitted, repeated or reordered. Insert boundaries only.")
-	}
-	if !subtitleSegmentsPreserveText(target, candidate.Target) {
-		return pairedSentence{}, fmt.Errorf("Target text was changed, omitted, repeated or reordered. Insert boundaries only; keep the existing translation exactly.")
-	}
-	if !validTranslationSentencePartsWithLimit(source, candidate.Source, originLang, len(candidate.Source)) || !subtitleSegmentsHaveSafeBoundaries(candidate.Target) {
-		return pairedSentence{}, fmt.Errorf("A boundary splits a word, name, protected span or grapheme. Move that boundary.")
-	}
-	for i := 0; i+1 < len(candidate.Source); i++ {
-		if subtitleBoundaryLeavesComplement(candidate.Source[i]) || subtitleBoundaryLeavesComplement(candidate.Target[i]) {
-			return pairedSentence{}, fmt.Errorf("Segment %d ends with an incomplete complement. Move that boundary.", i+1)
+// 同时匹配原译，避免同一原文重复出现时替换到另一个配对。
+// 完全相同的重复配对无法唯一定位时交回父句恢复。
+func lengthPairIndex(parent pairedSentence, source pairedTranslationSource) int {
+	index := -1
+	for i, text := range parent.Source {
+		if text == source.Text && parent.Target[i] == source.TargetText {
+			if index >= 0 {
+				return -1
+			}
+			index = i
 		}
 	}
-	return candidate, nil
+	return index
+}
+
+// 候选已通过完整原译覆盖检查；精确保留未修改片段和原有段间空白。
+func replaceLengthPair(parent pairedSentence, index int, candidate pairedSentence) pairedSentence {
+	chunks := subtitleExactChunks(parent.FullTarget, parent.Target)
+	suffix := chunks[index][len(strings.TrimSpace(parent.Target[index])):]
+	chunks[index] = candidate.FullTarget + suffix
+	parent.FullTarget = strings.TrimSpace(strings.Join(chunks, ""))
+	parent.Source = append(append(slices.Clone(parent.Source[:index]), candidate.Source...), parent.Source[index+1:]...)
+	parent.Target = append(append(slices.Clone(parent.Target[:index]), candidate.Target...), parent.Target[index+1:]...)
+	return parent
+}
+
+func (t *Translator) splitLongPairedSegmentAttempt(ctx context.Context, input pairedTranslationInput, parent pairedSentence, source pairedTranslationSource, originLang, targetLang types.StandardLanguageCode, allowRewrite bool, issue string) (pairedSentence, error) {
+	limit := subtitleDisplayLimit(input)
+	layout := input
+	layout.PreserveFinalBoundaries = true
+	layout.AllowLengthOverflow = true
+	layout.MaxSourceChars, layout.MaxTargetChars, layout.MaxFullwidthChars = limit, limit, limit/2
+	layout.Sentences = []pairedTranslationSource{source}
+	baseline := pairedSentence{Source: []string{source.Text}, Target: []string{source.TargetText}}
+	if err := ctx.Err(); err != nil {
+		return pairedSentence{}, err
+	}
+	local := layout
+	local.Sentences = append([]pairedTranslationSource(nil), layout.Sentences...)
+	if allowRewrite {
+		local.Sentences[0].TargetText = ""
+	}
+	request := newSubtitleLengthSplitInput(input, source, allowRewrite, issue)
+	payload, _ := json.Marshal(request)
+	mode := subtitleLengthSplitMode(allowRewrite)
+	prompt := withTranslationFillerPolicy("任务：translation_length_split\n" + mode + subtitleLengthSplitPrompt + "\n输入 JSON：\n" + string(payload))
+	if len(prompt) > translationRequestBytes {
+		return pairedSentence{}, fmt.Errorf("%w：句子%s超长字幕重排超过请求预算", errFinalLayoutExhausted, source.ID)
+	}
+	response, err := t.requestTranslation(ctx, prompt, min(8192, max(2048, pairedTranslationResponseBudget(source.Text, limit)+1024)))
+	if err != nil {
+		if ctx.Err() != nil {
+			return pairedSentence{}, ctx.Err()
+		}
+		return pairedSentence{}, fmt.Errorf("%w：句子%s单行排版请求重试后仍不可用：%v", errFinalLayoutUnavailable, source.ID, err)
+	}
+	response = normalizeLengthSplitResponse(response, source, targetLang, allowRewrite)
+	parts, err := t.parsePairedTranslation(response, local, originLang, targetLang)
+	if err == nil {
+		var targets []string
+		if source.Text == parent.FullSource {
+			targets = parts[0].Target
+		} else {
+			index := lengthPairIndex(parent, source)
+			if index < 0 {
+				return pairedSentence{}, fmt.Errorf("%w：无法唯一定位局部原译配对", errFinalLayoutExhausted)
+			}
+			for i := range parent.Source {
+				if i == index {
+					targets = append(targets, parts[0].Target...)
+				} else {
+					targets = append(targets, parent.Target[i])
+				}
+			}
+		}
+		if newPairedTargetRepetition(parent.FullTarget, targets) {
+			err = fmt.Errorf("局部修复在父句内新增重复译文，需回到完整父句调整配对")
+		}
+	}
+	if err == nil && pairedFinalLengthIssueAtLimit(parts[0], limit) != nil && (len(parts[0].Source) < 2 || !betterPairedLayout(parts[0], baseline, limit)) {
+		err = pairedFinalLengthIssueAtLimit(parts[0], limit)
+	}
+	if err == nil && len(parts[0].Source) > 1 && !validTranslationSentencePartsWithLimit(source.Text, parts[0].Source, originLang, len(parts[0].Source)) {
+		err = fmt.Errorf("原文切口拆开单词、专名或受保护文字，请在自然意群边界重新拆分")
+	}
+	if err == nil && sourceTranslationChanged(source, parts[0].FullTarget) {
+		if !allowRewrite {
+			err = fmt.Errorf("只允许插入边界，不允许改写完整译文")
+		} else {
+			ok, reason, reviewErr := t.reviewLengthRewrite(ctx, input, parent, source, parts[0].FullTarget, targetLang)
+			if reviewErr != nil {
+				return pairedSentence{}, reviewErr
+			}
+			if !ok {
+				err = fmt.Errorf("局部改写未通过语义或术语保持复核：%s", reason)
+			}
+		}
+	}
+	if err == nil {
+		parts[0].SemanticReviewed = parent.SemanticReviewed
+		if !sourceTranslationChanged(source, parts[0].FullTarget) {
+			parts[0].FullTarget = source.TargetText
+		}
+		// 新增切口只做检查，不允许审校重新合并为超长字幕或改动其他配对。
+		ok, reason, reviewErr := t.reviewLengthBoundaries(ctx, local, parent, parts[0])
+		if reviewErr != nil {
+			return pairedSentence{}, reviewErr
+		}
+		if ok {
+			parts[0].LayoutReviewed = true
+			parts[0].LayoutFallback = pairedFinalLengthIssueAtLimit(parts[0], limit) != nil
+			return parts[0], nil
+		}
+		err = fmt.Errorf("新增切口未通过意群与逐段对应检查：%s", reason)
+	}
+	return pairedSentence{}, fmt.Errorf("%w：%v", errFinalLayoutExhausted, err)
+}
+
+func subtitleLengthSplitMode(allowRewrite bool) string {
+	if !allowRewrite {
+		return "FROZEN MODE: target segments must be consecutive slices of original_target_text, in order. Do not return target_text.\n"
+	}
+	return "REWRITE MODE: frozen alignment failed. Re-express the complete meaning in natural target language suitable for successive corresponding cues. The old translation is reference, not fixed wording/order. Return segments only; the program constructs one full candidate and independently checks meaning and boundaries. Keep shared heads with their matching source group, not stranded after long lists. Use natural transitions or forward references, never literal source syntax. Recognize genuine source speech repairs and interrupted starts without inventing new content. Cues may be complete groups of one continuing sentence; preserve every detail and make the whole target read naturally, with appropriate punctuation. For a trailing condition, use an idiomatic continuation: ‘It will be easier / if you practice every day.’ can be ‘这样会更容易， / 如果每天练习的话。’. This is an example only; use the actual target language's syntax. Both sides must stay within max_display_units, with at least minimum_segments. Resolve previous_issue.\n"
+}
+
+// 排版只返回segments这一份候选。冻结模式从既有全文校验覆盖，
+// 改写模式从片段形成唯一候选后仍须独立对照原文核验全部含义。
+func normalizeLengthSplitResponse(response string, source pairedTranslationSource, targetLang types.StandardLanguageCode, allowRewrite bool) string {
+	var output pairedTranslationOutput
+	if json.Unmarshal([]byte(util.ExtractJSONObject(response, "sentences")), &output) != nil || len(output.Sentences) != 1 || output.Sentences[0].ID != source.ID {
+		return response
+	}
+	item := &output.Sentences[0]
+	if allowRewrite {
+		var targets []string
+		for _, pair := range item.Segments {
+			if !hasSubtitleContent(pair.Target) || hasSubtitleLineBreak(pair.Target) {
+				return response
+			}
+			targets = append(targets, pair.Target)
+		}
+		if len(targets) < 2 {
+			return response
+		}
+		item.FullTarget = joinPairedTargetSegments(targets, targetLang)
+	} else {
+		if item.FullTarget == "" {
+			item.FullTarget = source.TargetText
+		}
+		if item.FullTarget == source.TargetText {
+			*item, _ = restorePairedTargetBoundaryPunctuation(*item)
+		}
+	}
+	data, _ := json.Marshal(output)
+	return string(data)
 }
 
 func (t *Translator) reviewLengthBoundaries(ctx context.Context, input pairedTranslationInput, parent, candidate pairedSentence) (bool, string, error) {
@@ -314,13 +532,12 @@ func (t *Translator) reviewLengthRewrite(ctx context.Context, input pairedTransl
 	resultTarget := target
 	if source.Text != parent.FullSource {
 		chunks := subtitleExactChunks(parent.FullTarget, parent.Target)
-		for i, text := range parent.Source {
-			if text == source.Text && parent.Target[i] == source.TargetText {
-				suffix := chunks[i][len(strings.TrimSpace(parent.Target[i])):]
-				chunks[i] = target + suffix
-				break
-			}
+		index := lengthPairIndex(parent, source)
+		if index < 0 {
+			return false, "无法唯一定位局部原译配对", nil
 		}
+		suffix := chunks[index][len(strings.TrimSpace(parent.Target[index])):]
+		chunks[index] = target + suffix
 		resultTarget = strings.TrimSpace(strings.Join(chunks, ""))
 	}
 	payload := struct {

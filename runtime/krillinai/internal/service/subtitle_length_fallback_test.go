@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"krillin-ai/pkg/util"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -29,39 +31,156 @@ func lengthOverflowFixture() pairedSentence {
 		Source: source, Target: target, SemanticReviewed: true}
 }
 
-func TestFrozenLengthRepairRetriesOnlyRemainingOverflow(t *testing.T) {
+func TestLengthRepairKeepsBestVerifiedOverflowCandidate(t *testing.T) {
+	for _, later := range []string{"worse", "invalid", "request_error", "rejected", "compliant", "canceled"} {
+		t.Run(later, func(t *testing.T) {
+			candidate := lengthOverflowFixture()
+			if subtitleTargetLength(candidate.FullSource) != 334 || subtitleTargetLength(candidate.Source[0]) != 81 {
+				t.Fatal("真实超长样例发生变化")
+			}
+			original := candidate
+			original.Source, original.Target = []string{candidate.FullSource}, []string{candidate.FullTarget}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			splits, reviews := 0, 0
+			translator := &Translator{chatCompleter: semanticTestCompleter(func(_ context.Context, prompt string) (string, error) {
+				if strings.HasPrefix(prompt, "任务：translation_length_boundary_review\n") {
+					reviews++
+					return fmt.Sprintf(`{"acceptable":%t,"reason":"逐段核对当前切口与对应内容"}`, later != "rejected" || splits == 1), nil
+				}
+				splits++
+				item := candidate
+				if splits > 1 {
+					var request subtitleLengthSplitInput
+					if err := semanticTestPayload(prompt, &request); err != nil {
+						return "", err
+					}
+					local := request.Sentences[0]
+					if local.Text == original.FullSource {
+						t.Fatal("已取得有效进展后不应再次发送完整父句")
+					}
+					item = pairedSentence{ID: original.ID, FullTarget: request.OriginalTarget, Source: []string{local.Text}, Target: []string{request.OriginalTarget}}
+					switch later {
+					case "compliant", "rejected":
+						switch local.Text {
+						case candidate.Source[0]:
+							item.Source = []string{"And so, with Frank Rosenblatt back in the 1950s,", "this whole idea of a perceptron,"}
+							item.Target = []string{"所以，回到20世纪50年代弗兰克·罗森布拉特", "提出感知机的历史，"}
+						case candidate.Source[1]:
+							item.Source = []string{"when you understand the history behind it,", "sort of what he was trying to solve,"}
+							item.Target = []string{"了解它的背景，", "以及他当时想解决的问题后，"}
+						default:
+							t.Fatalf("误发已合格短段: %s", local.Text)
+						}
+					case "invalid":
+						return `{"sentences":[]}`, nil
+					case "request_error":
+						return "", errors.New("后续请求中断")
+					case "canceled":
+						cancel()
+						return "", context.Canceled
+					}
+				}
+				data, err := encodePairedTestResponse([]pairedSentence{item})
+				return string(data), err
+			})}
+			got, err := translator.repairLongPairedSubtitle(ctx, lengthSplitTestInput(original, 75), original,
+				pairedTranslationSource{ID: "15", Text: original.FullSource, TargetText: original.FullTarget}, "en", "zh_cn")
+			if later == "canceled" {
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("取消被候选兜底吞掉: %v", err)
+				}
+				return
+			}
+			if later == "compliant" {
+				if err != nil || splits != 3 || reviews != 3 || pairedFinalLengthIssue(got) != nil || len(got.Source) != 7 || got.LayoutFallback {
+					t.Fatalf("后续更优且达标的分段未被采用: %+v splits=%d reviews=%d err=%v", got, splits, reviews, err)
+				}
+				return
+			}
+			wantSplits := 5
+			if later == "request_error" {
+				wantSplits = 2
+			}
+			if err != nil || splits != wantSplits || reviews < 1 || !slices.Equal(got.Source, candidate.Source) || !slices.Equal(got.Target, candidate.Target) || !got.LayoutFallback || !got.LayoutReviewed || got.FullTarget != original.FullTarget {
+				t.Fatalf("未保留最短已核验分段: got=%+v splits=%d reviews=%d err=%v", got, splits, reviews, err)
+			}
+		})
+	}
+}
+
+func TestOverflowAllowanceStillRejectsMissingTextAndBrokenMeaning(t *testing.T) {
 	candidate := lengthOverflowFixture()
 	original := candidate
 	original.Source, original.Target = []string{candidate.FullSource}, []string{candidate.FullTarget}
-	calls := 0
-	tr := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
-		calls++
-		input, err := decodeFrozenSplitTestInput(prompt)
-		if err != nil {
-			return "", err
+	for _, failure := range []string{"missing_source", "missing_target", "boundary_rejected", "rewrite_rejected"} {
+		t.Run(failure, func(t *testing.T) {
+			splits := 0
+			translator := &Translator{chatCompleter: semanticTestCompleter(func(_ context.Context, prompt string) (string, error) {
+				if strings.HasPrefix(prompt, "任务：translation_length_boundary_review\n") {
+					return `{"acceptable":false,"reason":"原译内容跨段错位"}`, nil
+				}
+				if strings.HasPrefix(prompt, "任务：translation_length_rewrite_review\n") {
+					return `{"equivalent":false,"reason":"候选改变了原文事实"}`, nil
+				}
+				splits++
+				item := candidate
+				item.Source, item.Target = slices.Clone(candidate.Source), slices.Clone(candidate.Target)
+				switch failure {
+				case "missing_source":
+					item.Source[0] = "And so,"
+				case "missing_target":
+					item.Target[0] = "所以，"
+				case "rewrite_rejected":
+					item.Target[0] = "这是一个与历史无关的新概念，"
+				}
+				data, err := encodePairedTestResponse([]pairedSentence{item})
+				return string(data), err
+			})}
+			_, err := translator.repairLongPairedSubtitle(context.Background(), lengthSplitTestInput(original, 65), original,
+				pairedTranslationSource{ID: "15", Text: original.FullSource, TargetText: original.FullTarget}, "en", "zh_cn")
+			if !errors.Is(err, errFinalLayoutExhausted) || splits != 3 {
+				t.Fatalf("内容或意群未通过仍保留候选: splits=%d err=%v", splits, err)
+			}
+		})
+	}
+}
+
+func TestBatchLengthRepairRetainsEarlierVerifiedOverflow(t *testing.T) {
+	candidate := lengthOverflowFixture()
+	input := pairedTranslationInput{SourceLanguage: "English", TargetLanguage: "简体中文", MaxTargetChars: 65}
+	parents := make(map[string]pairedSentence)
+	for _, id := range []string{"1", "2"} {
+		input.Sentences = append(input.Sentences, pairedTranslationSource{ID: id, Text: candidate.FullSource})
+		parent := candidate
+		parent.ID, parent.Source, parent.Target = id, []string{candidate.FullSource}, []string{candidate.FullTarget}
+		parents[id] = parent
+	}
+	splits := 0
+	translator := &Translator{chatCompleter: semanticTestCompleter(func(_ context.Context, prompt string) (string, error) {
+		if strings.HasPrefix(prompt, "任务：translation_length_batch_review\n") {
+			return `{"reviews":[{"sentence_id":"1_0","equivalent":true,"acceptable":true,"reason":"完整且逐段对应"},{"sentence_id":"2_0","equivalent":true,"acceptable":true,"reason":"完整且逐段对应"}]}`, nil
 		}
-		if calls == 1 {
-			return encodeFrozenSplitTestResponse(candidate), nil
+		splits++
+		if splits > 1 {
+			return `{"sentences":[]}`, nil
 		}
-		if input.Source == candidate.FullSource {
-			t.Fatal("repeated entire parent after partial success")
+		var output []pairedSentence
+		for _, id := range []string{"1_0", "2_0"} {
+			item := candidate
+			item.ID = id
+			output = append(output, item)
 		}
-		if input.PreviousIssue == "" {
-			t.Fatal("missing measured overflow feedback")
-		}
-		switch input.Source {
-		case candidate.Source[0]:
-			return encodeFrozenSplitTestResponse(pairedSentence{Source: []string{"And so, with Frank Rosenblatt back in the 1950s,", "this whole idea of a perceptron,"}, Target: []string{"所以，回到20世纪50年代弗兰克·罗森布拉特", "提出感知机的历史，"}}), nil
-		case candidate.Source[1]:
-			return encodeFrozenSplitTestResponse(pairedSentence{Source: []string{"when you understand the history behind it,", "sort of what he was trying to solve,"}, Target: []string{"了解它的背景，", "以及他当时想解决的问题后，"}}), nil
-		default:
-			t.Fatalf("requested compliant pair: %s", input.Source)
-			return "", nil
-		}
+		data, err := encodePairedTestResponse(output)
+		return string(data), err
 	})}
-	got, err := tr.repairLongPairedSubtitle(context.Background(), lengthSplitTestInput(original, 75), original, pairedTranslationSource{ID: "15", Text: original.FullSource, TargetText: original.FullTarget}, "en", "zh_cn")
-	if err != nil || calls != 3 || pairedFinalLengthIssue(got) != nil || len(got.Source) != 7 || got.FullTarget != original.FullTarget {
-		t.Fatalf("calls=%d got=%+v err=%v", calls, got, err)
+	if err := translator.batchLongPairedSubtitles(context.Background(), input, parents, "en", "zh_cn", func(pairedSentence, bool) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	for _, parent := range parents {
+		if splits != 1 || !slices.Equal(parent.Source, candidate.Source) || !parent.LayoutFallback {
+			t.Fatalf("批量重试丢失了已核验短分段: %+v splits=%d", parent, splits)
+		}
 	}
 }
 
@@ -77,11 +196,22 @@ func TestExportRetainsOverflowSegmentsAndDistributesTimes(t *testing.T) {
 			}})
 			return string(data), err
 		}
-		if strings.HasPrefix(prompt, "Task: translation_length_split\n") {
+		if strings.HasPrefix(prompt, "任务：translation_length_split\n") {
 			splits++
+			var request subtitleLengthSplitInput
+			if err := semanticTestPayload(prompt, &request); err != nil {
+				return "", err
+			}
+			if splits > 1 {
+				if request.Sentences[0].Text == candidate.FullSource {
+					t.Fatal("导出重试不应丢弃已通过的局部结果")
+				}
+				return "", errors.New("后续拆分接口不可用")
+			}
 			item := candidate
 			item.ID = "1"
-			return encodeFrozenSplitTestResponse(item), nil
+			data, err := encodePairedTestResponse([]pairedSentence{item})
+			return string(data), err
 		}
 		if response, ok := neutralSemanticTestResponse(prompt); ok {
 			return response, nil
@@ -93,7 +223,7 @@ func TestExportRetainsOverflowSegmentsAndDistributesTimes(t *testing.T) {
 		{Index: 2, Timestamp: "00:02:13,520 --> 00:02:15,520", OriginLanguageSentence: texts[1]},
 	}
 	output, err := translator.BatchTranslateSrtBlocks(context.Background(), input, "en", "zh_cn", nil)
-	if err != nil || len(output) != 6 || splits != 5 {
+	if err != nil || len(output) != 6 || splits != 2 {
 		t.Fatalf("导出没有保留5条较短字幕: blocks=%+v splits=%d err=%v", output, splits, err)
 	}
 	var sources, targets []string

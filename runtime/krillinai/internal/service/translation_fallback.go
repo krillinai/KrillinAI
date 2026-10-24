@@ -28,11 +28,20 @@ func originalTranslationFallback(source pairedTranslationSource, reason string) 
 }
 
 // 回退句不再交给排版/术语请求处理，避免把保留原文误标为翻译审校成功。
-func finishFallbackSentences(input pairedTranslationInput, accepted map[string]pairedSentence, save func(pairedSentence, bool) error) (pairedTranslationInput, error) {
+func (t *Translator) finishFallbackSentences(input pairedTranslationInput, accepted map[string]pairedSentence, originLang, targetLang types.StandardLanguageCode, save func(pairedSentence, bool) error) (pairedTranslationInput, error) {
 	active := input
 	active.Sentences = nil
 	for _, source := range input.Sentences {
 		if sentence, ok := accepted[source.ID]; ok && sentence.TranslationFallbackReason != "" {
+			if t.semanticSourceUnits && pairedFinalLengthIssueAtLimit(sentence, subtitleDisplayLimit(input)) != nil {
+				sentence.LayoutBaseTarget = sentence.FullTarget
+				var err error
+				sentence, err = splitFrozenDisplaySentence(sentence, subtitleDisplayLimit(input), originLang, targetLang, nil, nil)
+				if err != nil {
+					return active, err
+				}
+				accepted[source.ID] = sentence
+			}
 			if err := save(sentence, true); err != nil {
 				return active, err
 			}

@@ -125,6 +125,49 @@ def boundary_issue(text, parts, nlp):
                 return f"Unsafe source boundary: keep {token.text!r} with {head.text!r} ({token.dep_}); move the cut outside this grammatical phrase."
     return ""
 
+
+def display_boundaries(text, nlp):
+    """Soft display-cut costs, not sentence boundaries or a length policy.
+
+    Long phrases may span consecutive cues. Keep token/compound interiors costly
+    without rejecting the entire translation when no perfect cut exists.
+    Offsets use UTF-8 bytes so Go can slice the unchanged original text.
+    """
+    doc = nlp(text)
+    result = []
+    tight = {"compound", "fixed", "flat", "nummod", "det", "amod"}
+    close = {"case", "aux", "auxpass", "neg", "prt", "pobj"}
+    for i, token in enumerate(doc):
+        if not token.idx:
+            continue
+        penalty = 20
+        if doc[i - 1].is_punct:
+            penalty = 0
+        else:
+            for child in doc:
+                head = child.head
+                if (child.idx < token.idx <= head.idx or head.idx < token.idx <= child.idx):
+                    if child.dep_ in tight:
+                        penalty += 160
+                    elif child.dep_ in close:
+                        penalty += 60
+        if token.is_punct:
+            penalty += 160
+        result.append({"offset": len(text[:token.idx].encode("utf-8")), "penalty": penalty})
+    return result
+
+def merge_source_unit_parts(text, parts, nlp):
+    """Remove unsafe proposed cuts; keep the original text and all safe cuts."""
+    doc = nlp(text)
+    cuts, cursor = [], 0
+    for part in parts[:-1]:
+        cursor = text.index(part, cursor) + len(part)
+        left, right = text[:cursor].strip(), text[cursor:].strip()
+        if not boundary_issue(text, [left, right], lambda _: doc):
+            cuts.append(cursor)
+    return slice_parts(text, cuts)
+
+
 def main():
     request = json.load(sys.stdin)
     prefix = MODELS.get(request["language"])

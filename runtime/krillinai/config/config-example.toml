@@ -4,7 +4,7 @@
     translate_parallel_num = 3 # 并发进行翻译的数量上限，建议值：3，倍于转录的并发量，如果使用TPM限制严格的API，可以适当调低
     transcribe_max_attempts = 3 # 转录最大尝试次数，建议值：3
     translate_max_attempts = 5 # 翻译最大尝试次数，建议值：5，如果模型参数量较少或翻译失败率较高可以适当调高
-    max_sentence_length = 50 # 原译单行软目标：宽字素簇计2，其余及空格计1；完整意群可适度超出，75可用于对照测试
+    max_sentence_length = 60 # 原译单行软目标：宽字素簇计2，其余及空格计1；约30个汉字，完整意群可适度超出
     enable_block_vtt_batch = false # 是否启用块级VTT批量翻译，建议值：false（默认关闭）
     vtt_batch_size = 10 # VTT批量翻译的批次大小，建议值：10
     target_language_first = true # 双语字幕中目标语言是否在上方，建议值：true（目标语言在上）

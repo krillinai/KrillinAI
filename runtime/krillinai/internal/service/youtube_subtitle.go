@@ -600,7 +600,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	}
 
 	// 4. 批量翻译生成目标语言SRT（40%-90%进度）
-	srtBlocks, err = s.translator.withTranslationRecovery(req.TaskBasePath, req.TaskPtr).BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr, vttWords)
+	srtBlocks, err = s.translator.withSemanticSourceUnits().withTranslationRecovery(req.TaskBasePath, req.TaskPtr).BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr, vttWords)
 	if err != nil {
 		return "", fmt.Errorf("failed to batch translate: %w", err)
 	}
@@ -1124,7 +1124,7 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 	if err != nil {
 		return err
 	}
-	blocks, err = s.translator.withTranslationRecovery(req.TaskBasePath, req.TaskPtr).BatchTranslateSrtBlocks(context.Background(), blocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr, vttWords)
+	blocks, err = s.translator.withSemanticSourceUnits().withTranslationRecovery(req.TaskBasePath, req.TaskPtr).BatchTranslateSrtBlocks(context.Background(), blocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr, vttWords)
 	if err != nil {
 		return err
 	}
@@ -3388,7 +3388,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 	}
 
 	// 4. 批量翻译（40%-90%的进度在BatchTranslateSrtBlocks内部更新）
-	srtBlocks, err = s.translator.withTranslationRecovery(req.TaskBasePath, req.TaskPtr).BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
+	srtBlocks, err = s.translator.withSemanticSourceUnits().withTranslationRecovery(req.TaskBasePath, req.TaskPtr).BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
 	if err != nil {
 		return "", fmt.Errorf("批量翻译失败: %w", err)
 	}

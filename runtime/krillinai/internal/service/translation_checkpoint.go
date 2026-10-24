@@ -62,13 +62,17 @@ func (t *Translator) openTranslationCheckpoint(texts []string, originLang, targe
 		return checkpoint, nil
 	}
 	// 排版目标和批次大小不进入内容指纹；重新排版可以复用已取得的完整译文。
+	version := "content-recovery-v4-fillers"
+	if t.semanticSourceUnits {
+		version += "-semantic-source-units-v1"
+	}
 	identity, err := json.Marshal(struct {
 		Version, SourceLanguage, TargetLanguage, Model, Endpoint, Prompt string
 		FilterFillers                                                    bool
 		Texts                                                            []string
 		Semantics                                                        []*translationSemanticPlan
 		ReviewPrompt                                                     string
-	}{"content-recovery-v4-fillers", string(originLang), string(targetLang), config.Conf.Llm.Model, config.Conf.Llm.BaseUrl, translationContentPrompt + translationFillerPolicy, t.filterNonSemanticFillers, texts, plans, translationSemanticReviewPrompt})
+	}{version, string(originLang), string(targetLang), config.Conf.Llm.Model, config.Conf.Llm.BaseUrl, translationContentPrompt + translationFillerPolicy, t.filterNonSemanticFillers, texts, plans, translationSemanticReviewPrompt})
 	if err != nil {
 		return nil, err
 	}

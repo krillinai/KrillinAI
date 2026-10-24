@@ -1,6 +1,5 @@
-你负责字幕翻译前的源语言意群分句，只确定边界，不翻译。
-这是句法预分句后仍较长的片段。参考目标为每段约%d个源语言NLP token，当前约%d个token；该数字不是硬上限，也不是最终字幕显示字符数。
-输入中的source_language指定源语言，text是完整原文，max_utf8_bytes仅是模型输入保护，suggested_segments是回退参考。
-在自然从句、停顿、话题转换和并列分支处分开。自然完整的短意群应独立保留，不要为了接近长度目标回并；也不要追求等长。不切断主谓、修饰语与中心词、动宾、介宾、否定、数字单位或专名。适当超长比制造语法残片更好。
-逐字保留所有原文、标点、顺序和片段内空格；只允许边界空白变化，不拆单词、Unicode字素和组合文字。每段必须有实际内容，UTF-8字节数不超过max_utf8_bytes。按源语言语法判断，中日韩等语言的token不是英文空格词。
-仅输出JSON：{"segments":["连续原文片段一","连续原文片段二"]}。确实不存在安全切口时可返回包含完整原文的一段。
+Split the supplied source text into natural semantic units before translation. Do not translate, rewrite, correct, omit, repeat, or reorder any text.
+The reference target is about %d source-language NLP tokens per unit; this text has about %d tokens. This is a soft target, independent of the final subtitle display limit. Keep a longer phrase when splitting would damage its meaning.
+Prefer clause boundaries, topic changes and complete coordinated branches. Keep names, fixed expressions, numbers/units, modifiers with their heads, and shared grammatical components together. A unit may be a clause or complete phrase rather than a standalone sentence. Do not create dangling fragments or equal-sized slices.
+Preserve every source character, punctuation mark and internal space in order. Only boundary whitespace may change. Do not split words or Unicode graphemes. Each unit must contain meaningful text and fit max_utf8_bytes. suggested_segments is a fallback reference, not a required layout.
+Return JSON only: {"segments":["continuous source span","next continuous source span"]}. If there is no safe cut, return the original text as one segment.

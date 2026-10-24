@@ -27,10 +27,20 @@ type Translator struct {
 	nlpRuntime               *translationNLPRuntime
 	reviseTranslation        bool
 	segmentTranslation       bool
+	semanticSourceUnits      bool
 	sourceSegmentation       bool
+	translationProgress      *translationWorkProgress
 	translationTask          *types.SubtitleTask
 	translationReportScope   string
-	translationProgress      *translationWorkProgress
+	subtitleTimings          []subtitleTimingSpan
+	subtitleSourceOffsets    map[string]int
+}
+
+// 音频和平台字幕使用语义意群；原始 SRT 导入继续沿用原有入口。
+func (t *Translator) withSemanticSourceUnits() *Translator {
+	copy := *t
+	copy.semanticSourceUnits = true
+	return &copy
 }
 
 func NewTranslator() *Translator {

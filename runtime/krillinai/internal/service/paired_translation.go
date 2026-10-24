@@ -35,6 +35,9 @@ type pairedSentence struct {
 	RevisionVersion           string                     `json:"revision_version,omitempty"`
 	FullSource                string                     `json:"source_text,omitempty"`
 	FullTarget                string                     `json:"target_text"`
+	LayoutBaseTarget          string                     `json:"layout_base_target,omitempty"`
+	LayoutAttempts            int                        `json:"layout_attempts,omitempty"`
+	LayoutApproximate         bool                       `json:"layout_approximate,omitempty"`
 	NLPSourceHint             []string                   `json:"nlp_segments_hint,omitempty"`
 	Target                    []string                   `json:"target_segments"`
 	Source                    []string                   `json:"source_segments"`
@@ -86,11 +89,15 @@ type pairedTranslationSegment struct {
 func flattenPairedSentences(sentences []pairedSentence) []*TranslatedItem {
 	var items []*TranslatedItem
 	for _, sentence := range sentences {
+		first := len(items)
 		for i, source := range sentence.Source {
 			if sentence.OmittedHesitation || sentence.SegmentState != nil && sentence.Target[i] == "" {
 				continue
 			}
 			items = append(items, &TranslatedItem{OriginText: strings.TrimSpace(source), TranslatedText: strings.TrimSpace(sentence.Target[i])})
+		}
+		if sentence.LayoutVersion >= frozenPairedLayoutVersion && len(items)-first > 1 {
+			items[first].DisplayGroupSize = len(items) - first
 		}
 	}
 	return items
@@ -145,6 +152,14 @@ func buildPairedTranslationBatchesWithNLP(texts []string, hints [][]string, orig
 }
 
 func buildPairedTranslationBatchesWithGroups(texts []string, hints [][]string, groups []int, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	return buildPairedTranslationBatchesWithOptions(texts, hints, groups, originLang, targetLang, limit, batchSize, false, plans...)
+}
+
+func buildPairedTranslationBatchesForMode(texts []string, hints [][]string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, semanticUnits bool, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
+	return buildPairedTranslationBatchesWithOptions(texts, hints, nil, originLang, targetLang, limit, batchSize, semanticUnits, plans...)
+}
+
+func buildPairedTranslationBatchesWithOptions(texts []string, hints [][]string, groups []int, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, semanticUnits bool, plans ...*translationSemanticPlan) ([]pairedTranslationInput, error) {
 	if len(groups) != 0 && len(groups) != len(texts) {
 		return nil, fmt.Errorf("源文意群与原句组数量不一致")
 	}
@@ -162,13 +177,25 @@ func buildPairedTranslationBatchesWithGroups(texts []string, hints [][]string, g
 		plan = plans[0]
 	}
 	var batches []pairedTranslationInput
+	if semanticUnits {
+		batchSize = min(batchSize, 10)
+	}
+	contextFor := translationBatchContext
+	if semanticUnits {
+		contextFor = translationUnitBatchContext
+	}
 	for start := 0; start < len(texts); {
 		input := pairedTranslationInput{
 			SourceLanguage: types.GetStandardLanguageName(originLang), TargetLanguage: types.GetStandardLanguageName(targetLang),
 			MaxSourceChars: limit, MaxTargetChars: limit, MaxFullwidthChars: limit / 2,
 		}
 		outputBudget := 0
+		sourceChars := 0
 		for i := start; i < min(len(texts), start+batchSize); i++ {
+			chars := utf8.RuneCountInString(texts[i]) + 1
+			if semanticUnits && i > start && sourceChars+chars > 600 {
+				break
+			}
 			source := pairedTranslationSource{ID: strconv.Itoa(i + 1), Text: texts[i]}
 			if len(hints) > 0 && len(hints[i]) > 1 {
 				source.NLPSourceHint = hints[i]
@@ -179,7 +206,7 @@ func buildPairedTranslationBatchesWithGroups(texts []string, hints [][]string, g
 
 			estimate := 2*len(texts[i]) + 128
 			input.Sentences = append(input.Sentences, source)
-			input.Before, input.After = translationBatchContext(texts, start, i+1)
+			input.Before, input.After = contextFor(texts, start, i+1)
 			input.SemanticContext = plan.forSources(input.Sentences)
 			input = fitPairedTranslationSemanticContext(input)
 			payload, err := json.Marshal(input)
@@ -188,12 +215,13 @@ func buildPairedTranslationBatchesWithGroups(texts []string, hints [][]string, g
 			}
 			if len(payload)+len(translationContentPrompt)+2500 > translationRequestBytes || outputBudget+estimate > translationOutputBudget {
 				input.Sentences = input.Sentences[:len(input.Sentences)-1]
-				input.Before, input.After = translationBatchContext(texts, start, i)
+				input.Before, input.After = contextFor(texts, start, i)
 				input.SemanticContext = plan.forSources(input.Sentences)
 				input = fitPairedTranslationSemanticContext(input)
 				break
 			}
 			outputBudget += estimate
+			sourceChars += chars
 		}
 		if len(input.Sentences) == 0 {
 			return nil, fmt.Errorf("第%d句超过翻译请求预算，无法安全提交", start+1)
@@ -237,7 +265,7 @@ func fitPairedTranslationSemanticContext(input pairedTranslationInput) pairedTra
 func subtitleTargetLimit() int {
 	limit := config.Conf.App.MaxSentenceLength
 	if limit <= 0 {
-		limit = 50
+		limit = 60
 	}
 	return limit
 }
@@ -262,7 +290,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	if limit < 1 || batchSize < 1 {
 		return nil, fmt.Errorf("目标长度和批次大小必须大于0")
 	}
-	if t.segmentTranslation && t.nlpRuntime == nil {
+	if (t.segmentTranslation || t.semanticSourceUnits) && t.nlpRuntime == nil {
 		local := *t
 		local.nlpRuntime = newTranslationNLPRuntime(ctx)
 		defer local.nlpRuntime.close()
@@ -278,7 +306,12 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 		hints = t.preparedTranslation.NLPHints
 		sourceUnits = t.preparedTranslation.SourceUnits
 	} else {
-		if t.sourceSegmentation && !t.segmentTranslation {
+		if t.semanticSourceUnits {
+			texts, err = t.prepareSemanticTranslationUnits(ctx, texts, originLang)
+			if err != nil {
+				return nil, err
+			}
+		} else if t.sourceSegmentation && !t.segmentTranslation {
 			prepared, prepareErr := t.prepareSourceTranslation(ctx, texts, originLang)
 			if prepareErr != nil {
 				return nil, prepareErr
@@ -303,9 +336,19 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	}
 	t.translationProgress.prepare(len(texts), "正在恢复已有翻译结果")
 	t.translationProgress.prepared(100)
-	inputs, err := buildPairedTranslationBatchesWithGroups(texts, hints, sourceUnitGroups(sourceUnits), originLang, targetLang, limit, batchSize, plan)
+	inputs, err := buildPairedTranslationBatchesWithOptions(texts, hints, sourceUnitGroups(sourceUnits), originLang, targetLang, limit, batchSize, t.semanticSourceUnits, plan)
 	if err != nil {
 		return nil, err
+	}
+	if t.semanticSourceUnits && len(t.subtitleTimings) > 0 {
+		local := *t
+		local.subtitleSourceOffsets = make(map[string]int, len(texts))
+		position := 0
+		for i, text := range texts {
+			local.subtitleSourceOffsets[strconv.Itoa(i+1)] = position
+			position += utf8.RuneCountInString(compactSubtitleText(text))
+		}
+		t = &local
 	}
 	if t.segmentTranslation {
 		inputs = segmentTranslationBatches(inputs, texts, plan)
@@ -335,6 +378,11 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	save := func(sentence pairedSentence, complete bool) error {
 		mu.Lock()
 		defer mu.Unlock()
+		if complete && t.semanticSourceUnits && !sentence.OmittedHesitation {
+			if err := pairedFinalLengthIssueAtLimit(sentence, limit); err != nil {
+				return err
+			}
+		}
 		if err := checkpoint.save(sentence); err != nil {
 			return err
 		}
@@ -418,7 +466,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 				}
 				if ok {
 					t.translationProgress.saved(recovered, false)
-					if recovered.LayoutFallback {
+					if recovered.LayoutFallback && (!t.semanticSourceUnits || recovered.LayoutBaseTarget == "") {
 						recovered.LayoutVersion = 0
 					}
 					recoveredSentences[source.ID] = recovered
@@ -577,7 +625,7 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 		var layoutErr error
 		if input.PreserveFinalBoundaries {
 			if !input.AllowLengthOverflow {
-				layoutErr = pairedFinalLengthIssue(result[i])
+				layoutErr = pairedFinalLengthIssueAtLimit(result[i], subtitleDisplayLimit(input))
 			}
 			if layoutErr == nil {
 				for j := 0; j+1 < len(result[i].Source); j++ {
@@ -753,6 +801,7 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 		batchSize = 10
 	}
 	// 批次由模型预算限制，不再把已配置的批次强行缩为三个父句。
+	t.subtitleTimings = spans
 	paired, err := t.translatePairedSentences(ctx, texts, types.StandardLanguageCode(originLang), types.StandardLanguageCode(targetLang), subtitleTargetLimit(), batchSize, nil, taskPtr.SetTranslationProgress)
 	if err != nil {
 		if len(blocks) > 0 {
@@ -763,6 +812,19 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 	var output []*util.SrtBlock
 	position = 0
 	for _, sentence := range paired {
+		if t.semanticSourceUnits && !sentence.OmittedHesitation {
+			timelines, err := frozenDisplayTimelines(sentence.Source, sentence.Target, spans, position)
+			if err != nil {
+				return nil, fmt.Errorf("句子%s: %w", sentence.ID, err)
+			}
+			for i, source := range sentence.Source {
+				output = append(output, &util.SrtBlock{
+					Index: len(output) + 1, Timestamp: timelines[i], OriginLanguageSentence: strings.TrimSpace(source), TargetLanguageSentence: strings.TrimSpace(sentence.Target[i]),
+				})
+				position += subtitleRuneLength(source)
+			}
+			continue
+		}
 		sentenceStart, outputStart := position, len(output)
 		invalidTiming := false
 		for i, source := range sentence.Source {
@@ -800,6 +862,11 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 	}
 	if len(output) == 0 {
 		return nil, fmt.Errorf("字幕只有无语义犹豫音，没有需要翻译的正文")
+	}
+	if t.semanticSourceUnits {
+		if err := validateFrozenDisplayBlocks(output, subtitleTargetLimit()); err != nil {
+			return nil, err
+		}
 	}
 	return output, nil
 }

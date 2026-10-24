@@ -424,12 +424,17 @@ func TestTranslationSemanticCorrectionLocksFullTargetDuringLayout(t *testing.T) 
 			data, _ := json.Marshal(map[string]any{"corrections": []translationSemanticCorrection{{ID: "1", TermSource: "10K", Reason: "距离被错译为步数", TargetText: corrected}}})
 			return string(data), nil
 		}
+		if strings.HasPrefix(prompt, "任务：translation_length_rewrite_review\n") {
+			return `{"equivalent":false,"reason":"丢失完整修正译文的信息"}`, nil
+		}
 		layoutCalls++
 		value, err := decodePairedTestInput(prompt)
 		if err != nil {
 			return "", err
 		}
-		if len(value.Sentences) != 1 || value.Sentences[0].TargetText != corrected {
+		var request subtitleLengthSplitInput
+		_ = semanticTestPayload(prompt, &request)
+		if len(value.Sentences) != 1 || value.Sentences[0].TargetText != corrected && request.OriginalTarget != corrected {
 			t.Fatal("排版未锁定完整修正译文")
 		}
 		// 排版服务企图缩写译文，必须保留此前的完整修正。
