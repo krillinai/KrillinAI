@@ -1,6 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolve } from 'node:path';
+import type { LocalCodexModelConfiguration } from '../../codex/local-provider.js';
+import { createOfficialFetch } from '../../gateway/official-fetch.js';
+import { completeLocalApiRequest, LocalApiCompletionError, type TextChatCompletion } from './local-api-completion.js';
 import {
   createCodexAppServerHost,
   type CodexAppServerHost,
@@ -22,9 +25,14 @@ export function createKrillinCodexLlmGateway(input: {
   cwd: string;
   createHost?: typeof createCodexAppServerHost;
   readConfiguration?(): { codexHome: string; version: string };
+  readLocalConfiguration?(): Promise<LocalCodexModelConfiguration>;
+  readProxy?(): Promise<string>;
+  fetcher?: typeof fetch;
 }) {
   const token = `ocllm_${randomBytes(32).toString('base64url')}`;
   const slots: HostSlot[] = Array.from({ length: HOST_POOL_SIZE }, () => ({ busy: false }));
+  const fetcher = input.fetcher ?? createOfficialFetch({ readProxy: input.readProxy });
+  const apiRequests = new Set<AbortController>();
   const waiters: Array<{
     resolve(slot: HostSlot): void;
     reject(error: Error): void;
@@ -44,12 +52,38 @@ export function createKrillinCodexLlmGateway(input: {
         if (!authorized(request, token)) {
           return reply.code(401).send({ error: { message: 'Invalid Krillin LLM token' } });
         }
+        if (closing) return reply.code(503).send({ error: { message: 'Local text service is closing' } });
         const body = readBody(request.body, reply);
         if (body === undefined) return;
         const messages = readMessages(body.messages, reply);
         if (messages === undefined) return;
         const completionId = `chatcmpl-${randomBytes(12).toString('hex')}`;
         const stream = body.stream === true;
+        const controller = new AbortController();
+        apiRequests.add(controller);
+        const disconnected = () => { if (!reply.raw.writableFinished) controller.abort(); };
+        reply.raw.once('close', disconnected);
+        const completeRequest = async (): Promise<TextChatCompletion> => {
+          const local = await input.readLocalConfiguration?.();
+          if (local?.authentication === 'api_key') {
+            const apiBody: Record<string, unknown> = { ...body, messages };
+            // Krillin defaults to none. The user-selected policy for local
+            // Responses subtitle translation is low; ordinary text requests and
+            // the Agent's Codex configuration keep their own reasoning settings.
+            if (local.wireApi === 'responses' && body.reasoning_effort === 'none'
+              && messages.some(message => message.role === 'system'
+                && message.content === 'You are an assistant that helps with subtitle translation.')) {
+              apiBody.reasoning_effort = 'low';
+            }
+            return completeLocalApiRequest({ local, body: apiBody, fetcher,
+              signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120_000)]) });
+          }
+          return chatCompletion(completionId, await runCompletion(messages, readJsonMode(body.response_format)));
+        };
+        const finish = () => {
+          apiRequests.delete(controller);
+          reply.raw.removeListener('close', disconnected);
+        };
         if (stream) {
           reply.hijack();
           reply.raw.writeHead(200, {
@@ -62,31 +96,31 @@ export function createKrillinCodexLlmGateway(input: {
           const heartbeat = setInterval(() => reply.raw.write(': keep-alive\n\n'), SSE_HEARTBEAT_MS);
           heartbeat.unref();
           try {
-            const content = await runCompletion(messages, readJsonMode(body.response_format));
-            writeSseCompletion(reply, completionId, content);
+            writeSseCompletion(reply, await completeRequest(), record(body.stream_options)?.include_usage === true);
           } catch (error) {
             reply.raw.destroy(toError(error));
           } finally {
             clearInterval(heartbeat);
+            finish();
           }
           return;
         }
         try {
-          const content = await runCompletion(messages, readJsonMode(body.response_format));
-          return chatCompletion(completionId, content);
+          return await completeRequest();
         } catch (error) {
-          return reply.code(502).send({
+          return reply.code(error instanceof LocalApiCompletionError ? error.status : 502).send({
             error: {
               message: toError(error).message,
               type: 'upstream_error',
-              code: 'codex_completion_failed'
+              code: error instanceof LocalApiCompletionError ? error.code : 'codex_completion_failed'
             }
           });
-        }
+        } finally { finish(); }
       });
     },
     async close(): Promise<void> {
       closing = true;
+      for (const controller of apiRequests) controller.abort();
       for (const waiter of waiters.splice(0)) {
         waiter.reject(new Error('Krillin Codex LLM gateway is closing'));
       }
@@ -186,7 +220,7 @@ async function complete(input: {
   return content;
 }
 
-function chatCompletion(id: string, content: string) {
+function chatCompletion(id: string, content: string): TextChatCompletion {
   return {
     id,
     object: 'chat.completion',
@@ -197,18 +231,20 @@ function chatCompletion(id: string, content: string) {
   };
 }
 
-function writeSseCompletion(reply: FastifyReply, id: string, content: string): void {
-  const created = Math.floor(Date.now() / 1000);
+function writeSseCompletion(reply: FastifyReply, completion: TextChatCompletion, includeUsage: boolean): void {
+  const { id, created, model } = completion;
+  const choice = completion.choices[0]!;
   const chunk = (delta: Record<string, string>, finishReason: string | null) => ({
     id,
     object: 'chat.completion.chunk',
     created,
-    model: 'codex',
+    model,
     choices: [{ index: 0, delta, finish_reason: finishReason }]
   });
   writeSse(reply, chunk({ role: 'assistant' }, null));
-  writeSse(reply, chunk({ content }, null));
-  writeSse(reply, chunk({}, 'stop'));
+  writeSse(reply, chunk({ content: choice.message.content }, null));
+  writeSse(reply, chunk({}, choice.finish_reason));
+  if (includeUsage) writeSse(reply, { id, object: 'chat.completion.chunk', created, model, choices: [], usage: completion.usage });
   reply.raw.end('data: [DONE]\n\n');
 }
 

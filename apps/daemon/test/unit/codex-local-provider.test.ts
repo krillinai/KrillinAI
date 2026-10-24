@@ -33,6 +33,15 @@ describe('local Codex provider', () => {
     });
   });
 
+  it('exposes the selected text protocol without changing the image provider', async () => {
+    root = await codexHome(['model = "local-text-model"', 'model_provider = "local"', '[model_providers.local]',
+      'base_url = "https://local.example/v1"', 'wire_api = "responses"', 'experimental_bearer_token = "local-key"']);
+    expect(await readLocalCodexModelConfiguration({ codexHome: root, env: {} })).toEqual({ authentication: 'api_key', wireApi: 'responses',
+      provider: { baseUrl: 'https://local.example/v1', apiKey: 'local-key', model: 'local-text-model' } });
+    expect(await readLocalCodexProvider({ codexHome: root, env: {} })).toEqual({
+      baseUrl: 'https://local.example/v1', apiKey: 'local-key', model: 'gpt-image-1' });
+  });
+
   it('honors an explicitly selected API mode even if an old OAuth token remains', async () => {
     root = await codexHome(['openai_base_url = "https://api.example.test/v1"']);
     await writeFile(join(root, 'auth.json'), JSON.stringify({ auth_mode: 'apikey', OPENAI_API_KEY: 'api-secret', tokens: { access_token: 'old-oauth-secret' } }));

@@ -3,6 +3,59 @@ import { describe, expect, it, vi } from 'vitest';
 import { createKrillinCodexLlmGateway } from '../../src/creator/krillin/codex-llm-gateway.js';
 
 describe('Krillin Codex LLM gateway', () => {
+  it('cancels in-flight HTTP requests on close and preserves upstream HTTP failures', async () => {
+    const createHost = vi.fn();
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ error: { code: 'unsupported_value', message: 'none is unsupported' } }, { status: 400 }))
+      .mockImplementationOnce(async (_url, options) => new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => reject(new Error('Request cancelled')), { once: true });
+      }));
+    const gateway = createKrillinCodexLlmGateway({ codexBin: '/fake/codex', codexHome: '/unused', cwd: '/unused', createHost, fetcher,
+      readLocalConfiguration: async () => ({ authentication: 'api_key', wireApi: 'responses', provider: {
+        baseUrl: 'https://local.example/v1', apiKey: 'provider-key', model: 'local-model' } }) });
+    const server = Fastify();
+    await gateway.register(server);
+    const headers = { authorization: `Bearer ${gateway.config('http://localhost').apiKey}` };
+    const request = { method: 'POST' as const, url: '/internal/krillin-llm/v1/chat/completions', headers,
+      payload: { messages: [{ role: 'user', content: 'Hello' }], reasoning_effort: 'none' } };
+    try {
+      const rejected = await server.inject(request);
+      expect(rejected.statusCode).toBe(400);
+      expect(rejected.json()).toMatchObject({ error: { code: 'unsupported_value', message: 'none is unsupported' } });
+      const pending = server.inject(request).then(response => response);
+      await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+      await gateway.close();
+      expect(fetcher.mock.calls[1]![1]?.signal?.aborted).toBe(true);
+      expect((await pending).statusCode).toBe(502);
+      expect((await server.inject(request)).statusCode).toBe(503);
+      expect(createHost).not.toHaveBeenCalled();
+    } finally { await gateway.close(); await server.close(); }
+  });
+
+  it('runs API-key requests concurrently over HTTP without acquiring Codex process slots', async () => {
+    let release!: () => void;
+    const barrier = new Promise<void>(resolve => { release = resolve; });
+    const fetcher = vi.fn<typeof fetch>(async () => {
+      await barrier;
+      return Response.json({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: '你好' }] }] });
+    });
+    const createHost = vi.fn();
+    const gateway = createKrillinCodexLlmGateway({ codexBin: '/fake/codex', codexHome: '/unused', cwd: '/unused', createHost, fetcher,
+      readLocalConfiguration: async () => ({ authentication: 'api_key', wireApi: 'responses', provider: {
+        baseUrl: 'https://local.example/v1', apiKey: 'provider-key', model: 'local-model' } }) });
+    const server = Fastify();
+    await gateway.register(server);
+    const config = gateway.config('http://localhost');
+    const requests = Array.from({ length: 3 }, () => server.inject({ method: 'POST', url: '/internal/krillin-llm/v1/chat/completions',
+      headers: { authorization: `Bearer ${config.apiKey}` }, payload: { messages: [{ role: 'user', content: 'Hello' }], reasoning_effort: 'none' } }).then(response => response));
+    try {
+      await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+      release();
+      expect((await Promise.all(requests)).map(response => response.statusCode)).toEqual([200, 200, 200]);
+      expect(createHost).not.toHaveBeenCalled();
+    } finally { release(); await gateway.close(); await server.close(); }
+  });
+
   it('authenticates and converts a Codex final message to chat completions', async () => {
     const run = vi.fn((input: { onNotification?(value: Record<string, unknown>): void }) => {
       input.onNotification?.({

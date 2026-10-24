@@ -19,7 +19,9 @@ export function createLocalCodexTextModelDefaults(input: {
     },
     async read() {
       const local = await readLocal();
-      // Codex handles both login modes and the selected provider's wire protocol.
+      // Chat-compatible API keys can be used by Krillin directly. Responses-only
+      // providers need the HTTP adapter; only ChatGPT login needs the Codex runtime.
+      if (local.authentication === 'api_key' && local.wireApi !== 'responses') return local.provider;
       const gateway = input.readGatewayConfig();
       if (gateway === undefined) throw new Error('Local Codex text service is not listening');
       return { ...gateway, model: local.authentication === 'chatgpt' ? local.model : local.provider.model };

@@ -162,6 +162,7 @@ import {
 } from '../codex/credential-storage.js';
 import { resolveCodexHome } from '../codex/home.js';
 import { createFollowingLocalCodexHome, synchronizeLocalCodexConfiguration } from '../codex/probe-home.js';
+import { readLocalCodexModelConfiguration } from '../codex/local-provider.js';
 import {
   createCodexModelCatalog,
   type CodexModelCatalog
@@ -640,6 +641,8 @@ export async function buildServer(input: BuildServerInput) {
     codexBin,
     codexHome,
     cwd: dataDir,
+    readLocalConfiguration: () => readLocalCodexModelConfiguration({ codexHome: localCodexHome }),
+    readProxy: async () => (await storedCreatorServicesConfigStore.read()).proxy,
     readConfiguration: createFollowingLocalCodexHome(localCodexHome,
       join(runtimeDir, 'creator-text-codex'))
   });
