@@ -659,19 +659,19 @@ test('各主页面标题行在 Browser/Desktop 下与左侧品牌行同轴', asy
       for (const { route, selector, height } of pages) {
         await page.evaluate(route => { window.location.hash = route; }, route);
         await expect(page.locator(selector).first()).toBeVisible();
-        const measured = await page.evaluate(selector => {
+        const measured = await page.locator(selector).first().evaluate(element => {
           const brand = document.querySelector('.sidebar-brand')?.getBoundingClientRect();
           const main = document.querySelector('.opencreator-main-pane')!;
           const mainBox = main.getBoundingClientRect();
           const referenceCenter = brand && brand.height > 0
             ? (brand.top + brand.bottom) / 2
             : mainBox.top + Number.parseFloat(getComputedStyle(main).paddingTop) + 34;
-          const title = document.querySelector(selector)!.getBoundingClientRect();
+          const title = element.getBoundingClientRect();
           return {
             centerOffset: Math.round((title.top + title.bottom) / 2 - referenceCenter),
             height: Math.round(title.height)
           };
-        }, selector);
+        });
         expect(Math.abs(measured.centerOffset), `${platform}: ${route}`).toBeLessThanOrEqual(1);
         if (height !== undefined) expect(measured.height, `${platform}: ${route}`).toBe(height);
         measurements.push(measured);
