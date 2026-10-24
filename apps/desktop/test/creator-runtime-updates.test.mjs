@@ -131,7 +131,9 @@ describe('Creator Runtime dependency updates', () => {
   });
 
   afterEach(() => {
+    vi.doUnmock('node:fs');
     vi.doUnmock('node:child_process');
+    vi.doUnmock('../scripts/windows-file-retry.mjs');
     vi.doUnmock('../scripts/creator-runtime-releases.mjs');
     vi.doUnmock('../scripts/creator-nlp-runtime.mjs');
     vi.unstubAllEnvs();
@@ -140,6 +142,44 @@ describe('Creator Runtime dependency updates', () => {
   });
 
   const install = () => import('../scripts/install-creator-runtime-dependencies.mjs');
+
+  it('installs the verified download after a Windows rename lock is released', async () => {
+    const rename = vi.fn();
+    vi.doMock('node:fs', async importOriginal => {
+      const fs = await importOriginal();
+      rename.mockImplementationOnce(() => { throw Object.assign(new Error('locked'), { code: 'EBUSY' }); })
+        .mockImplementation(fs.renameSync);
+      return { ...fs, renameSync: rename };
+    });
+    vi.doMock('../scripts/windows-file-retry.mjs', async importOriginal => {
+      const { retryWindowsFileOperation } = await importOriginal();
+      return { retryWindowsFileOperation: operation => retryWindowsFileOperation(operation, { platform: 'win32', wait: () => {} }) };
+    });
+    await install();
+    expect(rename).toHaveBeenCalledTimes(2);
+    expect(readFileSync(join(root, 'yt-dlp'), 'utf8')).toBe(contents(newVersion));
+    expect(JSON.parse(readFileSync(join(root, 'versions.json'), 'utf8')).dependencies.ytDlp).toEqual(cache(newVersion));
+    expect(readdirSync(root).some(name => name.endsWith('.partial'))).toBe(false);
+  });
+
+  it('preserves the checksum error and previous cache when partial-file cleanup is locked', async () => {
+    downloadContents = 'corrupt download';
+    const previous = readFileSync(join(root, 'versions.json'), 'utf8');
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.doMock('node:fs', async importOriginal => {
+      const fs = await importOriginal();
+      return { ...fs, rmSync: (path, options) => {
+        if (String(path).endsWith('.partial') && fs.existsSync(path)) {
+          throw Object.assign(new Error('temporary executable remains locked'), { code: 'EBUSY' });
+        }
+        return fs.rmSync(path, options);
+      } };
+    });
+    await expect(install()).rejects.toThrow(/SHA-256 mismatch/);
+    expect(readFileSync(join(root, 'yt-dlp'), 'utf8')).toBe(contents(oldVersion));
+    expect(readFileSync(join(root, 'versions.json'), 'utf8')).toBe(previous);
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('temporary executable remains locked'));
+  });
 
   it.each([
     ['ghs_test_primary', 'ghs_test_fallback', 'ghs_test_primary'],

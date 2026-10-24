@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { creatorRuntimeReleases, resolveYtDlpRelease } from './creator-runtime-releases.mjs';
 import { verifyRuntimeExecutable } from './runtime-executable-check.mjs';
 import { installCreatorNlpDependencies } from './creator-nlp-runtime.mjs';
+import { retryWindowsFileOperation } from './windows-file-retry.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(scriptDir, '../../..');
@@ -130,16 +131,25 @@ function installAsset(name, asset, path) {
   }
 
   const temporary = `${path}.${process.pid}.partial`;
-  rmSync(temporary, { force: true });
+  retryWindowsFileOperation(() => rmSync(temporary, { force: true }));
   console.log(`[creator-runtime] Downloading ${name} ${asset.version}`);
+  let installationError;
   try {
     downloadAsset(name, asset, temporary);
     if (asset.executable) chmodExecutable(temporary);
     if (asset.verify) verifyExecutable(name, asset, temporary);
-    rmSync(path, { recursive: true, force: true });
-    renameSync(temporary, path);
+    retryWindowsFileOperation(() => rmSync(path, { recursive: true, force: true }));
+    retryWindowsFileOperation(() => renameSync(temporary, path));
+  } catch (error) {
+    installationError = error;
+    throw error;
   } finally {
-    rmSync(temporary, { force: true });
+    try {
+      retryWindowsFileOperation(() => rmSync(temporary, { force: true }));
+    } catch (error) {
+      if (!installationError) throw error;
+      console.warn(`[creator-runtime] Unable to remove temporary download ${temporary}: ${error.message}`);
+    }
   }
 }
 
